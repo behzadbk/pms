@@ -25,7 +25,7 @@ jobs:
         with: { node-version: 22, cache: npm, cache-dependency-path: frontend/package-lock.json }
       - uses: actions/setup-java@v4
         with: { distribution: temurin, java-version: 21 }
-      - uses: android-actions/setup-android@v3
+      # Android SDK روی runner ubuntu-latest از قبل نصب است (ANDROID_HOME)؛ setup-android@v3 با cmdline-tools جدید خطا می‌داد
       - run: npm ci
       - name: Override API URL
         if: ${{ inputs.api_base_url != '' }}
