@@ -110,9 +110,14 @@ jobs:
           sleep 3
           rm -rf "$OUT/data" "$OUT/logs"
 
-      - name: لاگ‌ها در صورت خطا
+      - name: لاگ‌ها در صورت خطا (به‌صورت Annotation تا بدون باز کردن لاگ کامل دیده شود)
         if: failure()
-        run: tail -n 60 "$OUT"/logs/*.log || true
+        run: |
+          for f in launcher.log "$OUT/logs/postgres.log" "$OUT/logs/identity-svc.log" "$OUT"/logs/*.log; do
+            [ -f "$f" ] || continue
+            msg=$(tail -c 2500 "$f" | tr -d '\r' | sed 's/%/%25/g' | awk 'BEGIN{ORS="%0A"}{print}')
+            echo "::warning title=$(basename "$f")::$msg"
+          done
 
       - name: ساخت زیپ
         run: 7z a -tzip -mx=5 -bso0 Hamin-PMS-windows.zip "$OUT" && ls -la Hamin-PMS-windows.zip
