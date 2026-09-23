@@ -24,7 +24,7 @@ spec:
     spec:
       containers:
         - name: identity-svc
-          # این تگ توسط CI/CD با git-sha جایگزین می‌شود (بخش infra/ci-cd/github-actions.yml)
+          # این تگ توسط CI/CD با git-sha جایگزین می‌شود (بخش .github/workflows/ci-cd.yml)
           image: ghcr.io/pms-saas/identity-svc:__IMAGE_TAG__
           ports:
             - containerPort: 3001
