@@ -1,0 +1,139 @@
+# ساخت نسخه‌ی پرتابل ویندوز (زیپ بدون نیاز به نصب) — Node + PostgreSQL + Redis + ۸ سرویس + اپ
+# خروجی: صفحه‌ی Releases ← «Hamin PMS — Windows portable» ← فایل Hamin-PMS-windows.zip
+# اجرا: خودکار روی push به main (وقتی کد تغییر کند) یا دستی از Actions → "Windows portable" → Run workflow
+name: Windows portable
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['frontend/**', 'backend/**', 'db/**', 'windows/**', '.github/workflows/windows.yml']
+
+permissions:
+  contents: write
+
+concurrency:
+  group: windows-portable
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    defaults: { run: { shell: bash } }
+    env:
+      OUT: Hamin-PMS
+      REDIS_URL: https://github.com/tporadowski/redis/releases/download/v5.0.14.1/Redis-x64-5.0.14.1.zip
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+
+      - name: ۸ سرویس بک‌اند (build + فقط وابستگی‌های production)
+        run: |
+          set -e
+          mkdir -p "$OUT/app/services"
+          for s in backend/*-service; do
+            n=$(basename "$s"); echo "::group::$n"
+            (cd "$s" && npm ci --no-audit --no-fund && npm run build && npm prune --omit=dev --no-audit --no-fund)
+            mkdir -p "$OUT/app/services/$n"
+            cp -r "$s/dist" "$s/node_modules" "$s/package.json" "$OUT/app/services/$n/"
+            echo "::endgroup::"
+          done
+
+      - name: فرانت‌اند (PWA)
+        working-directory: frontend
+        run: npm ci --no-audit --no-fund && npm run build
+
+      - name: مایگریشن‌ها، اجراکننده و فایل‌های bat
+        run: |
+          set -e
+          cp -r frontend/dist "$OUT/app/frontend"
+          mkdir -p "$OUT/app/sql/backend"
+          cp -r db "$OUT/app/sql/db"
+          for s in backend/*-service; do
+            mkdir -p "$OUT/app/sql/backend/$(basename "$s")"
+            cp -r "$s/prisma" "$OUT/app/sql/backend/$(basename "$s")/"
+          done
+          cp windows/launcher.mjs "$OUT/app/"
+          cp windows/start.bat windows/stop.bat windows/reset.bat windows/README.txt "$OUT/"
+
+      - name: Node.js پرتابل
+        run: mkdir -p "$OUT/runtime/node" && cp "$(command -v node)" "$OUT/runtime/node/node.exe" && "$OUT/runtime/node/node.exe" --version
+
+      - name: PostgreSQL پرتابل
+        run: |
+          set -e
+          got=""
+          for v in 16.14 16.13 16.12 16.11 16.10 16.9 16.8; do
+            if curl -fsSL --retry 2 -o pg.zip "https://get.enterprisedb.com/postgresql/postgresql-$v-1-windows-x64-binaries.zip"; then got=$v; break; fi
+          done
+          mkdir -p "$OUT/runtime"
+          if [ -n "$got" ]; then
+            echo "EDB PostgreSQL $got"
+            7z x -y -bso0 pg.zip -o. >/dev/null
+            rm -rf pgsql/pgAdmin* pgsql/doc pgsql/StackBuilder pgsql/symbols pgsql/include
+            mv pgsql "$OUT/runtime/pgsql"
+          else
+            # جایگزین: PostgreSQL از پیش نصب‌شده روی runner ویندوزِ گیت‌هاب
+            echo "EDB download failed; using runner PostgreSQL at $PGROOT"
+            mkdir -p "$OUT/runtime/pgsql"
+            cp -r "$(cygpath "$PGROOT")/bin" "$(cygpath "$PGROOT")/lib" "$(cygpath "$PGROOT")/share" "$OUT/runtime/pgsql/"
+          fi
+          "$OUT/runtime/pgsql/bin/postgres.exe" --version
+
+      - name: Redis پرتابل
+        run: |
+          set -e
+          curl -fsSL --retry 3 -o redis.zip "$REDIS_URL"
+          mkdir -p "$OUT/runtime/redis"
+          7z x -y -bso0 redis.zip -o"$OUT/runtime/redis" >/dev/null
+          ls "$OUT/runtime/redis/redis-server.exe"
+
+      - name: تست واقعی روی ویندوز (start → ورود → stop)
+        run: |
+          set -e
+          export PMS_NO_BROWSER=1
+          "$OUT/runtime/node/node.exe" "$OUT/app/launcher.mjs" start > launcher.log 2>&1 &
+          for i in $(seq 1 90); do
+            if grep -q "READY\|STARTED WITH WARNINGS\|\[X\]" launcher.log; then break; fi; sleep 2
+          done
+          cat launcher.log
+          grep -q "READY" launcher.log
+          curl -fsS http://localhost:8080/ -o /dev/null
+          curl -fsS http://localhost:8080/api/identity/auth/login -H 'content-type: application/json' \
+            -d '{"email":"admin@borj-aftab.test","password":"Passw0rd!","tenantSubdomain":"borj-aftab"}' | grep -q accessToken
+          curl -fsS http://localhost:8080/api/identity/auth/platform-login -H 'content-type: application/json' \
+            -d '{"username":"behzad","password":"1234"}' | grep -q accessToken
+          echo "✓ ورود ساختمان و سوپرادمین روی ویندوز کار می‌کند"
+          "$OUT/runtime/node/node.exe" "$OUT/app/launcher.mjs" stop
+          sleep 3
+          rm -rf "$OUT/data" "$OUT/logs"
+
+      - name: لاگ‌ها در صورت خطا
+        if: failure()
+        run: tail -n 60 "$OUT"/logs/*.log || true
+
+      - name: ساخت زیپ
+        run: 7z a -tzip -mx=5 -bso0 Hamin-PMS-windows.zip "$OUT" && ls -la Hamin-PMS-windows.zip
+
+      - name: انتشار در Releases
+        env: { GH_TOKEN: '${{ github.token }}' }
+        run: |
+          set -e
+          TAG=windows-portable
+          NOTES="نسخه‌ی پرتابل ویندوز — ساخته‌شده از commit ${GITHUB_SHA::7} در $(date -u '+%Y-%m-%d %H:%M') UTC.
+          زیپ را اکسترکت کنید (مثلاً در C:\\Hamin) و start.bat را اجرا کنید. راهنما: README.txt داخل زیپ."
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" --prerelease --title "Hamin PMS — Windows portable" --notes "$NOTES" --target "$GITHUB_SHA"
+          else
+            gh release edit "$TAG" --notes "$NOTES"
+          fi
+          gh release upload "$TAG" Hamin-PMS-windows.zip --clobber
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Hamin-PMS-windows
+          path: Hamin-PMS-windows.zip
+          compression-level: 0
+          retention-days: 14
