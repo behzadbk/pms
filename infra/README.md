@@ -24,8 +24,6 @@ infra/
     migration-job.template.yaml        -> الگوی مشترک Job مهاجرت (اجرای مستقیم RLS SQL هر سرویس)
     migration-job.identity-svc.yaml    -> و migration-job.<svc>.yaml برای هر ۵ سرویس دیگر
     postgres-statefulset.optional.yaml -> جایگزین self-hosted (توصیه اصلی: Managed DB)
-  ci-cd/
-    github-actions.yml                 -> همان فایل در .github/workflows/ci-cd.yml (کپی مرجع/مستندسازی)
 ```
 
 ## ترتیب راه‌اندازی اولیه کلاستر (دستی، یک‌بار)
