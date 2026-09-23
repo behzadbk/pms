@@ -89,8 +89,10 @@ function startPostgres() {
   }
   if (!pgRunning()) {
     const r = run(pgExe('pg_ctl'), ['-D', PGDATA, '-l', path.join(LOGS, 'postgres.log'), '-w', '-t', '60',
-      '-o', `-p ${PG_PORT} -h 127.0.0.1` + (IS_WIN ? '' : ' -k /tmp'), 'start'])
-    if (r.status !== 0) fail('PostgreSQL did not start - see logs\\postgres.log\n' + (r.stderr || ''))
+      '-o', `-p ${PG_PORT} -h 127.0.0.1` + (IS_WIN ? '' : ' -k /tmp'), 'start'],
+      // stdio باید ignore باشد: روی ویندوز postgres هندل pipe را به ارث می‌برد و spawnSync تا ابد منتظر می‌ماند
+      { stdio: 'ignore' })
+    if (r.status !== 0 || !pgRunning()) fail('PostgreSQL did not start - see logs\\postgres.log')
   }
   ok(`PostgreSQL on port ${PG_PORT}`)
   const exists = psql('postgres', ['-tAc', "SELECT 1 FROM pg_database WHERE datname='pms'"])
