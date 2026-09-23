@@ -59,7 +59,7 @@ export class DatabaseService implements OnModuleDestroy {
     try {
       await this.pool.query('SELECT 1')
       return { database: { status: 'up' } }
-    } catch (err) {
+    } catch {
       throw new HealthCheckError('اتصال دیتابیس برقرار نیست', { database: { status: 'down' } })
     }
   }
