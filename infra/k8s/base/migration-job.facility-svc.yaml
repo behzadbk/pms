@@ -1,0 +1,29 @@
+# الگوی مشترک Job مهاجرت دیتابیس. برای سرویس جدید: کپی کنید، facility-svc را
+# جایگزین کنید و نام فایل را به migration-job.<service-name>.yaml تغییر دهید.
+# نمونه پرشده: migration-job.identity-svc.yaml
+#
+# این Job قبل از هر Deployment جدید یک‌بار اجرا می‌شود (توسط CI/CD) تا
+# prisma/migrations/001_enable_rls.sql همان سرویس اعمال شود. Deployment فقط پس
+# از موفقیت این Job شروع به rollout می‌کند (kubectl wait در CI).
+#
+# نکته: در این تحویل از `npx prisma migrate deploy` استفاده نشده، چون کد اجراشونده
+# سرویس‌ها عمداً با `pg` مستقیم کار می‌کند نه Prisma Client تولیدشده (دلیل کامل در
+# backend/identity-service/README.md) — بنابراین منبع صحت schema همین فایل SQL خام است.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: facility-svc-migrate-__IMAGE_TAG__
+  namespace: pms-prod
+spec:
+  backoffLimit: 2
+  ttlSecondsAfterFinished: 3600
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: migrate
+          image: ghcr.io/pms-saas/facility-svc:__IMAGE_TAG__
+          command: ["psql", "$(DATABASE_PLATFORM_URL)", "-f", "prisma/migrations/001_enable_rls.sql"]
+          envFrom:
+            - configMapRef: { name: pms-shared-config }
+            - secretRef: { name: pms-secrets }

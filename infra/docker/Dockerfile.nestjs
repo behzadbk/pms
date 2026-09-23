@@ -1,0 +1,49 @@
+# Dockerfile.nestjs — الگوی مشترک Multi-stage برای همه میکروسرویس‌های NestJS
+# (identity-service, property-service, facility-service, finance-service,
+#  guard-service, notification-service)
+#
+# نحوه build (از ریشه مونوریپو، نه از داخل پوشه سرویس):
+#   docker build \
+#     -f infra/docker/Dockerfile.nestjs \
+#     --build-arg SERVICE_PATH=backend/identity-service \
+#     -t pms/identity-service:latest .
+#
+# چرا از ریشه مونوریپو build می‌شود؟ چون در آینده سرویس‌ها ممکن است یک پکیج
+# `libs/shared` مشترک (مثل تعریف مشترک JwtPayload) داشته باشند؛ build-context
+# ریشه، امکان COPY آن‌ها را بدون تغییر ساختار می‌دهد.
+
+# ---------- Stage 1: نصب وابستگی‌ها و build ----------
+FROM node:20-alpine AS builder
+ARG SERVICE_PATH
+WORKDIR /app
+
+# فقط manifestهای وابستگی برای بهره‌گیری از Docker layer cache (قبل از کپی کل سورس)
+COPY ${SERVICE_PATH}/package*.json ./
+RUN npm ci
+
+COPY ${SERVICE_PATH}/ ./
+RUN npm run build
+
+# حذف devDependencies پس از build تا فقط production deps در layer بعدی کپی شود
+RUN npm prune --omit=dev
+
+# ---------- Stage 2: ایمیج نهایی سبک اجرا ----------
+FROM node:20-alpine AS runtime
+WORKDIR /app
+ENV NODE_ENV=production
+
+# کاربر غیر-root برای اجرا (سیاست امنیتی K8s PodSecurityStandards: Restricted)
+RUN addgroup -S app && adduser -S app -G app
+
+COPY --from=builder --chown=app:app /app/node_modules ./node_modules
+COPY --from=builder --chown=app:app /app/dist ./dist
+COPY --from=builder --chown=app:app /app/package.json ./package.json
+
+USER app
+EXPOSE 3000
+
+# healthcheck داخلی Docker (مکمل probeهای K8s، برای اجرای مستقل با docker-compose هم مفید است)
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
+  CMD node -e "require('http').get('http://127.0.0.1:'+(process.env.PORT||3000)+'/health/live',res=>process.exit(res.statusCode===200?0:1)).on('error',()=>process.exit(1))"
+
+CMD ["node", "dist/main.js"]

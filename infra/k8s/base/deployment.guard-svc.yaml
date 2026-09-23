@@ -1,0 +1,91 @@
+# الگوی مشترک Deployment + Service برای هر میکروسرویس NestJS.
+# برای سرویس جدید: کپی کنید، مقادیر guard-svc و 3005 را جایگزین کنید،
+# و نام فایل را به deployment.<service-name>.yaml تغییر دهید.
+# نمونه پرشده: deployment.identity-svc.yaml در همین پوشه.
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: guard-svc
+  namespace: pms-prod
+  labels:
+    app: guard-svc
+spec:
+  replicas: 2 # حداقل ۲ Pod برای HA؛ HorizontalPodAutoscaler می‌تواند این را بالاتر ببرد
+  selector:
+    matchLabels:
+      app: guard-svc
+  template:
+    metadata:
+      labels:
+        app: guard-svc
+    spec:
+      containers:
+        - name: guard-svc
+          image: ghcr.io/pms-saas/guard-svc:__IMAGE_TAG__ # در CI/CD با git-sha جایگزین می‌شود
+          ports:
+            - containerPort: 3005
+          envFrom:
+            - configMapRef:
+                name: pms-shared-config
+            - secretRef:
+                name: pms-secrets
+          env:
+            - name: PORT
+              value: "3005"
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 3005
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: 3005
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          securityContext:
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false  # NestJS به /tmp نیاز دارد؛ برای سخت‌گیری بیشتر با emptyDir mount کنید
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: guard-svc
+  namespace: pms-prod
+spec:
+  type: ClusterIP
+  selector:
+    app: guard-svc
+  ports:
+    - port: 3005
+      targetPort: 3005
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: guard-svc-hpa
+  namespace: pms-prod
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: guard-svc
+  minReplicas: 2
+  maxReplicas: 8
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70

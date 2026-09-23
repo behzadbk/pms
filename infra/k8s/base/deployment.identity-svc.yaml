@@ -1,0 +1,95 @@
+# قالب Deployment+Service برای هر ۶ سرویس. برای سرویس‌های دیگر، این فایل را کپی و
+# metadata.name / port / image را عوض کنید (مثلاً identity-svc -> property-svc, 3001 -> 3002).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: identity-svc
+  namespace: pms-prod
+  labels:
+    app: identity-svc
+spec:
+  replicas: 2  # حداقل ۲ Replica برای Zero-downtime rollout و HA
+  selector:
+    matchLabels:
+      app: identity-svc
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0    # هرگز همه Pod‌ها هم‌زمان پایین نروند
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        app: identity-svc
+    spec:
+      containers:
+        - name: identity-svc
+          # این تگ توسط CI/CD با git-sha جایگزین می‌شود (بخش infra/ci-cd/github-actions.yml)
+          image: ghcr.io/pms-saas/identity-svc:__IMAGE_TAG__
+          ports:
+            - containerPort: 3001
+          envFrom:
+            - configMapRef:
+                name: pms-shared-config
+            - secretRef:
+                name: pms-secrets
+          env:
+            - name: PORT
+              value: "3001"
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: 3001
+            initialDelaySeconds: 5
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 3001
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            failureThreshold: 3
+          securityContext:
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false  # NestJS به /tmp برای برخی cache نیاز دارد؛ در صورت نیاز سخت‌گیرانه‌تر با emptyDir mount کنید
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: identity-svc
+  namespace: pms-prod
+spec:
+  type: ClusterIP   # فقط داخل کلاستر در دسترس است؛ ترافیک بیرونی از طریق Ingress می‌آید
+  selector:
+    app: identity-svc
+  ports:
+    - port: 3001
+      targetPort: 3001
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: identity-svc-hpa
+  namespace: pms-prod
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: identity-svc
+  minReplicas: 2
+  maxReplicas: 6
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70

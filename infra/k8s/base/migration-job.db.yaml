@@ -1,0 +1,38 @@
+# Job واحد مایگریشن دیتابیس — جایگزین ۸ Job جداگانه‌ی هر سرویس.
+# ترتیب اجرا داخل db/migrate.sh تعریف شده و در platform.schema_migrations ردیابی
+# می‌شود، پس این Job با هر دیپلوی قابل اجراست و اگر چیزی تغییر نکرده باشد no-op است.
+#
+# تصویر از روی db/Dockerfile ساخته می‌شود:
+#   docker build -f db/Dockerfile -t ghcr.io/pms-saas/db-migrate:$TAG .
+#
+# نکته: باید با نقشی اجرا شود که superuser/owner دیتابیس است
+# (DATABASE_PLATFORM_URL)، نه app_user.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: db-migrate-__IMAGE_TAG__
+  namespace: pms-prod
+spec:
+  backoffLimit: 2
+  ttlSecondsAfterFinished: 3600
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: migrate
+          image: ghcr.io/pms-saas/db-migrate:__IMAGE_TAG__
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef: { name: pms-secrets, key: DATABASE_PLATFORM_URL }
+            - name: APP_USER_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: pms-secrets, key: APP_USER_PASSWORD }
+            - name: PLATFORM_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: pms-secrets, key: PLATFORM_ADMIN_PASSWORD }
+          envFrom:
+            - configMapRef: { name: pms-shared-config }
+          resources:
+            requests: { cpu: 50m, memory: 64Mi }
+            limits:   { cpu: 500m, memory: 256Mi }

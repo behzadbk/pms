@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: pms-shared-config
+  namespace: pms-prod
+data:
+  NODE_ENV: "production"
+  # آدرس‌های داخلی سرویس‌ها — از طریق K8s Service DNS (نه Ingress) به هم وصل می‌شوند
+  RABBITMQ_URL: "amqp://rabbitmq.pms-prod.svc.cluster.local:5672"
+  IDENTITY_SVC_URL: "http://identity-svc.pms-prod.svc.cluster.local:3001"
+  PROPERTY_SVC_URL: "http://property-svc.pms-prod.svc.cluster.local:3002"
+  FACILITY_SVC_URL: "http://facility-svc.pms-prod.svc.cluster.local:3003"
+  FINANCE_SVC_URL: "http://finance-svc.pms-prod.svc.cluster.local:3004"
+  GUARD_SVC_URL: "http://guard-svc.pms-prod.svc.cluster.local:3005"
+  NOTIFICATION_SVC_URL: "http://notification-svc.pms-prod.svc.cluster.local:3006"
+  # کلید عمومی JWT (RS256) — بین همه سرویس‌ها مشترک است تا هر سرویس بتواند توکن را خودش
+  # اعتبارسنجی کند بدون تماس gRPC به identity-svc برای هر Request (بخش ۲ سند ARCHITECTURE-SAAS.md).
+  # مقدار واقعی کلید در Secret نگه‌داری می‌شود، نه اینجا؛ این کلید صرفاً *عمومی* است، نه خصوصی —
+  # با این حال طبق قرارداد این پروژه، هر مقدار مرتبط با احراز هویت در Secret قرار می‌گیرد.

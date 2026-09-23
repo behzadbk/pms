@@ -1,0 +1,136 @@
+/**
+ * سیستم طراحی Liquid Glass — پیاده‌سازی بخش ۴ سند docs/UPDATE-V2-AUDIT-FNB-DESIGN.md
+ *
+ * این فایل توکن‌های نسخه ۲ را در کنار توکن‌های فعلی (ink/tile/brass در index.css)
+ * تعریف می‌کند، نه به‌جای آن‌ها — تا صفحات موجود بدون تغییر کار کنند و مهاجرت
+ * صفحه‌به‌صفحه انجام شود. صفحات جدید (سفارش غذا، داشبورد لاگ) از این توکن‌ها استفاده می‌کنند.
+ */
+
+:root {
+  color-scheme: light dark;
+
+  /* ---------- Light Mode ---------- */
+  --lg-bg-base: #f4f6f9;
+  --lg-bg-elevated: #ffffff;
+  --lg-surface-glass: rgba(255, 255, 255, 0.65);
+  --lg-glass-tint: rgba(198, 214, 235, 0.28);
+  --lg-glass-border: rgba(255, 255, 255, 0.55);
+
+  --lg-primary: #0e5c63;
+  --lg-primary-hover: #0b4b51;
+  --lg-primary-soft: #dceef0;
+  --lg-accent: #c9a227;
+  --lg-accent-soft: #f7efd8;
+
+  --lg-text-primary: #141c26;
+  --lg-text-secondary: #5b6878;
+  --lg-text-tertiary: #8d99a8;
+
+  --lg-success: #1b8a5a;
+  --lg-success-soft: #e2f3ea;
+  --lg-warning: #b8860b;
+  --lg-warning-soft: #f7efd8;
+  --lg-danger: #c0392b;
+  --lg-danger-soft: #fbe9e5;
+  --lg-border-hairline: rgba(20, 28, 38, 0.08);
+
+  --lg-shadow-glass: 0 8px 32px rgba(16, 32, 52, 0.1);
+  --lg-radius-card: 20px;
+  --lg-radius-sheet: 28px;
+  --lg-ease-fluid: cubic-bezier(0.32, 0.72, 0, 1);
+
+  /* مقیاس «حالت آسان» — بزرگ‌نمایی فونت/لمس برای کاربران مسن‌تر (اختیاری، پیش‌فرض ۱) */
+  --lg-easy-scale: 1;
+}
+
+/* روی هر container که data-lg-easy="on" دارد فعال می‌شود */
+[data-lg-easy='on'] {
+  --lg-easy-scale: 1.2;
+}
+/* روی هر container که data-lg-motion="off" دارد، همه انیمیشن/ترنزیشن‌های نسل V2 خاموش می‌شوند */
+[data-lg-motion='off'] .lg-motion,
+[data-lg-motion='off'] .lg-motion * {
+  transition: none !important;
+  animation: none !important;
+}
+
+[data-theme='dark'] {
+  --lg-bg-base: #0b1017;
+  --lg-bg-elevated: #151c26;
+  --lg-surface-glass: rgba(22, 28, 38, 0.55);
+  --lg-glass-tint: rgba(90, 120, 155, 0.18);
+  --lg-glass-border: rgba(255, 255, 255, 0.1);
+
+  --lg-primary: #2fb3bd;
+  --lg-primary-hover: #48c6cf;
+  --lg-primary-soft: rgba(47, 179, 189, 0.16);
+  --lg-accent: #e3bc4e;
+  --lg-accent-soft: rgba(227, 188, 78, 0.16);
+
+  --lg-text-primary: #eef2f7;
+  --lg-text-secondary: #9aa7b7;
+  --lg-text-tertiary: #6b7889;
+
+  --lg-success: #3dbe84;
+  --lg-success-soft: rgba(61, 190, 132, 0.16);
+  --lg-warning: #d9a441;
+  --lg-warning-soft: rgba(217, 164, 65, 0.16);
+  --lg-danger: #e45c4a;
+  --lg-danger-soft: rgba(228, 92, 74, 0.16);
+  --lg-border-hairline: rgba(255, 255, 255, 0.08);
+
+  --lg-shadow-glass: 0 8px 32px rgba(0, 0, 0, 0.45);
+}
+
+/* ---------- لایه شیشه‌ای ----------
+   فقط روی لایه‌های ثابت (هدر، نوار پایین، Sheet، Modal) استفاده شود —
+   نه روی آیتم‌های لیست اسکرول‌شونده (هزینه رندر بالا روی موبایل). */
+.lg-glass {
+  background-color: var(--lg-surface-glass);
+  background-image: linear-gradient(var(--lg-glass-tint), var(--lg-glass-tint));
+  border: 1px solid var(--lg-glass-border);
+  border-radius: var(--lg-radius-card);
+  box-shadow: var(--lg-shadow-glass);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+}
+
+/* Fallback مات برای مرورگرهایی که backdrop-filter ندارند */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .lg-glass {
+    background-color: var(--lg-bg-elevated);
+  }
+}
+
+.lg-sheet {
+  border-radius: var(--lg-radius-sheet) var(--lg-radius-sheet) 0 0;
+}
+
+/* لایه scrim برای تضمین کنتراست متن روی شیشه‌ی روی تصویر (WCAG AA) */
+.lg-scrim::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.45), transparent 60%);
+  pointer-events: none;
+}
+
+/* ---------- حرکت سیال ---------- */
+.lg-motion {
+  transition-timing-function: var(--lg-ease-fluid);
+  transition-duration: 240ms;
+  transition-property: transform, opacity;
+  will-change: transform, opacity;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lg-motion {
+    transition-duration: 1ms;
+  }
+  .lg-glass {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background-color: var(--lg-bg-elevated);
+  }
+}

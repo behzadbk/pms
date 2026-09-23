@@ -1,0 +1,32 @@
+syntax = "proto3";
+
+package property;
+
+// این سرویس gRPC داخلی است — فقط بین میکروسرویس‌ها (نه از کلاینت بیرونی) فراخوانی می‌شود.
+// بخش ۲ سند docs/ARCHITECTURE-SAAS.md: «gRPC داخلی برای تماس‌های sync».
+service UnitService {
+  rpc GetUnitById (GetUnitByIdRequest) returns (UnitReply);
+  rpc ListUnitsByTenant (ListUnitsByTenantRequest) returns (UnitListReply);
+}
+
+message GetUnitByIdRequest {
+  string id = 1;
+  string tenant_id = 2;
+}
+
+message ListUnitsByTenantRequest {
+  string tenant_id = 1;
+}
+
+message UnitReply {
+  bool found = 1;
+  string id = 2;
+  string building_id = 3;
+  string unit_number = 4;
+  double area_sqm = 5;
+  string owner_user_id = 6;
+}
+
+message UnitListReply {
+  repeated UnitReply units = 1;
+}

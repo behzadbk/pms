@@ -1,0 +1,36 @@
+# PostgreSQL 16 محلی + سرویس مایگریشن
+#   docker compose up -d postgres
+#   docker compose run --rm migrate --seed
+#   docker compose run --rm migrate --status
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: pms-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-pms}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pms-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-pms}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  migrate:
+    build:
+      context: ..
+      dockerfile: db/Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-pms}
+      APP_USER_PASSWORD: ${APP_USER_PASSWORD:-app_user_change_me}
+      PLATFORM_ADMIN_PASSWORD: ${PLATFORM_ADMIN_PASSWORD:-platform_admin_change_me}
+
+volumes:
+  pms-pgdata:

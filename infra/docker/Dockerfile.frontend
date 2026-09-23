@@ -1,0 +1,32 @@
+# syntax=docker/dockerfile:1
+#
+# Multi-stage build برای React PWA — build با Vite در stage اول، سرو با Nginx در stage دوم.
+# Build Context باید ریشه مخزن (pms/) باشد، چون هم به frontend/ و هم به infra/docker/nginx.conf نیاز دارد:
+#   docker build -f infra/docker/Dockerfile.frontend -t pms-frontend:latest .
+
+FROM node:20-alpine AS build
+WORKDIR /app
+COPY frontend/package*.json ./
+RUN npm ci
+COPY frontend/ .
+# VITE_VAPID_PUBLIC_KEY و سایر متغیرهای VITE_* در زمان build نیاز است (نه runtime)،
+# چون Vite آن‌ها را در باندل نهایی جایگزین می‌کند — از --build-arg در CI/CD تزریق می‌شود.
+ARG VITE_VAPID_PUBLIC_KEY=""
+ENV VITE_VAPID_PUBLIC_KEY=$VITE_VAPID_PUBLIC_KEY
+RUN npm run build
+# خروجی: /app/dist (شامل sw.js، manifest.webmanifest، آیکون‌ها)
+
+FROM nginx:1.27-alpine AS runtime
+COPY --from=build /app/dist /usr/share/nginx/html
+COPY infra/docker/nginx.conf /etc/nginx/conf.d/default.conf
+
+RUN addgroup -g 1001 nginxapp && adduser -S -u 1001 -G nginxapp nginxapp \
+  && chown -R nginxapp:nginxapp /usr/share/nginx/html /var/cache/nginx /var/run \
+  && touch /var/run/nginx.pid && chown nginxapp:nginxapp /var/run/nginx.pid
+USER nginxapp
+
+EXPOSE 8080
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s \
+  CMD wget -q -O- http://127.0.0.1:8080/ || exit 1
+
+CMD ["nginx", "-g", "daemon off;"]

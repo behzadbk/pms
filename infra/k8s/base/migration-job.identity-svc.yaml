@@ -1,0 +1,22 @@
+# نمونه پرشده migration-job.template.yaml برای identity-svc — اجرای مستقیم SQL خام RLS
+# (نه prisma migrate deploy، چون کد سرویس از pg مستقیم استفاده می‌کند — دلیل در
+# backend/identity-service/README.md).
+apiVersion: batch/v1
+kind: Job
+metadata:
+  # نام یکتا با هر اجرا (تگ image) — Job‌های K8s قابل rerun با همان نام نیستند
+  name: identity-svc-migrate-__IMAGE_TAG__
+  namespace: pms-prod
+spec:
+  backoffLimit: 2
+  ttlSecondsAfterFinished: 3600  # پاک‌سازی خودکار Job بعد از ۱ ساعت
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: migrate
+          image: ghcr.io/pms-saas/identity-svc:__IMAGE_TAG__
+          command: ["psql", "$(DATABASE_PLATFORM_URL)", "-f", "prisma/migrations/001_enable_rls.sql"]
+          envFrom:
+            - configMapRef: { name: pms-shared-config }
+            - secretRef: { name: pms-secrets }

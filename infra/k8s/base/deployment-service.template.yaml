@@ -1,0 +1,91 @@
+# الگوی مشترک Deployment + Service برای هر میکروسرویس NestJS.
+# برای سرویس جدید: کپی کنید، مقادیر <SERVICE_NAME> و <PORT> را جایگزین کنید،
+# و نام فایل را به deployment.<service-name>.yaml تغییر دهید.
+# نمونه پرشده: deployment.identity-svc.yaml در همین پوشه.
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: <SERVICE_NAME>
+  namespace: pms-prod
+  labels:
+    app: <SERVICE_NAME>
+spec:
+  replicas: 2 # حداقل ۲ Pod برای HA؛ HorizontalPodAutoscaler می‌تواند این را بالاتر ببرد
+  selector:
+    matchLabels:
+      app: <SERVICE_NAME>
+  template:
+    metadata:
+      labels:
+        app: <SERVICE_NAME>
+    spec:
+      containers:
+        - name: <SERVICE_NAME>
+          image: <REGISTRY>/<SERVICE_NAME>:<TAG> # در CI/CD با git-sha جایگزین می‌شود
+          ports:
+            - containerPort: <PORT>
+          envFrom:
+            - configMapRef:
+                name: pms-shared-config
+            - secretRef:
+                name: pms-secrets
+          env:
+            - name: PORT
+              value: "<PORT>"
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: <PORT>
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: <PORT>
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          securityContext:
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false  # NestJS به /tmp نیاز دارد؛ برای سخت‌گیری بیشتر با emptyDir mount کنید
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: <SERVICE_NAME>
+  namespace: pms-prod
+spec:
+  type: ClusterIP
+  selector:
+    app: <SERVICE_NAME>
+  ports:
+    - port: <PORT>
+      targetPort: <PORT>
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: <SERVICE_NAME>-hpa
+  namespace: pms-prod
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: <SERVICE_NAME>
+  minReplicas: 2
+  maxReplicas: 8
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70

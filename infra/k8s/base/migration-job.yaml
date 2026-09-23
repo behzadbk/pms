@@ -1,0 +1,26 @@
+# این Job قبل از هر Deployment جدید یک‌بار اجرا می‌شود (توسط CI/CD، بخش infra/ci-cd/github-actions.yml)
+# تا migrationهای Prisma + migration دستی RLS (prisma/migrations/001_enable_rls.sql) اعمال شوند.
+# Deployment سرویس‌ها فقط پس از موفقیت این Job شروع به rollout می‌کنند (kubectl wait در CI).
+apiVersion: batch/v1
+kind: Job
+metadata:
+  # نام یکتا با هر اجرا (تگ image) — Job‌های K8s قابل rerun با همان نام نیستند
+  name: identity-svc-migrate-__IMAGE_TAG__
+  namespace: pms-prod
+spec:
+  backoffLimit: 2
+  ttlSecondsAfterFinished: 3600  # پاک‌سازی خودکار Job بعد از ۱ ساعت
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: migrate
+          image: ghcr.io/pms-saas/identity-svc:__IMAGE_TAG__
+          command: ["sh", "-c"]
+          args:
+            - |
+              npx prisma migrate deploy && \
+              psql "$DATABASE_PLATFORM_URL" -f prisma/migrations/001_enable_rls.sql
+          envFrom:
+            - configMapRef: { name: pms-shared-config }
+            - secretRef: { name: pms-secrets }

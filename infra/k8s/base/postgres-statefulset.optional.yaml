@@ -1,0 +1,51 @@
+# ⚠️ فقط برای محیط self-hosted/on-premise که Managed PostgreSQL در دسترس نیست.
+# توصیه اصلی معماری (بخش ۷ سند ARCHITECTURE-SAAS.md) استفاده از یک سرویس Managed
+# (RDS/Cloud SQL/Neon/...) است. این فایل یک جایگزین حداقلی است، نه یک راه‌حل HA کامل —
+# برای Production واقعی self-hosted، از یک Operator اختصاصی (مثل Zalando postgres-operator
+# یا CloudNativePG) استفاده کنید که Failover/Backup خودکار دارد؛ StatefulSet خام این‌ها را ندارد.
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres
+  namespace: pms-prod
+spec:
+  serviceName: postgres
+  replicas: 1
+  selector:
+    matchLabels: { app: postgres }
+  template:
+    metadata:
+      labels: { app: postgres }
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          ports: [{ containerPort: 5432 }]
+          env:
+            - name: POSTGRES_DB
+              value: pms
+            - name: POSTGRES_USER
+              valueFrom: { secretKeyRef: { name: pms-secrets, key: POSTGRES_ADMIN_USER } }
+            - name: POSTGRES_PASSWORD
+              valueFrom: { secretKeyRef: { name: pms-secrets, key: POSTGRES_ADMIN_PASSWORD } }
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+          resources:
+            requests: { cpu: 250m, memory: 512Mi }
+            limits: { cpu: "1", memory: 1Gi }
+  volumeClaimTemplates:
+    - metadata: { name: data }
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources: { requests: { storage: 20Gi } }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: pms-prod
+spec:
+  clusterIP: None  # Headless service — لازم برای StatefulSet
+  selector: { app: postgres }
+  ports: [{ port: 5432 }]

@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pms-frontend
+  namespace: pms-prod
+  labels:
+    app: pms-frontend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: pms-frontend
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: { maxUnavailable: 0, maxSurge: 1 }
+  template:
+    metadata:
+      labels:
+        app: pms-frontend
+    spec:
+      containers:
+        - name: pms-frontend
+          image: ghcr.io/pms-saas/frontend:__IMAGE_TAG__
+          ports:
+            - containerPort: 8080
+          resources:
+            requests: { cpu: 50m, memory: 64Mi }
+            limits: { cpu: 200m, memory: 128Mi }
+          livenessProbe:
+            httpGet: { path: /, port: 8080 }
+            initialDelaySeconds: 3
+            periodSeconds: 20
+          readinessProbe:
+            httpGet: { path: /, port: 8080 }
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          securityContext:
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pms-frontend
+  namespace: pms-prod
+spec:
+  type: ClusterIP
+  selector:
+    app: pms-frontend
+  ports:
+    - port: 8080
+      targetPort: 8080

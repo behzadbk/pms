@@ -1,0 +1,64 @@
+@import "tailwindcss";
+@import "@fontsource/vazirmatn/400.css";
+@import "@fontsource/vazirmatn/500.css";
+@import "@fontsource/vazirmatn/600.css";
+@import "@fontsource/vazirmatn/700.css";
+@import "@fontsource/vazirmatn/800.css";
+@import "./styles/liquid-glass.css";
+
+@theme {
+  --font-sans: "Vazirmatn", ui-sans-serif, system-ui, sans-serif;
+
+  /* Persian tilework — inspired palette. Deliberately not the cream/terracotta
+     or dark+neon defaults: deep night-tile navy, turquoise, and brass accent. */
+  --color-ink: #16324f;        /* deep navy — sidebar, headers */
+  --color-ink-soft: #223f5f;
+  --color-tile: #0e9594;       /* turquoise — primary actions, active states */
+  --color-tile-soft: #e3f4f3;
+  --color-brass: #c08a3e;      /* warm brass — highlights, secondary CTA */
+  --color-brass-soft: #f6ecd9;
+  --color-canvas: #f3f5f7;     /* page background — cool light gray, not cream */
+  --color-card: #ffffff;
+  --color-ink-text: #1d2733;
+  --color-muted: #64748b;
+  --color-line: #e2e6ea;
+  --color-good: #1d9a6c;
+  --color-good-soft: #e2f5ec;
+  --color-warn: #c08a3e;
+  --color-warn-soft: #f6ecd9;
+  --color-bad: #c4442e;
+  --color-bad-soft: #fbe9e5;
+}
+
+body {
+  background: var(--color-canvas);
+  color: var(--color-ink-text);
+  font-feature-settings: "ss01";
+  overscroll-behavior-y: none; /* جلوگیری از bounce/pull-to-refresh مرورگر در حالت PWA */
+  -webkit-tap-highlight-color: transparent;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+/* اسکرول‌بار نازک‌تر برای پنل‌ها روی دسکتاپ (اختیاری، اسکرول موبایل دست‌نخورده می‌ماند) */
+@media (min-width: 1024px) {
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--color-line); border-radius: 999px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--color-muted); }
+}
+
+/* فاصله ایمن برای notch/home-indicator گوشی‌ها در حالت standalone PWA */
+@utility pt-safe {
+  padding-top: env(safe-area-inset-top);
+}
+@utility pb-safe {
+  padding-bottom: max(env(safe-area-inset-bottom), 0.5rem);
+}
+
+::selection {
+  background: var(--color-tile-soft);
+  color: var(--color-ink);
+}

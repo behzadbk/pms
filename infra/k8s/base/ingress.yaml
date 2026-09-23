@@ -1,0 +1,85 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: pms-ingress
+  namespace: pms-prod
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+    # هر Tenant زیردامنه خودش را دارد (subdomain.pms.app)؛ خود سرویس‌ها tenant را از JWT
+    # می‌خوانند نه از subdomain در سطح Ingress — پس یک Ingress مشترک برای همه tenantها کافی است.
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+spec:
+  tls:
+    - hosts:
+        - "*.pms.app"
+        - "pms.app"
+      secretName: pms-tls-cert
+  rules:
+    - host: "pms.app"
+      http:
+        paths:
+          - path: /api/identity(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend: { service: { name: identity-svc, port: { number: 3001 } } }
+          - path: /api/property(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend: { service: { name: property-svc, port: { number: 3002 } } }
+          - path: /api/facility(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend: { service: { name: facility-svc, port: { number: 3003 } } }
+          - path: /api/finance(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend: { service: { name: finance-svc, port: { number: 3004 } } }
+          - path: /api/guard(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend: { service: { name: guard-svc, port: { number: 3005 } } }
+          - path: /api/audit(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend: { service: { name: audit-svc, port: { number: 3007 } } }
+          - path: /api/fnb(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend: { service: { name: fnb-svc, port: { number: 3008 } } }
+          # نکته: مسیر WebSocket پنل نگهبانی (facility-svc تقویم زنده، guard-svc ترافیک زنده)
+          # از همین Ingress عبور می‌کند؛ annotation زیر Upgrade/Connection header را حفظ می‌کند
+          - path: /()(.*)
+            pathType: ImplementationSpecific
+            backend: { service: { name: pms-frontend, port: { number: 8080 } } }
+    - host: "*.pms.app"
+      http:
+        paths:
+          - path: /api/identity(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend: { service: { name: identity-svc, port: { number: 3001 } } }
+          - path: /api/property(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend: { service: { name: property-svc, port: { number: 3002 } } }
+          - path: /api/facility(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend: { service: { name: facility-svc, port: { number: 3003 } } }
+          - path: /api/finance(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend: { service: { name: finance-svc, port: { number: 3004 } } }
+          - path: /api/guard(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend: { service: { name: guard-svc, port: { number: 3005 } } }
+          - path: /api/audit(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend: { service: { name: audit-svc, port: { number: 3007 } } }
+          - path: /api/fnb(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend: { service: { name: fnb-svc, port: { number: 3008 } } }
+          - path: /()(.*)
+            pathType: ImplementationSpecific
+            backend: { service: { name: pms-frontend, port: { number: 8080 } } }
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-ingress-websocket-config
+  namespace: pms-prod
+data:
+  # به Nginx Ingress Controller (نه این Ingress خاص) می‌گوید Upgrade header را برای
+  # مسیرهای WebSocket (تقویم زنده، پنل نگهبانی Realtime) دست‌نخورده عبور دهد.
+  proxy-set-headers: "pms-prod/nginx-websocket-headers"
