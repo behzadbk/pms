@@ -23,7 +23,7 @@
 
 ## روش ۱ — ساخت خودکار در GitHub (بدون نصب چیزی)
 
-1. تغییرات را commit و به `github.com/behzadbk/pms1` push کنید.
+1. تغییرات را commit و به `github.com/behzadbk/pms` push کنید.
 2. در GitHub: تب **Actions** ← **Mobile apps** ← **Run workflow** (یا خودکار با push روی main).
 3. بعد از پایان (حدود ۱۰ دقیقه)، از پایین صفحه‌ی اجرا در بخش **Artifacts**:
    - `android-apk` ← فایل `app-debug.apk` مستقیماً روی گوشی اندروید نصب می‌شود.
