@@ -4,6 +4,57 @@
 
 این مخزن خروجیِ سازمان‌یافته‌ی مستندات فنی سه بخش اصلی پروژه است (فرانت‌اند، بک‌اند، دیتابیس) که برای آپلود روی گیت‌هاب آماده شده. هدف این README ارائه‌ی یک نمای کلی سریع است؛ جزئیات کامل هر بخش در پوشه‌ی [`docs/`](./docs) آمده.
 
+## 🚀 نصب روی سرور خام — فقط یک دستور
+
+روی یک سرور تازه‌ی **Ubuntu 22.04 / 24.04 یا Debian 12** (حداقل ۲ هسته، ۴ گیگ رم، ۲۰ گیگ دیسک):
+
+```bash
+git clone https://github.com/behzadbk/pms.git
+cd pms
+sudo bash install.sh            # نصب production
+# یا:
+sudo bash install.sh --demo     # + داده‌ی نمونه برای تست (برج آفتاب، کاربران تست، behzad/amir با رمز 1234)
+```
+
+`install.sh` همه‌ی مراحل را به‌ترتیب و خودکار انجام می‌دهد — لازم نیست چیز دیگری دستی نصب شود:
+
+| مرحله | کار |
+|---|---|
+| ۱ | نصب پیش‌نیازها: `curl`, `git`, `openssl`, `ca-certificates` |
+| ۲ | نصب **Docker Engine + Docker Compose** (اول مخزن رسمی، اگر در دسترس نبود مخزن خود Ubuntu/Debian) |
+| ۳ | تنظیم میرور Docker Hub — اختیاری، با `REGISTRY_MIRROR=...` |
+| ۴ | ساخت فایل `.env` با رمزهای تصادفی (دیتابیس، RabbitMQ، JWT، سوپرادمین) |
+| ۵ | build ایمیج‌ها: ۸ سرویس NestJS + فرانت‌اند PWA + مایگریشن |
+| ۶ | بالا آوردن PostgreSQL 16، RabbitMQ و Redis |
+| ۷ | اجرای همه‌ی مایگریشن‌های دیتابیس (`db/migrate.sh`) — با `--demo` داده‌ی نمونه هم اضافه می‌شود |
+| ۸ | ساخت کاربر سوپرادمین از روی `.env` |
+| ۹ | بالا آوردن ۸ سرویس، فرانت‌اند و gateway (nginx روی پورت ۸۰) |
+| ۱۰ | تست سلامت تک‌تک سرویس‌ها و چاپ آدرس و اطلاعات ورود |
+
+در پایان آدرس اپ، آدرس پنل سوپرادمین (`/super-admin/login`) و نام کاربری/رمز سوپرادمین چاپ می‌شود. همه‌ی رمزها در فایل `.env` هستند — از آن بکاپ بگیرید.
+
+**دستورهای بعدی:**
+
+```bash
+sudo bash install.sh update          # git pull + build + مایگریشن + ری‌استارت (داده‌ها حفظ می‌شوند)
+sudo bash install.sh status          # وضعیت کانتینرها و سلامت سرویس‌ها
+sudo bash install.sh logs identity-svc
+sudo bash install.sh stop | start
+```
+
+**تنظیمات اختیاری** (قبل از دستور، یا بعداً داخل `.env` و سپس `update`):
+
+```bash
+sudo PUBLIC_URL=https://app.barouco.ir HTTP_PORT=80 bash install.sh
+sudo REGISTRY_MIRROR=https://docker.arvancloud.ir bash install.sh   # اگر Docker Hub روی سرور باز نمی‌شود
+sudo NPM_REGISTRY=https://registry.npmjs.org bash install.sh        # میرور npm برای build
+```
+
+فایل‌های مربوط: [`install.sh`](./install.sh) · [`docker-compose.yml`](./docker-compose.yml) · [`.env.example`](./.env.example) · [`infra/docker/gateway.conf`](./infra/docker/gateway.conf)
+
+> مسیرها پشت gateway: `/` → فرانت‌اند، `/api/<service>/…` → هر میکروسرویس (مثل Ingress در Kubernetes)، `/socket.io/` → WebSocket زنده.
+> برای HTTPS یک reverse proxy (Caddy یا nginx + certbot) جلوی پورت gateway بگذارید و `PUBLIC_URL` را https کنید.
+
 ## نمای کلی معماری
 
 ```
