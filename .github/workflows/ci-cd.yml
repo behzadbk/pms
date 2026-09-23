@@ -1,0 +1,235 @@
+name: CI/CD — PMS SaaS
+
+# اجرا روی هر push به main (Deploy خودکار) و روی هر PR (فقط Test/Build، بدون Deploy)
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAMESPACE: pms-saas
+
+jobs:
+  # ---------- ۱) تشخیص اینکه کدام سرویس‌ها تغییر کرده‌اند ----------
+  # روی یک مونوریپو با ۶ میکروسرویس، build همه روی هر تغییر کوچک وقت و پول تلف می‌کند؛
+  # این Job فهرست پوشه‌های backend/*-service تغییریافته را به شکل یک آرایه JSON
+  # می‌سازد تا Jobهای بعدی با یک GitHub Actions Matrix پویا (fromJSON) فقط همان‌ها را
+  # پردازش کنند — به‌جای کپی ۶ بلوک تقریباً یکسان برای هر سرویس.
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      services_matrix: ${{ steps.build-matrix.outputs.services_matrix }}
+      has_backend_changes: ${{ steps.build-matrix.outputs.has_backend_changes }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            identity-service:    'backend/identity-service/**'
+            property-service:    'backend/property-service/**'
+            facility-service:    'backend/facility-service/**'
+            finance-service:     'backend/finance-service/**'
+            guard-service:       'backend/guard-service/**'
+            notification-service: 'backend/notification-service/**'
+            audit-service:       'backend/audit-service/**'
+            fnb-service:         'backend/fnb-service/**'
+            frontend:             'frontend/**'
+      - id: build-matrix
+        run: |
+          SERVICES='["identity-service","property-service","facility-service","finance-service","guard-service","notification-service","audit-service","fnb-service"]'
+          CHANGED=$(python3 -c "
+          import json
+          all_svcs = json.loads('$SERVICES')
+          flags = {
+            'identity-service': '${{ steps.filter.outputs.identity-service }}',
+            'property-service': '${{ steps.filter.outputs.property-service }}',
+            'facility-service': '${{ steps.filter.outputs.facility-service }}',
+            'finance-service': '${{ steps.filter.outputs.finance-service }}',
+            'guard-service': '${{ steps.filter.outputs.guard-service }}',
+            'notification-service': '${{ steps.filter.outputs.notification-service }}',
+            'audit-service': '${{ steps.filter.outputs.audit-service }}',
+            'fnb-service': '${{ steps.filter.outputs.fnb-service }}',
+          }
+          changed = [s for s in all_svcs if flags[s] == 'true']
+          print(json.dumps(changed))
+          ")
+          echo "services_matrix=$CHANGED" >> "$GITHUB_OUTPUT"
+          if [ "$CHANGED" = "[]" ]; then
+            echo "has_backend_changes=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_backend_changes=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  # ---------- ۲) تست و لینت هر سرویس تغییریافته ----------
+  test-backend:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.has_backend_changes == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service: ${{ fromJSON(needs.detect-changes.outputs.services_matrix) }}
+    defaults:
+      run:
+        working-directory: backend/${{ matrix.service }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20', cache: 'npm', cache-dependency-path: "backend/${{ matrix.service }}/package-lock.json" }
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run build
+      - run: npm run test -- --passWithNoTests
+
+  test-frontend:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20', cache: 'npm', cache-dependency-path: frontend/package-lock.json }
+      - run: npm ci
+      - run: npx tsc -b --noEmit
+      - run: npm run build
+
+  # ---------- ۳) Build و Push ایمیج Docker (فقط روی push به main، نه PR) ----------
+  # همه سرویس‌ها از یک Dockerfile عمومی (infra/docker/Dockerfile.nestjs) با
+  # build-arg SERVICE_PATH متفاوت استفاده می‌کنند. نام‌گذاری ایمیج/K8s از قاعده ثابت
+  # <name>-service (پوشه) -> <name>-svc (ایمیج/Deployment) پیروی می‌کند.
+  build-push-backend:
+    needs: [detect-changes, test-backend]
+    if: github.event_name == 'push' && needs.detect-changes.outputs.has_backend_changes == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service: ${{ fromJSON(needs.detect-changes.outputs.services_matrix) }}
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image_tag: ${{ steps.meta.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: meta
+        run: |
+          echo "tag=${GITHUB_SHA::12}" >> "$GITHUB_OUTPUT"
+          echo "short=$(echo ${{ matrix.service }} | sed 's/-service/-svc/')" >> "$GITHUB_OUTPUT"
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: infra/docker/Dockerfile.nestjs
+          build-args: |
+            SERVICE_PATH=backend/${{ matrix.service }}
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/${{ steps.meta.outputs.short }}:${{ steps.meta.outputs.tag }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/${{ steps.meta.outputs.short }}:latest
+          cache-from: type=gha,scope=${{ matrix.service }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.service }}
+
+  build-push-frontend:
+    needs: [detect-changes, test-frontend]
+    if: github.event_name == 'push' && needs.detect-changes.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image_tag: ${{ steps.meta.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: meta
+        run: echo "tag=${GITHUB_SHA::12}" >> "$GITHUB_OUTPUT"
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: infra/docker/Dockerfile.frontend
+          push: true
+          build-args: |
+            VITE_VAPID_PUBLIC_KEY=${{ secrets.VITE_VAPID_PUBLIC_KEY }}
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/frontend:${{ steps.meta.outputs.tag }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/frontend:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ---------- ۴) اجرای Migration دیتابیس (پیش از rollout، فقط برای سرویس‌های تغییریافته) ----------
+  migrate-backend:
+    needs: [detect-changes, build-push-backend]
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    environment: production
+    strategy:
+      fail-fast: false
+      matrix:
+        service: ${{ fromJSON(needs.detect-changes.outputs.services_matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-kubectl@v4
+      - run: echo "${{ secrets.KUBE_CONFIG_B64 }}" | base64 -d > kubeconfig.yaml
+      - name: اجرای Job مهاجرت با تگ ایمیج جدید
+        run: |
+          export KUBECONFIG=kubeconfig.yaml
+          IMAGE_TAG="${{ needs.build-push-backend.outputs.image_tag }}"
+          SHORT=$(echo ${{ matrix.service }} | sed 's/-service/-svc/')
+          sed "s/__IMAGE_TAG__/${IMAGE_TAG}/g" infra/k8s/base/migration-job.${SHORT}.yaml | kubectl apply -f -
+          kubectl wait --for=condition=complete --timeout=180s \
+            job/${SHORT}-migrate-${IMAGE_TAG} -n pms-prod
+
+  # ---------- ۵) Deploy به Kubernetes (فقط پس از موفقیت Migration) ----------
+  deploy-backend:
+    needs: [detect-changes, build-push-backend, migrate-backend]
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    environment: production
+    strategy:
+      fail-fast: false
+      matrix:
+        service: ${{ fromJSON(needs.detect-changes.outputs.services_matrix) }}
+    steps:
+      - uses: azure/setup-kubectl@v4
+      - run: echo "${{ secrets.KUBE_CONFIG_B64 }}" | base64 -d > kubeconfig.yaml
+      - name: به‌روزرسانی Image Deployment (Rolling Update)
+        run: |
+          export KUBECONFIG=kubeconfig.yaml
+          SHORT=$(echo ${{ matrix.service }} | sed 's/-service/-svc/')
+          kubectl set image deployment/${SHORT} \
+            ${SHORT}=${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/${SHORT}:${{ needs.build-push-backend.outputs.image_tag }} \
+            -n pms-prod
+          kubectl rollout status deployment/${SHORT} -n pms-prod --timeout=120s
+
+  deploy-frontend:
+    needs: build-push-frontend
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: azure/setup-kubectl@v4
+      - run: echo "${{ secrets.KUBE_CONFIG_B64 }}" | base64 -d > kubeconfig.yaml
+      - run: |
+          export KUBECONFIG=kubeconfig.yaml
+          kubectl set image deployment/pms-frontend \
+            pms-frontend=${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/frontend:${{ needs.build-push-frontend.outputs.image_tag }} \
+            -n pms-prod
+          kubectl rollout status deployment/pms-frontend -n pms-prod --timeout=120s
