@@ -19,7 +19,9 @@ WORKDIR /app
 
 # فقط manifestهای وابستگی برای بهره‌گیری از Docker layer cache (قبل از کپی کل سورس)
 COPY ${SERVICE_PATH}/package*.json ./
-RUN npm ci
+# NPM_REGISTRY اختیاری — برای سرورهایی که به registry.npmjs.org دسترسی ندارند (مثلاً میرور داخلی)
+ARG NPM_REGISTRY=""
+RUN if [ -n "$NPM_REGISTRY" ]; then npm config set registry "$NPM_REGISTRY"; fi && npm ci --no-audit --no-fund
 
 COPY ${SERVICE_PATH}/ ./
 RUN npm run build
