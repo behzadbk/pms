@@ -7,7 +7,9 @@
 FROM node:20-alpine AS build
 WORKDIR /app
 COPY frontend/package*.json ./
-RUN npm ci
+# NPM_REGISTRY اختیاری — برای سرورهایی که به registry.npmjs.org دسترسی ندارند (مثلاً میرور داخلی)
+ARG NPM_REGISTRY=""
+RUN if [ -n "$NPM_REGISTRY" ]; then npm config set registry "$NPM_REGISTRY"; fi && npm ci --no-audit --no-fund
 COPY frontend/ .
 # VITE_VAPID_PUBLIC_KEY و سایر متغیرهای VITE_* در زمان build نیاز است (نه runtime)،
 # چون Vite آن‌ها را در باندل نهایی جایگزین می‌کند — از --build-arg در CI/CD تزریق می‌شود.
