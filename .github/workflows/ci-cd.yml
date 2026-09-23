@@ -9,7 +9,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAMESPACE: pms-saas
+  IMAGE_NAMESPACE: ${{ github.repository_owner }}
 
 jobs:
   # ---------- ۱) تشخیص اینکه کدام سرویس‌ها تغییر کرده‌اند ----------
@@ -177,7 +177,8 @@ jobs:
   # ---------- ۴) اجرای Migration دیتابیس (پیش از rollout، فقط برای سرویس‌های تغییریافته) ----------
   migrate-backend:
     needs: [detect-changes, build-push-backend]
-    if: github.event_name == 'push'
+    # فقط وقتی کلاستر Kubernetes دارید: Settings → Variables → K8S_DEPLOY=true و Secret به نام KUBE_CONFIG_B64
+    if: github.event_name == 'push' && vars.K8S_DEPLOY == 'true'
     runs-on: ubuntu-latest
     environment: production
     strategy:
@@ -200,7 +201,8 @@ jobs:
   # ---------- ۵) Deploy به Kubernetes (فقط پس از موفقیت Migration) ----------
   deploy-backend:
     needs: [detect-changes, build-push-backend, migrate-backend]
-    if: github.event_name == 'push'
+    # فقط وقتی کلاستر Kubernetes دارید: Settings → Variables → K8S_DEPLOY=true و Secret به نام KUBE_CONFIG_B64
+    if: github.event_name == 'push' && vars.K8S_DEPLOY == 'true'
     runs-on: ubuntu-latest
     environment: production
     strategy:
@@ -221,7 +223,8 @@ jobs:
 
   deploy-frontend:
     needs: build-push-frontend
-    if: github.event_name == 'push'
+    # فقط وقتی کلاستر Kubernetes دارید: Settings → Variables → K8S_DEPLOY=true و Secret به نام KUBE_CONFIG_B64
+    if: github.event_name == 'push' && vars.K8S_DEPLOY == 'true'
     runs-on: ubuntu-latest
     environment: production
     steps:
