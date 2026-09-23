@@ -55,6 +55,12 @@ sudo NPM_REGISTRY=https://registry.npmjs.org bash install.sh        # میرور
 > مسیرها پشت gateway: `/` → فرانت‌اند، `/api/<service>/…` → هر میکروسرویس (مثل Ingress در Kubernetes)، `/socket.io/` → WebSocket زنده.
 > برای HTTPS یک reverse proxy (Caddy یا nginx + certbot) جلوی پورت gateway بگذارید و `PUBLIC_URL` را https کنید.
 
+## 🪟 اجرای محلی روی ویندوز (بدون نصب)
+
+از [Releases → windows-portable](https://github.com/behzadbk/pms/releases/tag/windows-portable) فایل `Hamin-PMS-windows.zip` را دانلود کنید، در مسیری مثل `C:\Hamin` اکسترکت کنید و `start.bat` را اجرا کنید — دیتابیس، ۸ سرویس و اپ بدون نصب هیچ برنامه‌ای روی `http://localhost:8080` بالا می‌آیند. راهنما: [`windows/README.txt`](./windows/README.txt).
+
+این زیپ را workflow «Windows portable» بعد از هر تغییر کد خودکار می‌سازد و قبل از انتشار، روی یک ویندوز واقعی اجرا و ورود ساختمان و سوپرادمین را تست می‌کند.
+
 ## نمای کلی معماری
 
 ```
