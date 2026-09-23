@@ -1,4 +1,4 @@
-# این Job قبل از هر Deployment جدید یک‌بار اجرا می‌شود (توسط CI/CD، بخش infra/ci-cd/github-actions.yml)
+# این Job قبل از هر Deployment جدید یک‌بار اجرا می‌شود (توسط CI/CD، بخش .github/workflows/ci-cd.yml)
 # تا migrationهای Prisma + migration دستی RLS (prisma/migrations/001_enable_rls.sql) اعمال شوند.
 # Deployment سرویس‌ها فقط پس از موفقیت این Job شروع به rollout می‌کنند (kubectl wait در CI).
 apiVersion: batch/v1
