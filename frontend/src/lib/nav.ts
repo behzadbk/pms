@@ -1,9 +1,10 @@
 import {
   LayoutDashboard, Wallet, Landmark, Ticket, Megaphone, CalendarRange,
-  Wrench, Building2, QrCode, PackageCheck, CarFront, ClipboardList, SlidersHorizontal, PieChart,
-  Layers, Receipt, CreditCard, UtensilsCrossed, ChefHat, ScrollText, FileText,
+  Building2, QrCode, PackageCheck, CarFront, SlidersHorizontal, PieChart,
+  Layers, Receipt, CreditCard, UtensilsCrossed, ScrollText, FileText, Users,
 } from 'lucide-react'
 import type { Role } from './types'
+import { staffNavItems } from './staff'
 
 export interface NavItem {
   to: string
@@ -20,6 +21,7 @@ export const navByRole: Record<Role, NavItem[]> = {
     { to: '/admin/reservations', label: 'رزرو مشاعات', icon: CalendarRange },
     { to: '/admin/amenity-rules', label: 'قوانین رزرو هوشمند', icon: SlidersHorizontal },
     { to: '/admin/units', label: 'واحدها', icon: Building2 },
+    { to: '/admin/staff', label: 'کارکنان', icon: Users },
     { to: '/admin/logs', label: 'داشبورد لاگ', icon: ScrollText },
   ],
   resident: [
@@ -39,12 +41,8 @@ export const navByRole: Record<Role, NavItem[]> = {
     { to: '/guard/traffic', label: 'تردد خودرو', icon: CarFront },
     { to: '/guard/announcements', label: 'اعلانات', icon: Megaphone },
   ],
-  staff: [
-    { to: '/staff', label: 'کارهای نگهداری', icon: Wrench },
-    { to: '/staff/schedule', label: 'برنامه سرویس دوره‌ای', icon: ClipboardList },
-    { to: '/staff/kitchen', label: 'صف آشپزخانه', icon: ChefHat },
-    { to: '/staff/announcements', label: 'اعلانات و نظرسنجی', icon: Megaphone },
-  ],
+  // منوی کارکنان پویاست و بر اساس دسترسی‌ها ساخته می‌شود — lib/staff.ts → staffNavItems
+  staff: staffNavItems.map(({ to, label, icon }) => ({ to, label, icon })),
   accountant: [
     { to: '/accountant', label: 'داشبورد حسابداری', icon: LayoutDashboard },
     { to: '/accountant/charges', label: 'شارژ و مطالبات', icon: Wallet },

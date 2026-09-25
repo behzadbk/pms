@@ -8,7 +8,8 @@
 import { useEffect, useState } from 'react'
 import { Building2, Check, ChefHat, Clock, MapPin, X } from 'lucide-react'
 import { GlassCard, GlassPill } from '../../components/ui/Glass'
-import { kitchenQueue as initialQueue, toman } from '../../lib/mockData'
+import { toman } from '../../lib/mockData'
+import { useStore, setOrderStatus } from '../../lib/store'
 import type { FnbOrder, OrderStatus } from '../../lib/types'
 
 type Column = 'placed' | 'preparing' | 'ready'
@@ -29,8 +30,14 @@ function elapsedMinutes(placedAt: string): number {
   return Math.max(0, Math.round(diffMs / 60000))
 }
 
-export function StaffKitchenDisplay() {
-  const [orders, setOrders] = useState<FnbOrder[]>(initialQueue)
+/**
+ * venueId: v1 = رستوران (دسترسی kitchen)، v2 = کافی‌شاپ (دسترسی cafe).
+ * سفارش‌ها از استور مشترک خوانده می‌شوند؛ سفارشی که ساکن ثبت می‌کند فوراً اینجا می‌آید
+ * و تغییر وضعیت اینجا در صفحه‌ی پیگیری سفارش ساکن دیده می‌شود.
+ */
+export function StaffKitchenDisplay({ venueId, title }: { venueId?: string; title?: string }) {
+  const { orders: all } = useStore()
+  const orders = all.filter((o) => !venueId || o.venueId === venueId)
   const [, forceTick] = useState(0)
 
   // تیک هر ۳۰ ثانیه فقط برای به‌روزرسانی تایمرهای نمایشی
@@ -40,13 +47,9 @@ export function StaffKitchenDisplay() {
   }, [])
 
   function transition(id: string, status: OrderStatus) {
-    setOrders((prev) => {
-      if (status === 'rejected' || status === 'delivered') {
-        return prev.filter((o) => o.id !== id)
-      }
-      return prev.map((o) => (o.id === id ? { ...o, status } : o))
-    })
+    setOrderStatus(id, status)
   }
+  const deliveredToday = orders.filter((o) => o.status === 'delivered').length
 
   const byColumn: Record<Column, FnbOrder[]> = {
     placed: orders.filter((o) => o.status === 'placed'),
@@ -58,8 +61,10 @@ export function StaffKitchenDisplay() {
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="text-xl font-bold">صف زنده آشپزخانه</h1>
-        <p className="text-[var(--lg-text-secondary)] text-sm mt-1">سفارش‌های فعال رستوران و کافی‌شاپ — طراحی‌شده برای تبلت آشپزخانه</p>
+        <h1 className="text-xl font-bold">{title ?? 'صف زنده آشپزخانه'}</h1>
+        <p className="text-[var(--lg-text-secondary)] text-sm mt-1">
+          سفارش‌های فعال — طراحی‌شده برای تبلت · تحویل‌شده امروز: {deliveredToday.toLocaleString('fa-IR')}
+        </p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">

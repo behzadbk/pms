@@ -10,7 +10,7 @@
  * برای برگرداندن داده‌ی نمونه: resetDemoStore()
  */
 import { useSyncExternalStore } from 'react'
-import type { Amenity, AmenitySession, BookingRule, Charge, Reservation, Role, Ticket } from './types'
+import type { Amenity, AmenitySession, BookingRule, Charge, FnbOrder, MenuItem, OrderStatus, Reservation, Role, Ticket } from './types'
 import {
   amenitiesList,
   amenitySessions,
@@ -18,6 +18,9 @@ import {
   charges as seedCharges,
   reservations as seedReservations,
   tickets as seedTickets,
+  menuItems as seedMenuItems,
+  kitchenQueue as seedKitchenQueue,
+  fnbVenues,
 } from './mockData'
 
 /* ═══════════════════════════ انواع ═══════════════════════════ */
@@ -57,12 +60,15 @@ export function audienceLabel(key: AudienceKey) {
  * کاربر فعلی (در حالت دمو بر اساس نقش) در کدام مخاطب‌ها قرار می‌گیرد.
  * بعداً از پروفایل واقعی (واحد، بلوک، مالک/مستأجر) در /auth/me پر می‌شود.
  */
-export function viewerAudiences(role: Role): AudienceKey[] {
+export function viewerAudiences(role: Role, perms: string[] = []): AudienceKey[] {
   switch (role) {
     case 'resident':
       return ['all_residents', 'owners', 'block:A', 'unit:واحد ۱۲']
     case 'admin':
       return ['admin']
+    case 'staff':
+      // کارمند علاوه بر «پرسنل»، اعلان‌های مخصوص دسترسی‌هایش را هم می‌گیرد (مثلاً perm:amenity_desk)
+      return ['staff', ...perms.map((p) => `perm:${p}`)]
     default:
       return [role]
   }
@@ -148,7 +154,19 @@ export const serviceTypeLabel: Record<ServiceRecord['type'], string> = {
   inspection: 'بازدید',
 }
 
+export type TicketKind = 'fault' | 'criticism' | 'suggestion' | 'direct'
+
+export const ticketKindInfo: Record<TicketKind, { label: string; category: string }> = {
+  fault: { label: 'گزارش خرابی', category: 'گزارش خرابی' },
+  criticism: { label: 'انتقاد', category: 'انتقاد' },
+  suggestion: { label: 'پیشنهاد', category: 'پیشنهاد' },
+  direct: { label: 'پیام مستقیم به مدیر', category: 'پیام به مدیر' },
+}
+
 export interface TicketRec extends Ticket {
+  kind?: TicketKind
+  /** محل خرابی — مثلاً «طبقه ۳ · واحد ۱۲» یا «پارکینگ طبقه -۱» */
+  location?: string
   body: string
   reporter: string
   assetId?: string
@@ -204,12 +222,14 @@ export interface DemoState {
   services: ServiceRecord[]
   invoices: InvoiceRec[]
   charges: ChargeRec[]
+  menu: MenuItem[]
+  orders: FnbOrder[]
 }
 
 /* ═══════════════════════════ داده‌ی اولیه ═══════════════════════════ */
 
 const STORAGE_KEY = 'hamin.demo-store'
-const VERSION = 1
+const VERSION = 2
 
 export function uid(prefix = 'id') {
   return `${prefix}_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`
@@ -347,6 +367,8 @@ function seed(): DemoState {
     services,
     invoices,
     charges: seedCharges.map((c) => ({ ...c, paidAt: c.status === 'paid' ? daysAgo(15) : undefined, payMethod: c.status === 'paid' ? 'درگاه آنلاین' : undefined })),
+    menu: seedMenuItems.map((m) => ({ ...m })),
+    orders: seedKitchenQueue.map((o) => ({ ...o })),
   }
 }
 
@@ -358,6 +380,8 @@ function load(): DemoState {
     if (raw) {
       const parsed = JSON.parse(raw) as DemoState
       if (parsed.version === VERSION) return parsed
+      // نسخه‌ی قدیمی‌تر: داده‌ی ساخته‌شده توسط کاربر حفظ می‌شود و فقط بخش‌های جدید اضافه می‌شوند
+      if (parsed.version < VERSION) return { ...seed(), ...parsed, version: VERSION }
     }
   } catch {
     /* localStorage در دسترس نیست (حالت خصوصی/iframe) — با داده‌ی اولیه ادامه می‌دهیم */
@@ -425,12 +449,12 @@ export function notify(n: Omit<NotificationRec, 'id' | 'createdAt' | 'readBy'>) 
   setState((s) => pushNotification(s, n))
 }
 
-export function markNotificationsRead(role: Role) {
-  const aud = viewerAudiences(role)
+/** readerKey: شناسه‌ی کاربر (یا نقش در حالت دمو) — تا خوانده‌شدن توسط یک کارمند برای بقیه حساب نشود */
+export function markNotificationsRead(readerKey: string, aud: AudienceKey[]) {
   setState((s) => ({
     ...s,
     notifications: s.notifications.map((n) =>
-      n.audience.some((a) => aud.includes(a)) && !n.readBy.includes(role) ? { ...n, readBy: [...n.readBy, role] } : n,
+      n.audience.some((a) => aud.includes(a)) && !n.readBy.includes(readerKey) ? { ...n, readBy: [...n.readBy, readerKey] } : n,
     ),
   }))
 }
@@ -493,8 +517,8 @@ export function addReservation(r: Omit<ReservationRec, 'id' | 'createdAt'>) {
         kind: 'reservation',
         title: `درخواست رزرو جدید — ${r.amenity}`,
         body: `${r.unit} برای ${r.date} ساعت ${r.time} درخواست رزرو داده است.`,
-        audience: ['admin'],
-        link: '/admin/reservations',
+        audience: ['admin', 'perm:amenity_desk'],
+        link: '/reservations',
       })
     }
     return next
@@ -563,12 +587,16 @@ export function submitVote(pollId: string, voterKey: string, answers: Record<str
 
 /* ---- تیکت، دارایی و سابقه‌ی سرویس ---- */
 
-export function addTicket(t: Pick<TicketRec, 'subject' | 'body' | 'unit' | 'category' | 'priority' | 'reporter'>) {
+export function addTicket(t: Pick<TicketRec, 'subject' | 'body' | 'unit' | 'category' | 'priority' | 'reporter' | 'kind' | 'location'>) {
   setState((s) => {
     const now = new Date().toISOString()
     const rec: TicketRec = { ...t, id: uid('tk'), status: 'open', createdAt: 'همین حالا', createdIso: now, timeline: [{ at: now, text: 'تیکت ثبت شد' }] }
     return pushNotification({ ...s, tickets: [rec, ...s.tickets] }, {
-      kind: 'ticket', title: `تیکت جدید: ${t.subject}`, body: `${t.unit} · ${t.category}`, audience: ['admin'], link: '/admin/tickets',
+      kind: 'ticket',
+      title: t.kind === 'direct' ? `پیام جدید از ${t.unit}: ${t.subject}` : `تیکت جدید: ${t.subject}`,
+      body: [t.unit, t.category, t.location].filter(Boolean).join(' · '),
+      audience: t.kind === 'fault' ? ['admin', 'perm:maintenance'] : ['admin'],
+      link: '/tickets',
     })
   })
 }
@@ -625,20 +653,26 @@ const normalize = (x: string) => x.replace(/[‌\s\-–—]+/g, ' ').trim()
  * خروجی: دارایی دقیق (اگر پیدا شد) + همه‌ی دارایی‌های هم‌دسته برای انتخاب دستی.
  */
 export function matchAsset(ticket: TicketRec, assets: AssetRec[]) {
+  // متن اصلی (موضوع + توضیح) معیار اصلی است؛ محل فقط برای شکستن تساوی —
+  // وگرنه «بلوک A» در محل پیش‌فرض ساکن، «آسانسور B» را با «آسانسور A» اشتباه می‌گرفت.
   const text = normalize(`${ticket.subject} ${ticket.body}`)
-  const category = ticket.assetId ? assets.find((a) => a.id === ticket.assetId)?.category ?? detectCategory(text) : detectCategory(text)
+  const loc = normalize(ticket.location ?? '')
+  const detected = detectCategory(text) ?? (loc ? detectCategory(loc) : null)
+  const category = ticket.assetId ? assets.find((a) => a.id === ticket.assetId)?.category ?? detected : detected
   const candidates = category ? assets.filter((a) => a.category === category) : []
   if (ticket.assetId) return { category, asset: assets.find((a) => a.id === ticket.assetId) ?? null, candidates }
 
+  const hits = (hay: string, words: string[]) => words.filter((w) => hay.includes(w)).length
   let asset: AssetRec | null = null
   let bestScore = 0
   for (const a of candidates) {
-    const words = normalize(`${a.name} ${a.location}`).split(' ').filter((w) => w.length > 0)
-    const score = words.filter((w) => text.includes(w)).length
-    // حرف تکی (مثل «B» در آسانسور B) باید دقیقاً به‌صورت کلمه‌ی جدا بیاید
+    // حرف تکی (مثل «B» در آسانسور B) جدا بررسی می‌شود تا با حروف دیگر اشتباه نشود
     const letter = a.name.match(/\s([A-Za-z])$/)?.[1]
+    const words = normalize(`${a.name} ${a.location}`)
+      .split(' ')
+      .filter((w) => w.length > 1)
     const letterHit = letter ? new RegExp(`(^|\\s)${letter}(\\s|$)`).test(text) : false
-    const total = score + (letterHit ? 2 : 0) - (letter && !letterHit ? 2 : 0)
+    const total = hits(text, words) + (letterHit ? 2 : 0) - (letter && !letterHit ? 2 : 0) + 0.5 * hits(loc, words)
     if (total > bestScore) {
       bestScore = total
       asset = a
@@ -689,5 +723,72 @@ export function issueCharges(period: string, dueDate: string, rows: { unit: stri
       audience: ['all_residents'],
       link: '/resident/charges',
     })
+  })
+}
+
+/* ---- رستوران و کافی‌شاپ: منو و سفارش ---- */
+
+export function saveMenuItem(item: MenuItem) {
+  setState((s) => {
+    const prev = s.menu.find((m) => m.id === item.id)
+    const exists = !!prev
+    let next: DemoState = { ...s, menu: exists ? s.menu.map((m) => (m.id === item.id ? item : m)) : [...s.menu, item] }
+    // «غذای روز» تازه فعال شد → اعلان برای همه‌ی ساکنین
+    if (item.isDailySpecial && !prev?.isDailySpecial && item.availability === 'available') {
+      const venue = fnbVenues.find((v) => v.id === item.venueId)
+      next = pushNotification(next, {
+        kind: 'announcement',
+        title: `غذای روز ${venue?.name ?? ''}: ${item.name}`,
+        body: item.description || (item.price ? `${item.price.toLocaleString('fa-IR')} تومان` : 'همین حالا سفارش دهید'),
+        audience: ['all_residents'],
+        link: '/resident/food-order',
+      })
+    }
+    return next
+  })
+}
+
+export function deleteMenuItem(id: string) {
+  setState((s) => ({ ...s, menu: s.menu.filter((m) => m.id !== id) }))
+}
+
+export function setMenuAvailability(id: string, availability: MenuItem['availability']) {
+  setState((s) => ({ ...s, menu: s.menu.map((m) => (m.id === id ? { ...m, availability } : m)) }))
+}
+
+export function placeFnbOrder(o: Omit<FnbOrder, 'id' | 'orderNumber' | 'placedAt' | 'status'>): string {
+  const id = uid('o')
+  const now = new Date()
+  const hhmm = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
+  setState((s) => {
+    const base = o.venueId === 'v2' ? 2300 : 1050
+    const num = base + s.orders.filter((x) => x.venueId === o.venueId).length
+    const order: FnbOrder = { ...o, id, orderNumber: num.toLocaleString('fa-IR', { useGrouping: false }), placedAt: hhmm, status: 'placed' }
+    return pushNotification({ ...s, orders: [order, ...s.orders] }, {
+      kind: 'ticket',
+      title: `سفارش جدید #${order.orderNumber} — ${o.destinationLabel}`,
+      body: o.items.map((i) => `${i.quantity}× ${i.name}`).join('، '),
+      audience: [o.venueId === 'v2' ? 'perm:cafe' : 'perm:kitchen'],
+      link: o.venueId === 'v2' ? '/staff/cafe' : '/staff/kitchen',
+    })
+  })
+  return id
+}
+
+export function setOrderStatus(id: string, status: OrderStatus) {
+  setState((s) => {
+    const o = s.orders.find((x) => x.id === id)
+    if (!o) return s
+    let next: DemoState = { ...s, orders: s.orders.map((x) => (x.id === id ? { ...x, status } : x)) }
+    if (o.ownerUnit && (status === 'ready' || status === 'rejected')) {
+      next = pushNotification(next, {
+        kind: 'ticket',
+        title: status === 'ready' ? `سفارش #${o.orderNumber} آماده است` : `سفارش #${o.orderNumber} پذیرفته نشد`,
+        body: status === 'ready' ? `به‌زودی به ${o.destinationLabel} تحویل می‌شود` : 'لطفاً با کافی‌شاپ/رستوران تماس بگیرید',
+        audience: [`unit:${o.ownerUnit}`],
+        link: '/resident/food-order',
+      })
+    }
+    return next
   })
 }

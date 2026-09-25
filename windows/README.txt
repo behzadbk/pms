@@ -22,6 +22,7 @@
                   guard@borj-aftab.test     (نگهبان)
                   staff@borj-aftab.test     (کارکنان)
                   accountant@borj-aftab.test (حسابداری)
+     نام کاربری کارکنان: lobby / kitchen / cafe / amenity  (همان رمز)
      رمز:         Passw0rd!
 
   پنل سوپرادمین:  http://localhost:8080/super-admin/login

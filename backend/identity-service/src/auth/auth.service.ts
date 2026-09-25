@@ -6,12 +6,32 @@ import { EventsService } from '../events/events.service'
 import { LoginDto } from './dto/login.dto'
 import { PlatformLoginDto } from './dto/platform-login.dto'
 import { JwtPayload } from './decorators/current-user.decorator'
+import { effectivePermissions } from '../users/staff.constants'
 
 interface UserRow {
   id: string
   full_name: string
-  email: string
+  email: string | null
+  username: string | null
   role: string
+  department: string | null
+  permissions: string[] | null
+  is_active: boolean
+}
+
+const USER_COLUMNS = 'id, full_name, email, username, role, department, permissions, is_active'
+
+/** خروجی کاربر برای فرانت — کارمند بخش و دسترسی‌های مؤثرش را هم می‌گیرد تا پنل خودش باز شود */
+function publicUser(u: UserRow, tenantId: string) {
+  return {
+    id: u.id,
+    fullName: u.full_name,
+    role: u.role,
+    tenantId,
+    ...(u.role === 'staff'
+      ? { department: u.department, permissions: effectivePermissions(u.department, u.permissions) }
+      : {}),
+  }
 }
 
 interface PlatformAdminRow {
@@ -31,6 +51,8 @@ export interface AuthResult {
     role: string
     /** برای سوپرادمین null است — این کاربر به هیچ مجتمعی تعلق ندارد */
     tenantId: string | null
+    department?: string | null
+    permissions?: string[]
   }
 }
 
@@ -42,7 +64,7 @@ export class AuthService {
     private readonly events: EventsService,
   ) {}
 
-  private issueTokens(payload: { sub: string; tenant_id: string | null; role: string; email: string }) {
+  private issueTokens(payload: { sub: string; tenant_id: string | null; role: string; email: string | null }) {
     const accessToken = this.jwt.sign({ ...payload, typ: 'access' }, { expiresIn: '15m' })
     const refreshToken = this.jwt.sign({ ...payload, typ: 'refresh' }, { expiresIn: '30d' })
     return { accessToken, refreshToken }
@@ -62,19 +84,26 @@ export class AuthService {
       throw new UnauthorizedException('مجتمع یافت نشد یا غیرفعال است')
     }
 
-    // ۲) اکنون که tenant مشخص شد، جستجوی کاربر در محدوده همان tenant (از طریق RLS)
+    // ۲) اکنون که tenant مشخص شد، جستجوی کاربر در محدوده همان tenant (از طریق RLS).
+    //    فیلد email هم ایمیل را می‌پذیرد و هم نام کاربری (کارکنانی که مدیر برایشان حساب ساخته).
+    const identifier = dto.email.trim().toLowerCase()
     const user = await this.db.withTenant(tenant.id, async (client) => {
       const res = await client.query(
-        'SELECT id, full_name, email, password_hash, role FROM identity.users WHERE email = $1',
-        [dto.email.trim().toLowerCase()],
+        `SELECT ${USER_COLUMNS}, password_hash FROM identity.users
+          WHERE ${identifier.includes('@') ? 'email' : 'username'} = $1`,
+        [identifier],
       )
-      return res.rows[0]
+      return res.rows[0] as (UserRow & { password_hash: string }) | undefined
     })
-    if (!user || !(await bcrypt.compare(dto.password, user.password_hash))) {
-      throw new UnauthorizedException('ایمیل یا رمز عبور نادرست است')
+    if (!user || !user.is_active || !(await bcrypt.compare(dto.password, user.password_hash))) {
+      throw new UnauthorizedException('نام کاربری/ایمیل یا رمز عبور نادرست است')
     }
 
-    const payload = { sub: user.id, tenant_id: tenant.id, role: user.role, email: user.email }
+    await this.db.withTenant(tenant.id, async (client) => {
+      await client.query('UPDATE identity.users SET last_login_at = now() WHERE id = $1', [user.id])
+    })
+
+    const payload = { sub: user.id, tenant_id: tenant.id, role: user.role, email: user.email ?? user.username }
     const { accessToken, refreshToken } = this.issueTokens(payload)
 
     this.events.publish('user.logged_in', { userId: user.id, tenantId: tenant.id })
@@ -82,7 +111,7 @@ export class AuthService {
     return {
       accessToken,
       refreshToken,
-      user: { id: user.id, fullName: user.full_name, role: user.role, tenantId: tenant.id },
+      user: publicUser(user, tenant.id),
     }
   }
 
@@ -150,17 +179,17 @@ export class AuthService {
     }
 
     const user = await this.fetchUser(payload.tenant_id, payload.sub)
-    if (!user) {
+    if (!user || !user.is_active) {
       throw new UnauthorizedException('کاربر یافت نشد')
     }
 
-    const newPayload = { sub: user.id, tenant_id: payload.tenant_id, role: user.role, email: user.email }
+    const newPayload = { sub: user.id, tenant_id: payload.tenant_id, role: user.role, email: user.email ?? user.username }
     const { accessToken, refreshToken: newRefreshToken } = this.issueTokens(newPayload)
 
     return {
       accessToken,
       refreshToken: newRefreshToken,
-      user: { id: user.id, fullName: user.full_name, role: user.role, tenantId: payload.tenant_id },
+      user: publicUser(user, payload.tenant_id),
     }
   }
 
@@ -174,17 +203,15 @@ export class AuthService {
       return { id: admin.id, fullName: admin.full_name, role: 'super_admin', tenantId: null }
     }
     const user = await this.fetchUser(current.tenant_id, current.sub)
-    if (!user) {
+    if (!user || !user.is_active) {
       throw new UnauthorizedException('کاربر یافت نشد')
     }
-    return { id: user.id, fullName: user.full_name, role: user.role, tenantId: current.tenant_id }
+    return publicUser(user, current.tenant_id)
   }
 
   private fetchUser(tenantId: string, userId: string): Promise<UserRow | undefined> {
     return this.db.withTenant(tenantId, async (client) => {
-      const res = await client.query('SELECT id, full_name, email, role FROM identity.users WHERE id = $1', [
-        userId,
-      ])
+      const res = await client.query<UserRow>(`SELECT ${USER_COLUMNS} FROM identity.users WHERE id = $1`, [userId])
       return res.rows[0]
     })
   }

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { AlertTriangle, ChevronLeft, History, Plus, Sparkles, Wrench, CalendarClock, User } from 'lucide-react'
+import { AlertTriangle, ChevronLeft, History, Plus, Sparkles, Wrench, CalendarClock, User, MapPin } from 'lucide-react'
 import { Card, CardHeader } from '../../components/ui/Card'
 import { StatusPill } from '../../components/ui/StatusPill'
 import { Modal, TextField, TextArea, SelectField, PrimaryButton, GhostButton } from '../../components/ui/Modal'
@@ -76,6 +76,7 @@ export function AdminTickets() {
                   </div>
                   <p className="text-xs text-muted mt-1">
                     {t.unit} · {t.category} · {t.createdAt}
+                    {t.location && ` · محل: ${t.location}`}
                   </p>
                   {(asset || category) && (
                     <p className="text-[11px] text-tile mt-1.5 flex items-center gap-1">
@@ -134,6 +135,11 @@ function TicketDetail({ ticket, onClose }: { ticket: TicketRec; onClose: () => v
             <span className="flex items-center gap-1"><User size={12} /> {ticket.reporter} ({ticket.unit})</span>
             <span className="flex items-center gap-1"><CalendarClock size={12} /> {faDateTime(ticket.createdIso)}</span>
           </div>
+          {ticket.location && (
+            <p className="text-sm bg-tile-soft/50 rounded-xl px-3 py-2 flex items-center gap-2">
+              <MapPin size={14} className="text-tile shrink-0" /> محل: <b>{ticket.location}</b>
+            </p>
+          )}
           <div className="bg-canvas rounded-xl p-4 text-sm leading-7 whitespace-pre-line">{ticket.body || 'توضیحی ثبت نشده است.'}</div>
 
           <div>

@@ -18,7 +18,7 @@ async function session(viewport) {
 async function tenantLogin(page, email, pass = 'Passw0rd!', sub = 'borj-aftab') {
   await page.goto(`${BASE}/login`)
   await page.fill('input[type=text]', sub)
-  await page.fill('input[type=email]', email)
+  await page.fill('#email', email)
   await page.fill('input[type=password]', pass)
   await page.click('button[type=submit]')
 }

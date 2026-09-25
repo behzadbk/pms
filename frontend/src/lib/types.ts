@@ -200,6 +200,11 @@ export interface MenuItem {
   icon: string
   color: string
   availability: ItemAvailability
+  /** عکس آیتم (data URL فشرده) — اختیاری */
+  image?: string
+  description?: string
+  /** «غذای روز» — با فعال شدن برای ساکنین اعلان می‌رود */
+  isDailySpecial?: boolean
 }
 
 export interface DeliveryZone {
@@ -235,6 +240,8 @@ export interface FnbOrder {
   total: number
   placedAt: string
   prepTimeMinutes: number
+  /** واحد سفارش‌دهنده — برای اعلان «سفارش آماده است» به همان ساکن */
+  ownerUnit?: string
 }
 
 /* ---------- ۹.۲ Audit Logging / داشبورد لاگ ---------- */

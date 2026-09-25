@@ -15,7 +15,11 @@ const quickReasons = [
 
 type Filter = 'pending' | 'all' | 'manual'
 
-export function AdminReservations() {
+/**
+ * mode='desk': پنل مسئول مشاعات (مسئول اصلی تایید رزروها)
+ * mode='admin': مدیر ساختمان — همان امکانات، به‌عنوان ناظر/جایگزین
+ */
+export function AdminReservations({ mode = 'admin' }: { mode?: 'admin' | 'desk' }) {
   const { amenities, reservations } = useStore()
   const [activeId, setActiveId] = useState(amenities[0]?.id ?? '')
   const [filter, setFilter] = useState<Filter>('pending')
@@ -40,8 +44,12 @@ export function AdminReservations() {
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
-          <h1 className="text-xl font-bold">رزرو مشاعات</h1>
-          <p className="text-muted text-sm mt-1">تقویم زنده همه فضاهای مشترک و مدیریت درخواست‌های در انتظار تایید</p>
+          <h1 className="text-xl font-bold">{mode === 'desk' ? 'میز مسئول مشاعات' : 'رزرو مشاعات'}</h1>
+          <p className="text-muted text-sm mt-1">
+            {mode === 'desk'
+              ? 'تایید یا رد درخواست‌های رزرو، ثبت رزرو حضوری/تلفنی و تقویم زنده‌ی مشاعات'
+              : 'مسئولیت اصلی تایید رزروها با «مسئول مشاعات» است؛ مدیر هم به همه‌ی امکانات این بخش دسترسی دارد'}
+          </p>
         </div>
         <PrimaryButton onClick={() => setManualOpen(true)}>
           <PhoneCall size={16} />

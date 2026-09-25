@@ -5,6 +5,8 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { ROLE_SWITCHER_ENABLED, useRole, useRoleInfo } from '../context/RoleContext'
 import { useAuth } from '../context/AuthContext'
 import { navByRole } from '../lib/nav'
+import { departmentLabel } from '../lib/staff'
+import { useStaffNav } from '../lib/access'
 import { roles } from '../lib/mockData'
 import type { Role } from '../lib/types'
 import { NotificationPrompt } from './NotificationPrompt'
@@ -30,7 +32,9 @@ export function Layout() {
   const { role, setRole } = useRole()
   const info = useRoleInfo()
   const { user, logout } = useAuth()
-  const nav = navByRole[role]
+  const staffNav = useStaffNav()
+  // کارمند فقط پنل‌هایی را می‌بیند که دسترسی‌شان را دارد
+  const nav = role === 'staff' ? staffNav : navByRole[role]
   const navigate = useNavigate()
   const location = useLocation()
   const [switcherOpen, setSwitcherOpen] = useState(false)
@@ -166,7 +170,7 @@ export function Layout() {
             </div>
             <div className="text-right flex-1 min-w-0">
               <p className="text-sm font-medium truncate">{user?.fullName ?? info.personaName}</p>
-              <p className="text-xs text-white/50 truncate">{info.label}</p>
+              <p className="text-xs text-white/50 truncate">{user?.role === 'staff' ? departmentLabel(user.department) : info.label}</p>
             </div>
             <motion.span animate={{ rotate: switcherOpen ? 180 : 0 }} transition={{ duration: 0.2 }}>
               <ChevronDown size={16} className="text-white/50" />
@@ -220,7 +224,7 @@ export function Layout() {
         <header className="hidden lg:flex h-16 border-b border-line bg-card items-center justify-between px-6 shrink-0">
           <div>
             <p className="text-sm text-muted">خوش آمدید،</p>
-            <p className="font-semibold">{user?.fullName ?? info.personaName} — {info.personaSub}</p>
+            <p className="font-semibold">{user?.fullName ?? info.personaName} — {user?.role === 'staff' ? departmentLabel(user.department) : info.personaSub}</p>
           </div>
           <NotificationBell variant="light" />
         </header>

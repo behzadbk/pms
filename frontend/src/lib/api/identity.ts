@@ -11,6 +11,9 @@ export interface AuthUser {
   role: Role
   /** برای سوپرادمین null است — کاربر سطح پلتفرم به هیچ مجتمعی تعلق ندارد */
   tenantId: string | null
+  /** فقط برای کارکنان (role=staff): بخش و دسترسی‌های مؤثر — تعیین می‌کند کدام پنل‌ها باز شود */
+  department?: string | null
+  permissions?: string[]
 }
 
 export interface LoginResponse {
@@ -19,7 +22,7 @@ export interface LoginResponse {
   user: AuthUser
 }
 
-/** ورود — هر کاربر متعلق به یک tenant (مجتمع) با subdomain مشخص است */
+/** ورود با ایمیل یا نام کاربری — هر کاربر متعلق به یک tenant (مجتمع) با subdomain مشخص است */
 export async function login(email: string, password: string, tenantSubdomain: string): Promise<LoginResponse> {
   const res = await api.post<LoginResponse>('/identity/auth/login', { email, password, tenantSubdomain })
   setToken(res.accessToken)

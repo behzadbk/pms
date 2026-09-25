@@ -3,12 +3,22 @@ import { useNavigate } from 'react-router-dom'
 import { Loader2 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 
+/** آخرین مجتمعی که از این دستگاه وارد شده — روی تبلت لابی/آشپزخانه هر بار تایپ نشود */
+export const LAST_TENANT_KEY = 'hamin.last-tenant'
+function readLastTenant() {
+  try {
+    return localStorage.getItem(LAST_TENANT_KEY) ?? ''
+  } catch {
+    return ''
+  }
+}
+
 export function Login() {
   const { login } = useAuth()
   const navigate = useNavigate()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [tenantSubdomain, setTenantSubdomain] = useState('')
+  const [tenantSubdomain, setTenantSubdomain] = useState(readLastTenant)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -17,7 +27,12 @@ export function Login() {
     setError(null)
     setSubmitting(true)
     try {
-      await login(email, password, tenantSubdomain)
+      await login(email.trim(), password, tenantSubdomain.trim())
+      try {
+        localStorage.setItem(LAST_TENANT_KEY, tenantSubdomain.trim())
+      } catch {
+        /* ignore */
+      }
       navigate('/', { replace: true })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'ورود ناموفق بود')
@@ -57,14 +72,16 @@ export function Login() {
 
           <div className="space-y-1.5">
             <label htmlFor="email" className="text-sm font-medium text-ink-text">
-              ایمیل
+              ایمیل یا نام کاربری
             </label>
             <input
               id="email"
-              type="email"
+              type="text"
+              autoComplete="username"
+              autoCapitalize="none"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@example.com"
+              placeholder="you@example.com یا reza.lobby"
               required
               dir="ltr"
               className="w-full rounded-xl border border-line bg-canvas px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-tile/40"

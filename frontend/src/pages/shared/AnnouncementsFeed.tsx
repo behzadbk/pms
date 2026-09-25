@@ -4,7 +4,8 @@ import { Card } from '../../components/ui/Card'
 import { useRole } from '../../context/RoleContext'
 import { useAuth } from '../../context/AuthContext'
 import { AnnouncementCard } from '../admin/Announcements'
-import { useStore, viewerAudiences, submitVote, markNotificationsRead, type AnnouncementRec } from '../../lib/store'
+import { useStore, submitVote, markNotificationsRead, type AnnouncementRec } from '../../lib/store'
+import { useViewerAudiences } from '../../lib/access'
 
 /**
  * اعلانات و نظرسنجی‌ها از دید ساکن / پرسنل / نگهبانی / حسابداری —
@@ -14,15 +15,17 @@ export function AnnouncementsFeed() {
   const { role } = useRole()
   const { user } = useAuth()
   const { announcements } = useStore()
-  const aud = viewerAudiences(role)
+  const aud = useViewerAudiences()
   const voterKey = user?.id ?? `demo-${role}`
   const mine = announcements
     .filter((a) => a.audience.some((k) => aud.includes(k)))
     .sort((a, b) => Number(b.emergency) - Number(a.emergency))
 
+  const reader = user?.id ?? role
+  const audKey = aud.join('|')
   useEffect(() => {
-    markNotificationsRead(role)
-  }, [role])
+    markNotificationsRead(reader, audKey.split('|'))
+  }, [reader, audKey])
 
   return (
     <div className="space-y-6">

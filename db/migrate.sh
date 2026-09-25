@@ -32,6 +32,7 @@ MIGRATIONS=(
   "backend/identity-service/prisma/migrations/001_enable_rls.sql"
   "backend/identity-service/prisma/migrations/002_platform_admins_and_tiers.sql"
   "backend/identity-service/prisma/migrations/003_accountant_role.sql"
+  "backend/identity-service/prisma/migrations/004_staff_accounts.sql"
   "backend/property-service/prisma/migrations/001_enable_rls.sql"
   "backend/facility-service/prisma/migrations/001_enable_rls.sql"
   "backend/finance-service/prisma/migrations/001_enable_rls.sql"

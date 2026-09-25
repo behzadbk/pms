@@ -3,7 +3,9 @@ import { useNavigate } from 'react-router-dom'
 import { Bell, CalendarRange, Megaphone, Ticket, Vote, Wallet } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useRole } from '../context/RoleContext'
-import { useStore, viewerAudiences, markNotificationsRead, faDateTime, type NotificationRec } from '../lib/store'
+import { useStore, markNotificationsRead, faDateTime, type NotificationRec } from '../lib/store'
+import { useViewerAudiences } from '../lib/access'
+import { useAuth } from '../context/AuthContext'
 
 const kindIcon: Record<NotificationRec['kind'], typeof Bell> = {
   announcement: Megaphone,
@@ -21,9 +23,11 @@ export function NotificationBell({ variant }: { variant: 'dark' | 'light' }) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
-  const aud = viewerAudiences(role)
+  const aud = useViewerAudiences()
+  const { user } = useAuth()
+  const reader = user?.id ?? role
   const mine = notifications.filter((n) => n.audience.some((a) => aud.includes(a)))
-  const unread = mine.filter((n) => !n.readBy.includes(role)).length
+  const unread = mine.filter((n) => !n.readBy.includes(reader)).length
 
   useEffect(() => {
     if (!open) return
@@ -35,8 +39,13 @@ export function NotificationBell({ variant }: { variant: 'dark' | 'light' }) {
   function go(n: NotificationRec) {
     setOpen(false)
     if (!n.link) return
-    // لینک عمومی «/announcements» به صفحه‌ی اعلانات نقش فعلی می‌رود
-    const target = n.link === '/announcements' ? `/${role}/announcements` : n.link
+    // لینک‌های عمومی به صفحه‌ی متناظر در پنل نقش فعلی می‌روند
+    const generic: Record<string, Partial<Record<string, string>>> = {
+      '/announcements': {},
+      '/reservations': { admin: '/admin/reservations', staff: '/staff/amenity-desk' },
+      '/tickets': { admin: '/admin/tickets', staff: '/staff/work-orders' },
+    }
+    const target = n.link in generic ? generic[n.link][role] ?? `/${role}${n.link}` : n.link
     if (target.startsWith(`/${role}`)) navigate(target)
   }
 
@@ -67,7 +76,7 @@ export function NotificationBell({ variant }: { variant: 'dark' | 'light' }) {
             <div className="flex items-center justify-between px-4 py-3 border-b border-line">
               <p className="font-semibold text-sm">اعلان‌ها</p>
               {unread > 0 && (
-                <button onClick={() => markNotificationsRead(role)} className="text-xs text-tile hover:underline">
+                <button onClick={() => markNotificationsRead(reader, aud)} className="text-xs text-tile hover:underline">
                   علامت همه به‌عنوان خوانده‌شده
                 </button>
               )}
@@ -76,7 +85,7 @@ export function NotificationBell({ variant }: { variant: 'dark' | 'light' }) {
               {mine.length === 0 && <p className="text-sm text-muted text-center py-8">اعلانی ندارید</p>}
               {mine.slice(0, 30).map((n) => {
                 const Icon = kindIcon[n.kind]
-                const isUnread = !n.readBy.includes(role)
+                const isUnread = !n.readBy.includes(reader)
                 return (
                   <button
                     key={n.id}

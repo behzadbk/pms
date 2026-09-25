@@ -35,6 +35,11 @@ import { GuardTraffic } from './pages/guard/Traffic'
 import { StaffWorkOrders } from './pages/staff/WorkOrders'
 import { StaffSchedule } from './pages/staff/Schedule'
 import { StaffKitchenDisplay } from './pages/staff/KitchenDisplay'
+import { StaffMenuManager } from './pages/staff/MenuManager'
+import { StaffLobbyDesk, StaffSecurityDesk, StaffAmenityDesk, StaffHome, StaffNoAccess } from './pages/staff/Desks'
+import { AdminStaff } from './pages/admin/Staff'
+import { useHasPermission } from './lib/access'
+import type { StaffPermission } from './lib/staff'
 
 import { SuperAdminDashboard } from './pages/superadmin/Dashboard'
 import { SuperAdminTenants } from './pages/superadmin/Tenants'
@@ -103,6 +108,12 @@ function RequireRole({ role: section, children }: { role: string; children: Reac
   return children
 }
 
+/** پنل‌های کارکنان: علاوه بر نقش staff، دسترسی همان بخش لازم است (مدیر ساختمان/پیش‌نمایش دمو: همه) */
+function RequirePermission({ permission, children }: { permission: StaffPermission | null; children: ReactElement }) {
+  const allowed = useHasPermission(permission)
+  return <RequireRole role="staff">{allowed ? children : <StaffNoAccess />}</RequireRole>
+}
+
 function AppRoutes() {
   return (
     <Routes>
@@ -128,6 +139,7 @@ function AppRoutes() {
         <Route path="/admin/reservations" element={<RequireRole role="admin"><AdminReservations /></RequireRole>} />
         <Route path="/admin/amenity-rules" element={<RequireRole role="admin"><AdminAmenityRules /></RequireRole>} />
         <Route path="/admin/units" element={<RequireRole role="admin"><AdminUnits /></RequireRole>} />
+        <Route path="/admin/staff" element={<RequireRole role="admin"><AdminStaff /></RequireRole>} />
         <Route path="/admin/logs" element={<RequireRole role="admin"><AdminAuditLog /></RequireRole>} />
 
         <Route path="/resident" element={<RequireRole role="resident"><ResidentDashboard /></RequireRole>} />
@@ -145,9 +157,16 @@ function AppRoutes() {
         <Route path="/guard/traffic" element={<RequireRole role="guard"><GuardTraffic /></RequireRole>} />
         <Route path="/guard/announcements" element={<RequireRole role="guard"><AnnouncementsFeed /></RequireRole>} />
 
-        <Route path="/staff" element={<RequireRole role="staff"><StaffWorkOrders /></RequireRole>} />
-        <Route path="/staff/schedule" element={<RequireRole role="staff"><StaffSchedule /></RequireRole>} />
-        <Route path="/staff/kitchen" element={<RequireRole role="staff"><StaffKitchenDisplay /></RequireRole>} />
+        <Route path="/staff" element={<RequireRole role="staff"><StaffHome /></RequireRole>} />
+        <Route path="/staff/lobby" element={<RequirePermission permission="lobby"><StaffLobbyDesk /></RequirePermission>} />
+        <Route path="/staff/amenity-desk" element={<RequirePermission permission="amenity_desk"><StaffAmenityDesk /></RequirePermission>} />
+        <Route path="/staff/kitchen" element={<RequirePermission permission="kitchen"><StaffKitchenDisplay venueId="v1" title="سفارش‌های رستوران" /></RequirePermission>} />
+        <Route path="/staff/cafe" element={<RequirePermission permission="cafe"><StaffKitchenDisplay venueId="v2" title="سفارش‌های کافی‌شاپ" /></RequirePermission>} />
+        <Route path="/staff/menu/restaurant" element={<RequirePermission permission="kitchen"><StaffMenuManager key="restaurant" venue="restaurant" /></RequirePermission>} />
+        <Route path="/staff/menu/cafe" element={<RequirePermission permission="cafe"><StaffMenuManager key="cafe" venue="cafe" /></RequirePermission>} />
+        <Route path="/staff/security" element={<RequirePermission permission="security"><StaffSecurityDesk /></RequirePermission>} />
+        <Route path="/staff/work-orders" element={<RequirePermission permission="maintenance"><StaffWorkOrders /></RequirePermission>} />
+        <Route path="/staff/schedule" element={<RequirePermission permission="maintenance"><StaffSchedule /></RequirePermission>} />
         <Route path="/staff/announcements" element={<RequireRole role="staff"><AnnouncementsFeed /></RequireRole>} />
 
         <Route path="/accountant" element={<RequireRole role="accountant"><AccountantDashboard /></RequireRole>} />

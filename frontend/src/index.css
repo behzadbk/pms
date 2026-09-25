@@ -62,3 +62,9 @@ html {
   background: var(--color-tile-soft);
   color: var(--color-ink);
 }
+
+/* صفحه‌ای که داخل پنل تب‌دار کارکنان جاسازی شده: عنوان تکراری‌اش پنهان می‌شود */
+.staff-embedded > div > div:first-child > h1,
+.staff-embedded > div > div:first-child > h1 + p {
+  display: none;
+}
