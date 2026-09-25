@@ -3,23 +3,25 @@ import { CheckCircle2, AlertTriangle, Loader2, Wallet, ShieldCheck } from 'lucid
 import { Card, CardHeader } from '../../components/ui/Card'
 import { StatusPill } from '../../components/ui/StatusPill'
 import { LiveCalendar } from '../../components/LiveCalendar'
-import { amenitiesList, bookingRules, myBookingCounts, reservations, toman } from '../../lib/mockData'
+import { myBookingCounts, toman } from '../../lib/mockData'
+import { useStore, addReservation, defaultRule, DEMO_RESIDENT_UNIT } from '../../lib/store'
 import { checkBookingRules } from '../../lib/bookingValidation'
 import type { CalendarSlot } from '../../lib/types'
 
 type FlowState = 'idle' | 'checking' | 'blocked' | 'confirm' | 'processing' | 'success'
 
 export function ResidentReservations() {
-  const [activeId, setActiveId] = useState(amenitiesList[0].id)
+  const { amenities: amenitiesList, rules, reservations } = useStore()
+  const [activeId, setActiveId] = useState(amenitiesList[0]?.id ?? '')
   const [flow, setFlow] = useState<FlowState>('idle')
   const [violations, setViolations] = useState<string[]>([])
   const [pickedSlot, setPickedSlot] = useState<CalendarSlot | null>(null)
   const [depositRequired, setDepositRequired] = useState(0)
   const [needsApproval, setNeedsApproval] = useState(false)
 
-  const amenity = amenitiesList.find((a) => a.id === activeId)!
-  const rule = bookingRules[activeId]
-  const mine = reservations.filter((r) => r.unit === 'واحد ۱۲')
+  const amenity = amenitiesList.find((a) => a.id === activeId) ?? amenitiesList[0]
+  const rule = amenity ? rules[amenity.id] ?? defaultRule(amenity.id) : defaultRule('')
+  const mine = reservations.filter((r) => r.unit === DEMO_RESIDENT_UNIT)
 
   function handleSelectSlot(slot: CalendarSlot, dayIndex: number) {
     setPickedSlot(slot)
@@ -47,6 +49,19 @@ export function ResidentReservations() {
   }
 
   function confirmBooking() {
+    if (pickedSlot && amenity) {
+      const h = pickedSlot.startHour
+      const fa = (n: number) => `${n.toLocaleString('fa-IR', { minimumIntegerDigits: 2 })}:۰۰`
+      addReservation({
+        amenityId: amenity.id,
+        amenity: amenity.name,
+        unit: DEMO_RESIDENT_UNIT,
+        date: new Date().toLocaleDateString('fa-IR'),
+        time: `${fa(h)} - ${fa(h + 1)}`,
+        status: needsApproval ? 'pending' : 'confirmed',
+        source: 'app',
+      })
+    }
     setFlow('processing')
     setTimeout(() => setFlow('success'), 1300)
   }
@@ -171,14 +186,20 @@ export function ResidentReservations() {
         <CardHeader title="رزروهای من" />
         <div className="px-5 pb-5 space-y-3">
           {mine.map((r) => (
-            <div key={r.id} className="flex items-center justify-between p-3 rounded-xl border border-line">
-              <div>
-                <p className="text-sm font-medium">{r.amenity}</p>
-                <p className="text-xs text-muted mt-0.5">{r.date} · {r.time}</p>
+            <div key={r.id} className="p-3 rounded-xl border border-line">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium">{r.amenity}</p>
+                  <p className="text-xs text-muted mt-0.5">{r.date} · {r.time}{r.source === 'manual' && ' · ثبت توسط مدیریت'}</p>
+                </div>
+                <StatusPill status={r.status} />
               </div>
-              <StatusPill status={r.status} />
+              {r.status === 'rejected' && r.rejectReason && (
+                <p className="text-xs text-bad bg-bad-soft rounded-lg px-3 py-2 mt-2">دلیل عدم تایید: {r.rejectReason}</p>
+              )}
             </div>
           ))}
+          {mine.length === 0 && <p className="text-sm text-muted text-center py-4">رزروی ندارید</p>}
         </div>
       </Card>
     </div>

@@ -1,7 +1,7 @@
 import {
   LayoutDashboard, Wallet, Landmark, Ticket, Megaphone, CalendarRange,
   Wrench, Building2, QrCode, PackageCheck, CarFront, ClipboardList, SlidersHorizontal, PieChart,
-  Layers, Receipt, CreditCard, UtensilsCrossed, ChefHat, ScrollText,
+  Layers, Receipt, CreditCard, UtensilsCrossed, ChefHat, ScrollText, FileText,
 } from 'lucide-react'
 import type { Role } from './types'
 
@@ -14,8 +14,7 @@ export interface NavItem {
 export const navByRole: Record<Role, NavItem[]> = {
   admin: [
     { to: '/admin', label: 'داشبورد', icon: LayoutDashboard },
-    { to: '/admin/charges', label: 'شارژ و مطالبات', icon: Wallet },
-    { to: '/admin/finance', label: 'صندوق و فاکتورها', icon: Landmark },
+    { to: '/admin/finance', label: 'گزارش مالی', icon: Landmark },
     { to: '/admin/tickets', label: 'تیکت‌ها', icon: Ticket },
     { to: '/admin/announcements', label: 'اعلانات و رأی‌گیری', icon: Megaphone },
     { to: '/admin/reservations', label: 'رزرو مشاعات', icon: CalendarRange },
@@ -31,17 +30,26 @@ export const navByRole: Record<Role, NavItem[]> = {
     { to: '/resident/guest', label: 'صدور کد مهمان', icon: QrCode },
     { to: '/resident/reservations', label: 'رزرو مشاعات', icon: CalendarRange },
     { to: '/resident/tickets', label: 'تیکت‌های من', icon: Ticket },
+    { to: '/resident/announcements', label: 'اعلانات و نظرسنجی', icon: Megaphone },
   ],
   guard: [
     { to: '/guard', label: 'داشبورد نگهبانی', icon: LayoutDashboard },
     { to: '/guard/guest-check', label: 'پنل فوق‌ساده نگهبانی', icon: QrCode },
     { to: '/guard/parcels', label: 'مرسولات پستی', icon: PackageCheck },
     { to: '/guard/traffic', label: 'تردد خودرو', icon: CarFront },
+    { to: '/guard/announcements', label: 'اعلانات', icon: Megaphone },
   ],
   staff: [
     { to: '/staff', label: 'کارهای نگهداری', icon: Wrench },
     { to: '/staff/schedule', label: 'برنامه سرویس دوره‌ای', icon: ClipboardList },
     { to: '/staff/kitchen', label: 'صف آشپزخانه', icon: ChefHat },
+    { to: '/staff/announcements', label: 'اعلانات و نظرسنجی', icon: Megaphone },
+  ],
+  accountant: [
+    { to: '/accountant', label: 'داشبورد حسابداری', icon: LayoutDashboard },
+    { to: '/accountant/charges', label: 'شارژ و مطالبات', icon: Wallet },
+    { to: '/accountant/invoices', label: 'صندوق و فاکتورها', icon: FileText },
+    { to: '/accountant/announcements', label: 'اعلانات', icon: Megaphone },
   ],
   super_admin: [
     { to: '/super-admin', label: 'داشبورد پلتفرم', icon: LayoutDashboard },

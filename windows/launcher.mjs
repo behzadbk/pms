@@ -310,7 +310,7 @@ async function start() {
 
    Building login:  building  borj-aftab
                     admin@borj-aftab.test  /  Passw0rd!
-                    (resident@ / guard@ / staff@ same password)
+                    (resident@ / guard@ / staff@ / accountant@ same password)
    Super admin:     ${url}/super-admin/login
                     behzad / 1234   or   amir / 1234
 

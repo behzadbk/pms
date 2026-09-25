@@ -21,6 +21,7 @@
                   resident@borj-aftab.test  (ساکن)
                   guard@borj-aftab.test     (نگهبان)
                   staff@borj-aftab.test     (کارکنان)
+                  accountant@borj-aftab.test (حسابداری)
      رمز:         Passw0rd!
 
   پنل سوپرادمین:  http://localhost:8080/super-admin/login

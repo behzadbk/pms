@@ -20,6 +20,7 @@ const statusMap: Record<string, { label: string; tone: Tone }> = {
   done: { label: 'انجام‌شده', tone: 'good' },
   confirmed: { label: 'تایید‌شده', tone: 'good' },
   cancelled: { label: 'لغوشده', tone: 'neutral' },
+  rejected: { label: 'تایید نشد', tone: 'bad' },
   active: { label: 'فعال', tone: 'good' },
   trial: { label: 'دوره آزمایشی', tone: 'tile' },
   suspended: { label: 'معلق', tone: 'bad' },

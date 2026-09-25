@@ -1,12 +1,5 @@
 import { Card } from '../../components/ui/Card'
-
-const units = [
-  { unit: 'واحد ۴', owner: 'خانم احمدی', area: 92, occupants: 3, status: 'ساکن مالک' },
-  { unit: 'واحد ۷', owner: 'آقای نوری', area: 105, occupants: 2, status: 'مستأجر' },
-  { unit: 'واحد ۱۲', owner: 'آقای کریمی', area: 98, occupants: 4, status: 'ساکن مالک' },
-  { unit: 'واحد ۱۵', owner: 'خانم رضایی', area: 88, occupants: 1, status: 'مستأجر' },
-  { unit: 'واحد ۲۰', owner: 'آقای صادقی', area: 120, occupants: 3, status: 'خالی' },
-]
+import { unitsDirectory as units } from '../../lib/mockData'
 
 export function AdminUnits() {
   return (

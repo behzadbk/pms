@@ -7,7 +7,6 @@ import { Login } from './pages/Login'
 import { Onboarding, ONBOARDING_SEEN_KEY } from './pages/Onboarding'
 
 import { AdminDashboard } from './pages/admin/Dashboard'
-import { AdminCharges } from './pages/admin/Charges'
 import { AdminFinance } from './pages/admin/Finance'
 import { AdminTickets } from './pages/admin/Tickets'
 import { AdminAnnouncements } from './pages/admin/Announcements'
@@ -15,6 +14,10 @@ import { AdminReservations } from './pages/admin/Reservations'
 import { AdminAmenityRules } from './pages/admin/AmenityRules'
 import { AdminUnits } from './pages/admin/Units'
 import { AdminAuditLog } from './pages/admin/AuditLog'
+import { AnnouncementsFeed } from './pages/shared/AnnouncementsFeed'
+import { AccountantDashboard } from './pages/accountant/Dashboard'
+import { AccountantCharges } from './pages/accountant/Charges'
+import { AccountantInvoices } from './pages/accountant/Invoices'
 
 import { ResidentDashboard } from './pages/resident/Dashboard'
 import { ResidentCharges } from './pages/resident/Charges'
@@ -117,7 +120,8 @@ function AppRoutes() {
         <Route path="/" element={<HomeRedirect />} />
 
         <Route path="/admin" element={<RequireRole role="admin"><AdminDashboard /></RequireRole>} />
-        <Route path="/admin/charges" element={<RequireRole role="admin"><AdminCharges /></RequireRole>} />
+        {/* شارژ و فاکتور به پنل حسابداری منتقل شد؛ مدیر فقط گزارش می‌بیند */}
+        <Route path="/admin/charges" element={<Navigate to="/admin/finance?tab=charges" replace />} />
         <Route path="/admin/finance" element={<RequireRole role="admin"><AdminFinance /></RequireRole>} />
         <Route path="/admin/tickets" element={<RequireRole role="admin"><AdminTickets /></RequireRole>} />
         <Route path="/admin/announcements" element={<RequireRole role="admin"><AdminAnnouncements /></RequireRole>} />
@@ -133,15 +137,23 @@ function AppRoutes() {
         <Route path="/resident/reservations" element={<RequireRole role="resident"><ResidentReservations /></RequireRole>} />
         <Route path="/resident/tickets" element={<RequireRole role="resident"><ResidentTickets /></RequireRole>} />
         <Route path="/resident/food-order" element={<RequireRole role="resident"><ResidentFoodOrder /></RequireRole>} />
+        <Route path="/resident/announcements" element={<RequireRole role="resident"><AnnouncementsFeed /></RequireRole>} />
 
         <Route path="/guard" element={<RequireRole role="guard"><GuardDashboard /></RequireRole>} />
         <Route path="/guard/guest-check" element={<RequireRole role="guard"><GuardGuestCheck /></RequireRole>} />
         <Route path="/guard/parcels" element={<RequireRole role="guard"><GuardParcels /></RequireRole>} />
         <Route path="/guard/traffic" element={<RequireRole role="guard"><GuardTraffic /></RequireRole>} />
+        <Route path="/guard/announcements" element={<RequireRole role="guard"><AnnouncementsFeed /></RequireRole>} />
 
         <Route path="/staff" element={<RequireRole role="staff"><StaffWorkOrders /></RequireRole>} />
         <Route path="/staff/schedule" element={<RequireRole role="staff"><StaffSchedule /></RequireRole>} />
         <Route path="/staff/kitchen" element={<RequireRole role="staff"><StaffKitchenDisplay /></RequireRole>} />
+        <Route path="/staff/announcements" element={<RequireRole role="staff"><AnnouncementsFeed /></RequireRole>} />
+
+        <Route path="/accountant" element={<RequireRole role="accountant"><AccountantDashboard /></RequireRole>} />
+        <Route path="/accountant/charges" element={<RequireRole role="accountant"><AccountantCharges /></RequireRole>} />
+        <Route path="/accountant/invoices" element={<RequireRole role="accountant"><AccountantInvoices /></RequireRole>} />
+        <Route path="/accountant/announcements" element={<RequireRole role="accountant"><AnnouncementsFeed /></RequireRole>} />
 
         <Route path="/super-admin" element={<RequireSuperAdmin><SuperAdminDashboard /></RequireSuperAdmin>} />
         <Route path="/super-admin/buildings" element={<RequireSuperAdmin><SuperAdminBuildings /></RequireSuperAdmin>} />

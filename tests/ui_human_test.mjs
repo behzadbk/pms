@@ -25,7 +25,7 @@ async function tenantLogin(page, email, pass = 'Passw0rd!', sub = 'borj-aftab') 
 const wait = (p, re) => p.waitForURL(re, { timeout: 8000 }).then(() => true).catch(() => false)
 
 // ── ۱. هر نقش بعد از ورود به خانه‌ی خودش می‌رود
-for (const [role, home] of [['admin', /\/admin$/], ['resident', /\/resident$/], ['guard', /\/guard$/], ['staff', /\/staff$/]]) {
+for (const [role, home] of [['admin', /\/admin$/], ['resident', /\/resident$/], ['guard', /\/guard$/], ['staff', /\/staff$/], ['accountant', /\/accountant$/]]) {
   const { ctx, page, errors } = await session({ width: 1366, height: 820 })
   await tenantLogin(page, `${role}@borj-aftab.test`)
   const landed = await wait(page, home)

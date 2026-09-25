@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom'
-import { Building2, Bell, ChevronDown, LogOut, Menu, X } from 'lucide-react'
+import { Building2, ChevronDown, LogOut, Menu, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { ROLE_SWITCHER_ENABLED, useRole, useRoleInfo } from '../context/RoleContext'
@@ -8,6 +8,7 @@ import { navByRole } from '../lib/nav'
 import { roles } from '../lib/mockData'
 import type { Role } from '../lib/types'
 import { NotificationPrompt } from './NotificationPrompt'
+import { NotificationBell } from './NotificationBell'
 
 const MOBILE_TAB_COUNT = 4
 
@@ -86,10 +87,7 @@ export function Layout() {
           </div>
           <p className="font-semibold text-sm truncate">برج آفتاب</p>
         </div>
-        <button className="relative p-2 -ml-2 rounded-lg active:bg-white/10 transition-colors" aria-label="اعلان‌ها">
-          <Bell size={20} />
-          <span className="absolute top-2 left-2 w-2 h-2 rounded-full bg-bad" />
-        </button>
+        <NotificationBell variant="dark" />
       </header>
 
       {/* ---------- Backdrop موبایل ---------- */}
@@ -224,10 +222,7 @@ export function Layout() {
             <p className="text-sm text-muted">خوش آمدید،</p>
             <p className="font-semibold">{user?.fullName ?? info.personaName} — {info.personaSub}</p>
           </div>
-          <button className="relative rounded-full p-2 hover:bg-canvas transition-colors">
-            <Bell size={20} className="text-ink-soft" />
-            <span className="absolute top-1.5 left-1.5 w-2 h-2 rounded-full bg-bad" />
-          </button>
+          <NotificationBell variant="light" />
         </header>
 
         <NotificationPrompt />

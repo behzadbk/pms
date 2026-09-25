@@ -1,4 +1,4 @@
-export type Role = 'admin' | 'resident' | 'guard' | 'staff' | 'super_admin'
+export type Role = 'admin' | 'resident' | 'guard' | 'staff' | 'accountant' | 'super_admin'
 
 export interface RoleInfo {
   id: Role
@@ -39,7 +39,7 @@ export interface Reservation {
   unit: string
   date: string
   time: string
-  status: 'confirmed' | 'pending' | 'cancelled'
+  status: 'confirmed' | 'pending' | 'cancelled' | 'rejected'
 }
 
 export interface GuestPass {

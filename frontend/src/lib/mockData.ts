@@ -4,8 +4,18 @@ export const roles: RoleInfo[] = [
   { id: 'admin', label: 'مدیر ساختمان', personaName: 'م. رستمی', personaSub: 'مدیر برج آفتاب' },
   { id: 'resident', label: 'ساکن / مالک', personaName: 'س. کریمی', personaSub: 'واحد ۱۲ — بلوک A' },
   { id: 'guard', label: 'نگهبانی', personaName: 'ح. یوسفی', personaSub: 'شیفت صبح — درب اصلی' },
-  { id: 'staff', label: 'تکنسین / حسابدار', personaName: 'ن. صادقی', personaSub: 'واحد فنی' },
+  { id: 'staff', label: 'تکنسین / پرسنل', personaName: 'ن. صادقی', personaSub: 'واحد فنی' },
+  { id: 'accountant', label: 'حسابداری', personaName: 'ف. نادری', personaSub: 'حسابدار ساختمان' },
   { id: 'super_admin', label: 'Super-Admin', personaName: 'پ. احمدزاده', personaSub: 'مدیر پلتفرم SaaS' },
+]
+
+/** فهرست واحدها — مشترک بین صفحه‌ی واحدها و محاسبه‌ی شارژ حسابداری */
+export const unitsDirectory = [
+  { unit: 'واحد ۴', owner: 'خانم احمدی', area: 92, occupants: 3, status: 'ساکن مالک' },
+  { unit: 'واحد ۷', owner: 'آقای نوری', area: 105, occupants: 2, status: 'مستأجر' },
+  { unit: 'واحد ۱۲', owner: 'آقای کریمی', area: 98, occupants: 4, status: 'ساکن مالک' },
+  { unit: 'واحد ۱۵', owner: 'خانم رضایی', area: 88, occupants: 1, status: 'مستأجر' },
+  { unit: 'واحد ۲۰', owner: 'آقای صادقی', area: 120, occupants: 3, status: 'خالی' },
 ]
 
 export const charges: Charge[] = [

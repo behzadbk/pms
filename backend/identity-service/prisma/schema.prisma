@@ -63,7 +63,7 @@ model User {
   fullName     String   @map("full_name")
   email        String
   passwordHash String   @map("password_hash")
-  role         String   // admin | resident | guard | staff
+  role         String   // admin | resident | guard | staff | accountant
   isActive     Boolean  @default(true) @map("is_active")
   lastLoginAt  DateTime? @map("last_login_at")
   createdAt    DateTime @default(now()) @map("created_at")

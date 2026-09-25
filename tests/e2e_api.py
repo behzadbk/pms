@@ -22,7 +22,7 @@ def check(group,name,ok,detail=""):
 
 T="borj-aftab"; tok={}
 # ── ۱. احراز هویت
-for r in ["admin","resident","guard","staff"]:
+for r in ["admin","resident","guard","staff","accountant"]:
     s,b=call("identity","POST","/auth/login",{"email":f"{r}@borj-aftab.test","password":"Passw0rd!","tenantSubdomain":T})
     check("auth",f"ورود {r}",s in(200,201) and b["user"]["role"]==r,(s,b)); tok[r]=b.get("accessToken"); tok[r+"_rt"]=b.get("refreshToken")
 s,b=call("identity","POST","/auth/platform-login",{"username":"behzad","password":"1234"}); tok["sa"]=b.get("accessToken")
@@ -69,7 +69,8 @@ if pid:
     s,b=call("finance","POST",f"/payments/webhook/zarinpal/{TID}",{"paymentId":pid,"success":True},headers={"X-Webhook-Signature":sig}); check("finance","webhook امضاشده → پرداخت موفق",s in(200,201) and b.get("status")=="success",(s,b))
     s,b=call("finance","GET",f"/units/{U1}/charges",token=tok["resident"]); check("finance","شارژ بعد از پرداخت «paid» شد",any(c["id"]==CH and c["status"]=="paid" for c in b),b)
     s,b=call("finance","POST","/payments/initiate",{"chargeId":CH},token=tok["resident"]); check("finance","پرداخت دوباره‌ی شارژ پرداخت‌شده → 409",s==409,s)
-s,b=call("finance","POST","/charges/generate-monthly",{"period":"2026-11","formulaId":"a1a1a1a1-0000-0000-0000-000000000001"},token=tok["admin"]); check("finance","صدور شارژ ماهانه (gRPC به property)",s in(200,201) and b.get("generatedCount",0)>0,(s,b))
+s,b=call("finance","POST","/charges/generate-monthly",{"period":"2026-11","formulaId":"a1a1a1a1-0000-0000-0000-000000000001"},token=tok["admin"]); check("finance","صدور شارژ توسط مدیر → 403 (مسئولیت حسابداری)",s==403,s)
+s,b=call("finance","POST","/charges/generate-monthly",{"period":"2026-11","formulaId":"a1a1a1a1-0000-0000-0000-000000000001"},token=tok["accountant"]); check("finance","صدور شارژ ماهانه توسط حسابدار (gRPC به property)",s in(200,201) and b.get("generatedCount",0)>0,(s,b))
 # ── ۶. نگهبانی
 s,b=call("guard","GET","/guest-passes/verify?code=PMS-DEMO-001",token=tok["guard"]); check("guard","بررسی کد مهمان",s==200 and b.get("ok"),(s,b))
 s,b=call("guard","POST",f"/units/{U1}/guest-passes",{"guestName":"مهمان تست","validUntil":(dt.datetime.utcnow()+dt.timedelta(hours=5)).isoformat()+"Z"},token=tok["resident"]); check("guard","ساکن برای واحد خودش کد مهمان صادر می‌کند",s in(200,201),(s,b)); gp=b.get("id") if isinstance(b,dict) else None

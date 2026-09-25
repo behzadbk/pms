@@ -3,9 +3,16 @@ import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianG
 import { Card, CardHeader } from '../../components/ui/Card'
 import { StatCard } from '../../components/ui/StatCard'
 import { StatusPill } from '../../components/ui/StatusPill'
-import { charges, financeSummary, monthlyTrend, tickets, toman } from '../../lib/mockData'
+import { financeSummary, monthlyTrend, toman } from '../../lib/mockData'
+import { useStore } from '../../lib/store'
+import { fundBalance, periods } from '../../lib/finance'
 
 export function AdminDashboard() {
+  const state = useStore()
+  const { tickets } = state
+  const period = periods(state.charges)[0]
+  const charges = state.charges.filter((c) => c.period === period)
+  const overdue = state.charges.filter((c) => c.status === 'overdue')
   return (
     <div className="space-y-6">
       <div>
@@ -14,13 +21,13 @@ export function AdminDashboard() {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard label="موجودی صندوق" value={toman(financeSummary.fundBalance)} icon={Wallet} tone="ink" />
+        <StatCard label="موجودی صندوق" value={toman(fundBalance(state))} icon={Wallet} tone="ink" />
         <StatCard label="درآمد این ماه" value={toman(financeSummary.monthIncome)} icon={TrendingUp} tone="tile" />
         <StatCard label="هزینه این ماه" value={toman(financeSummary.monthExpense)} icon={TrendingDown} tone="brass" />
         <StatCard
           label="مطالبات معوق"
-          value={toman(financeSummary.overdueTotal)}
-          sub={`${financeSummary.overdueUnits} واحد`}
+          value={toman(overdue.reduce((a, c) => a + c.total, 0))}
+          sub={`${overdue.length.toLocaleString('fa-IR')} واحد`}
           icon={AlertTriangle}
           tone="bad"
         />
@@ -72,7 +79,7 @@ export function AdminDashboard() {
       </div>
 
       <Card>
-        <CardHeader title="وضعیت شارژ واحدها — شهریور ۱۴۰۴" />
+        <CardHeader title={`وضعیت شارژ واحدها — ${period ?? ''}`} />
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>

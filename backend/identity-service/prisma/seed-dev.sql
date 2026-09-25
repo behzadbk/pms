@@ -1,4 +1,4 @@
--- داده‌ی اولیه‌ی محیط dev — یک tenant نمونه + یک کاربر برای هر نقش (admin/resident/guard/staff)
+-- داده‌ی اولیه‌ی محیط dev — یک tenant نمونه + یک کاربر برای هر نقش (admin/resident/guard/staff/accountant)
 -- تا بشود از صفحه‌ی ورود فرانت‌اند واقعاً لاگین کرد.
 --
 -- اجرا (بعد از migrate):
@@ -23,5 +23,8 @@ VALUES
    '$2b$10$Fjm6G5zzq8KYymR75QuU/On5WWQSKjm96uN1jTYgFuFp7BPmXTUoq', 'guard', true),
   ('22222222-2222-2222-2222-222222222224', '11111111-1111-1111-1111-111111111111',
    'تکنسین نمونه', 'staff@borj-aftab.test',
-   '$2b$10$Fjm6G5zzq8KYymR75QuU/On5WWQSKjm96uN1jTYgFuFp7BPmXTUoq', 'staff', true)
+   '$2b$10$Fjm6G5zzq8KYymR75QuU/On5WWQSKjm96uN1jTYgFuFp7BPmXTUoq', 'staff', true),
+  ('22222222-2222-2222-2222-222222222225', '11111111-1111-1111-1111-111111111111',
+   'حسابدار نمونه', 'accountant@borj-aftab.test',
+   '$2b$10$Fjm6G5zzq8KYymR75QuU/On5WWQSKjm96uN1jTYgFuFp7BPmXTUoq', 'accountant', true)
 ON CONFLICT (tenant_id, email) DO NOTHING;

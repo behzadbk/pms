@@ -34,7 +34,8 @@ export class ChargesController {
    * — لیست واحدها را از property-svc از طریق gRPC می‌گیرد (نه از دیتابیس محلی)
    * و بر اساس فرمول محاسبه، برای هر واحد یک monthly_charges می‌سازد.
    */
-  @Roles('admin')
+  // صدور شارژ مسئولیت حسابداری است؛ مدیر ساختمان فقط گزارش را می‌بیند
+  @Roles('accountant')
   @Post('charges/generate-monthly')
   async generateMonthly(@Body() body: GenerateMonthlyBody, @CurrentUser() user: JwtPayload) {
     const tenantId = user.tenant_id!

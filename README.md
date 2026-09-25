@@ -429,7 +429,7 @@ npm run dev   # پورت ۵۱۷۳ — پروکسی /api/* را vite.config.ts م
 | فیلد | مقدار |
 |---|---|
 | مجتمع (subdomain) | `borj-aftab` |
-| ایمیل | `admin@borj-aftab.test` (یا `resident@` / `guard@` / `staff@borj-aftab.test`) |
+| ایمیل | `admin@borj-aftab.test` (یا `resident@` / `guard@` / `staff@` / `accountant@borj-aftab.test`) |
 | رمز عبور | `Passw0rd!` |
 
 و برای پنل سوپر ادمین در آدرس `http://localhost:5173/super-admin/login`:
