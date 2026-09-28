@@ -15,18 +15,16 @@ export function ResidentDashboard() {
       </div>
 
       {pending && (
-        <Card className="bg-ink text-white border-none">
-          <div className="p-5 flex items-center justify-between flex-wrap gap-4">
-            <div>
-              <p className="text-white/60 text-sm">شارژ {pending.period}</p>
-              <p className="text-2xl font-bold mt-1">{toman(pending.total)}</p>
-              <p className="text-white/50 text-xs mt-1">سررسید: {pending.dueDate}</p>
-            </div>
-            <Link to="/resident/charges" className="bg-tile px-5 py-2.5 rounded-xl text-sm font-medium hover:opacity-90">
-              پرداخت آنلاین
-            </Link>
+        <div className="lg4-hero p-5 flex items-center justify-between flex-wrap gap-4">
+          <div>
+            <p className="text-white/78 text-sm">شارژ {pending.period}</p>
+            <p className="text-2xl font-bold mt-1">{toman(pending.total)}</p>
+            <p className="text-white/70 text-xs mt-1">سررسید: {pending.dueDate}</p>
           </div>
-        </Card>
+          <Link to="/resident/charges" className="lg4-capsule px-5 py-2.5 text-sm">
+            پرداخت آنلاین
+          </Link>
+        </div>
       )}
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -73,10 +71,8 @@ export function ResidentDashboard() {
 
 function QuickLink({ to, icon: Icon, label }: { to: string; icon: typeof Wallet; label: string }) {
   return (
-    <Link to={to} className="bg-card rounded-2xl border border-line shadow-sm p-4 flex flex-col items-center gap-2.5 hover:border-tile transition-colors">
-      <div className="bg-tile-soft text-tile rounded-xl p-2.5">
-        <Icon size={20} />
-      </div>
+    <Link to={to} className="lg4-card p-4 flex flex-col items-center gap-2.5">
+      <Icon size={23} className="text-[var(--lg4-pri)]" />
       <p className="text-sm font-medium text-center">{label}</p>
     </Link>
   )

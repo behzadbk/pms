@@ -2,9 +2,11 @@ import type { ReactElement } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { RoleProvider, useRole } from './context/RoleContext'
+import { ThemeProvider } from './context/ThemeContext'
 import { Layout } from './components/Layout'
 import { Login } from './pages/Login'
 import { Onboarding, ONBOARDING_SEEN_KEY } from './pages/Onboarding'
+import { Settings } from './pages/shared/Settings'
 
 import { AdminDashboard } from './pages/admin/Dashboard'
 import { AdminFinance } from './pages/admin/Finance'
@@ -129,6 +131,8 @@ function AppRoutes() {
         }
       >
         <Route path="/" element={<HomeRedirect />} />
+        {/* شخصی‌سازی ظاهر — برای هر نقش لاگین‌شده در دسترس است (طراحی Liquid Glass v4) */}
+        <Route path="/settings" element={<Settings />} />
 
         <Route path="/admin" element={<RequireRole role="admin"><AdminDashboard /></RequireRole>} />
         {/* شارژ و فاکتور به پنل حسابداری منتقل شد؛ مدیر فقط گزارش می‌بیند */}
@@ -186,12 +190,14 @@ function AppRoutes() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <RoleProvider>
-        <BrowserRouter>
-          <AppRoutes />
-        </BrowserRouter>
-      </RoleProvider>
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <RoleProvider>
+          <BrowserRouter>
+            <AppRoutes />
+          </BrowserRouter>
+        </RoleProvider>
+      </AuthProvider>
+    </ThemeProvider>
   )
 }

@@ -42,7 +42,13 @@ export function Login() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-canvas px-4">
+    <div
+      className="min-h-screen flex items-center justify-center px-4"
+      style={{
+        background:
+          'radial-gradient(900px 500px at 70% -10%, color-mix(in srgb, var(--lg4-pri) 16%, transparent), transparent), var(--lg-bg-base)',
+      }}
+    >
       <div className="w-full max-w-sm">
         <div className="flex flex-col items-center gap-2 mb-6">
           <img src="/icons/icon-192.png" alt="همین" className="w-16 h-16 rounded-2xl shadow-sm" />
@@ -51,10 +57,7 @@ export function Login() {
           <p className="text-sm text-muted">برای ورود، اطلاعات حساب کاربری خود را وارد کنید</p>
         </div>
 
-        <form
-          onSubmit={handleSubmit}
-          className="bg-card rounded-2xl border border-line shadow-sm p-5 space-y-4"
-        >
+        <form onSubmit={handleSubmit} className="lg4-card p-5 space-y-4">
           <div className="space-y-1.5">
             <label htmlFor="tenantSubdomain" className="text-sm font-medium text-ink-text">
               مجتمع (subdomain)
@@ -66,7 +69,8 @@ export function Login() {
               onChange={(e) => setTenantSubdomain(e.target.value)}
               placeholder="مثلاً borj-aftab"
               required
-              className="w-full rounded-xl border border-line bg-canvas px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-tile/40"
+              className="w-full rounded-2xl border border-[var(--lg-border-hairline)] bg-[var(--lg-bg-elevated)] px-3 py-2.5 text-sm outline-none focus:ring-2"
+              style={{ ['--tw-ring-color' as string]: 'color-mix(in srgb, var(--lg4-pri) 40%, transparent)' }}
             />
           </div>
 
@@ -84,7 +88,8 @@ export function Login() {
               placeholder="you@example.com یا reza.lobby"
               required
               dir="ltr"
-              className="w-full rounded-xl border border-line bg-canvas px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-tile/40"
+              className="w-full rounded-2xl border border-[var(--lg-border-hairline)] bg-[var(--lg-bg-elevated)] px-3 py-2.5 text-sm outline-none focus:ring-2"
+              style={{ ['--tw-ring-color' as string]: 'color-mix(in srgb, var(--lg4-pri) 40%, transparent)' }}
             />
           </div>
 
@@ -100,7 +105,8 @@ export function Login() {
               required
               minLength={6}
               dir="ltr"
-              className="w-full rounded-xl border border-line bg-canvas px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-tile/40"
+              className="w-full rounded-2xl border border-[var(--lg-border-hairline)] bg-[var(--lg-bg-elevated)] px-3 py-2.5 text-sm outline-none focus:ring-2"
+              style={{ ['--tw-ring-color' as string]: 'color-mix(in srgb, var(--lg4-pri) 40%, transparent)' }}
             />
           </div>
 
@@ -111,7 +117,7 @@ export function Login() {
           <button
             type="submit"
             disabled={submitting}
-            className="w-full flex items-center justify-center gap-2 rounded-xl bg-ink text-white py-2.5 text-sm font-medium disabled:opacity-60 active:scale-[0.99] transition-transform"
+            className="lg4-capsule w-full flex items-center justify-center gap-2 py-3 text-sm disabled:opacity-60"
           >
             {submitting && <Loader2 size={16} className="animate-spin" />}
             ورود

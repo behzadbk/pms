@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom'
-import { Building2, ChevronDown, LogOut, Menu, X } from 'lucide-react'
+import { Building2, ChevronDown, LogOut, Menu, Sparkles, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { ROLE_SWITCHER_ENABLED, useRole, useRoleInfo } from '../context/RoleContext'
@@ -91,7 +91,16 @@ export function Layout() {
           </div>
           <p className="font-semibold text-sm truncate">برج آفتاب</p>
         </div>
-        <NotificationBell variant="dark" />
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => navigate('/settings')}
+            className="p-2 rounded-lg active:bg-white/10 transition-colors"
+            aria-label="شخصی‌سازی"
+          >
+            <Sparkles size={19} />
+          </button>
+          <NotificationBell variant="dark" />
+        </div>
       </header>
 
       {/* ---------- Backdrop موبایل ---------- */}
@@ -206,6 +215,14 @@ export function Layout() {
           </button>
 
           <button
+            onClick={() => navigate('/settings')}
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-white/70 hover:bg-white/5 hover:text-white active:bg-white/10 transition-colors"
+          >
+            <Sparkles size={18} strokeWidth={2} />
+            شخصی‌سازی
+          </button>
+
+          <button
             onClick={handleLogout}
             className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-white/70 hover:bg-white/5 hover:text-white active:bg-white/10 transition-colors"
           >
@@ -226,7 +243,16 @@ export function Layout() {
             <p className="text-sm text-muted">خوش آمدید،</p>
             <p className="font-semibold">{user?.fullName ?? info.personaName} — {user?.role === 'staff' ? departmentLabel(user.department) : info.personaSub}</p>
           </div>
-          <NotificationBell variant="light" />
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => navigate('/settings')}
+              className="w-9 h-9 rounded-full lg4-card flex items-center justify-center text-[var(--lg4-pri)]"
+              aria-label="شخصی‌سازی"
+            >
+              <Sparkles size={17} />
+            </button>
+            <NotificationBell variant="light" />
+          </div>
         </header>
 
         <NotificationPrompt />
@@ -246,19 +272,24 @@ export function Layout() {
         </main>
       </div>
 
-      {/* ---------- نوار پایین موبایل ---------- */}
-      <nav className="lg:hidden fixed bottom-0 inset-x-0 z-30 bg-card border-t border-line pb-safe">
-        <div className="flex items-stretch">
+      {/* ---------- نوار تب شناور موبایل (Liquid Glass v4) ---------- */}
+      <nav className="lg:hidden fixed bottom-0 inset-x-0 z-30 px-3 pb-safe pointer-events-none">
+        <div className="lg4-tabbar pointer-events-auto mb-2">
           {tabItems.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
               end={item.to === `/${role}`}
               className={({ isActive }) =>
-                `flex-1 flex flex-col items-center justify-center gap-0.5 py-2 text-[11px] transition-colors active:scale-95 ${
-                  isActive ? 'text-tile' : 'text-muted'
+                `relative flex-1 min-h-[52px] flex flex-col items-center justify-center gap-0.5 rounded-full text-[11px] transition-colors active:scale-95 ${
+                  isActive ? 'font-bold' : 'text-muted'
                 }`
               }
+              style={({ isActive }) => ({
+                color: isActive ? 'var(--lg4-pri)' : undefined,
+                background: isActive ? 'var(--lg4-lens)' : 'transparent',
+                boxShadow: isActive ? 'var(--lg4-lens-shadow)' : 'none',
+              })}
             >
               <item.icon size={20} strokeWidth={2} />
               <span className="truncate max-w-[64px]">{item.label}</span>
@@ -267,7 +298,7 @@ export function Layout() {
           {hasMore && (
             <button
               onClick={() => setDrawerOpen(true)}
-              className="flex-1 flex flex-col items-center justify-center gap-0.5 py-2 text-[11px] text-muted active:scale-95 transition-colors"
+              className="flex-1 min-h-[52px] flex flex-col items-center justify-center gap-0.5 rounded-full text-[11px] text-muted active:scale-95 transition-colors"
             >
               <Menu size={20} strokeWidth={2} />
               <span>بیشتر</span>

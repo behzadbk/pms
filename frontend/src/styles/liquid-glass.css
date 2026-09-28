@@ -134,3 +134,202 @@
     background-color: var(--lg-bg-elevated);
   }
 }
+
+/**
+ * ============================================================================
+ * Liquid Glass v4 — بروزرسانی طراحی/UI-UX (Claude Design handoff، شهریور ۱۴۰۴)
+ * ============================================================================
+ * توکن‌های نسل ۴: کارت‌های شیشه‌ای واقعاً بلوردار (نه فقط پس‌زمینه‌ی مات)، دکمه‌های
+ * کپسولی، نوار تب شناور با لنز متحرک، کارت قهرمان با گرادیان، و سامانه‌ی
+ * «شخصی‌سازی» (حالت نمایش + رنگ‌بندی + حالت آسان + کاهش حرکت). افزوده می‌شود
+ * روی توکن‌های v2 بالا — جایگزین نمی‌کند، همان الگوی مهاجرت تدریجی این فایل.
+ *
+ * رنگ‌بندی پیش‌فرض «teal» را انتخاب کرده‌ایم (نه «blue» پیش‌فرض طراحی) چون به‌شدت
+ * نزدیک به برند فعلی همین (فیروزه‌ای #0e9594 / --color-tile) است؛ رنگ‌بندی‌های
+ * دیگر برای شخصی‌سازی کاربر در دسترس‌اند.
+ */
+
+:root {
+  --lg4-pri: var(--lg-primary);
+  --lg4-pri-soft: var(--lg-primary-soft);
+  --lg4-acc: var(--lg-accent);
+  --lg4-acc-soft: var(--lg-accent-soft);
+  --lg4-hero-a: #14a695;
+  --lg4-hero-b: #0b5e54;
+
+  --lg4-card: rgba(255, 255, 255, 0.5);
+  --lg4-card-border: rgba(255, 255, 255, 0.72);
+  --lg4-inner: rgba(255, 255, 255, 0.52);
+  --lg4-chip: rgba(255, 255, 255, 0.55);
+  --lg4-bar: rgba(255, 255, 255, 0.46);
+  --lg4-sheet: rgba(248, 250, 255, 0.76);
+  --lg4-lens: rgba(255, 255, 255, 0.82);
+  --lg4-fade: rgba(240, 247, 245, 0.72);
+
+  --lg4-shadow: 0 8px 28px rgba(15, 76, 68, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.3);
+  --lg4-shadow-float: 0 14px 40px rgba(15, 76, 68, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    inset 0 -1px 1px rgba(255, 255, 255, 0.35);
+  --lg4-lens-shadow: 0 4px 14px rgba(15, 76, 68, 0.14), inset 0 1px 0 #ffffff,
+    inset 0 -1px 0 rgba(15, 76, 68, 0.06);
+  --lg4-radius: 24px;
+}
+
+[data-theme='dark'] {
+  --lg4-hero-a: #1a9a88;
+  --lg4-hero-b: #0a4a42;
+
+  --lg4-card: rgba(44, 54, 80, 0.4);
+  --lg4-card-border: rgba(255, 255, 255, 0.14);
+  --lg4-inner: rgba(255, 255, 255, 0.07);
+  --lg4-chip: rgba(255, 255, 255, 0.09);
+  --lg4-bar: rgba(30, 38, 60, 0.46);
+  --lg4-sheet: rgba(20, 26, 42, 0.78);
+  --lg4-lens: rgba(255, 255, 255, 0.16);
+  --lg4-fade: rgba(6, 17, 15, 0.7);
+
+  --lg4-shadow: 0 8px 28px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.04);
+  --lg4-shadow-float: 0 14px 40px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    inset 0 -1px 1px rgba(255, 255, 255, 0.06);
+  --lg4-lens-shadow: 0 4px 14px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+
+/* رنگ‌بندی‌های قابل انتخاب — صفحه شخصی‌سازی (data-pal روی <html>) */
+[data-pal='teal'] {
+  --lg4-pri: #0f7c6e;
+  --lg4-acc: #c46a1a;
+  --lg4-hero-a: #1a9a88;
+  --lg4-hero-b: #0b5e54;
+}
+[data-pal='blue'] {
+  --lg4-pri: #2f6bf0;
+  --lg4-acc: #d9691f;
+  --lg4-hero-a: #4a88ff;
+  --lg4-hero-b: #2458d6;
+}
+[data-pal='violet'] {
+  --lg4-pri: #6a4cdb;
+  --lg4-acc: #c93f74;
+  --lg4-hero-a: #8467f0;
+  --lg4-hero-b: #4a2fb8;
+}
+[data-pal='coral'] {
+  --lg4-pri: #c94a24;
+  --lg4-acc: #2f6bf0;
+  --lg4-hero-a: #f07650;
+  --lg4-hero-b: #b83d1d;
+}
+[data-pal='rose'] {
+  --lg4-pri: #c2387a;
+  --lg4-acc: #0f7c6e;
+  --lg4-hero-a: #e0559a;
+  --lg4-hero-b: #9c2360;
+}
+[data-pal='graphite'] {
+  --lg4-pri: #3a4458;
+  --lg4-acc: #d9691f;
+  --lg4-hero-a: #4d586e;
+  --lg4-hero-b: #232a38;
+}
+[data-theme='dark'][data-pal='blue'] { --lg4-pri: #6e9cff; --lg4-hero-a: #3f74e8; --lg4-hero-b: #1d3f9e; }
+[data-theme='dark'][data-pal='teal'] { --lg4-pri: #4fd1b9; --lg4-hero-a: #14806f; --lg4-hero-b: #0a4a42; }
+[data-theme='dark'][data-pal='violet'] { --lg4-pri: #a894ff; --lg4-hero-a: #6a4cdb; --lg4-hero-b: #36218f; }
+[data-theme='dark'][data-pal='coral'] { --lg4-pri: #ff8a66; --lg4-hero-a: #d4552f; --lg4-hero-b: #8e2c12; }
+[data-theme='dark'][data-pal='rose'] { --lg4-pri: #ff7eb6; --lg4-hero-a: #c2387a; --lg4-hero-b: #7a1848; }
+[data-theme='dark'][data-pal='graphite'] { --lg4-pri: #9aa8c2; --lg4-hero-a: #3a4458; --lg4-hero-b: #161b26; }
+
+/* حالت آسان: مقیاس فونت/لمس بزرگ‌تر برای ساکنان مسن‌تر */
+[data-lg-easy='on'] {
+  --lg-easy-scale: 1.16;
+}
+
+/* ---------- کارت شیشه‌ای v4 — بلور واقعی، برای کارت‌های محتوایی و لیست‌ها ---------- */
+.lg4-card {
+  background: var(--lg4-card);
+  border: 1px solid var(--lg4-card-border);
+  border-radius: var(--lg4-radius);
+  box-shadow: var(--lg4-shadow);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+}
+.lg4-card-float {
+  box-shadow: var(--lg4-shadow-float);
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .lg4-card {
+    background: var(--lg-bg-elevated);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lg4-card {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background: var(--lg-bg-elevated);
+  }
+}
+
+/* ---------- کارت قهرمان — گرادیان رنگ اصلی، برای هدر داشبورد/سفارش ---------- */
+.lg4-hero {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--lg4-radius);
+  background: linear-gradient(150deg, var(--lg4-hero-a), var(--lg4-hero-b));
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  box-shadow: 0 18px 44px color-mix(in srgb, var(--lg4-pri) 34%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.45), inset 0 -1px 0 rgba(0, 0, 0, 0.08);
+}
+
+/* ---------- دکمه/چیپ کپسولی ---------- */
+.lg4-capsule {
+  border: none;
+  border-radius: 999px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.18s var(--lg-ease-fluid), box-shadow 0.18s var(--lg-ease-fluid), opacity 0.18s;
+  background: linear-gradient(180deg, color-mix(in oklab, var(--lg4-pri) 80%, white), var(--lg4-pri));
+  color: #fff;
+  box-shadow: 0 8px 22px color-mix(in srgb, var(--lg4-pri) 30%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.4), inset 0 -1px 0 rgba(0, 0, 0, 0.1);
+}
+.lg4-capsule:active {
+  transform: scale(0.98);
+}
+.lg4-capsule:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.lg4-capsule-outline {
+  border: 1px solid var(--lg4-card-border);
+  border-radius: 999px;
+  background: var(--lg4-chip);
+  color: var(--lg-text-primary);
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s var(--lg-ease-fluid);
+}
+
+/* ---------- نوار تب شناور (موبایل) ---------- */
+.lg4-tabbar {
+  display: flex;
+  gap: 4px;
+  padding: 6px;
+  border-radius: 999px;
+  background: var(--lg4-bar);
+  border: 1px solid var(--lg4-card-border);
+  box-shadow: var(--lg4-shadow-float);
+  backdrop-filter: blur(14px) saturate(210%) brightness(1.04);
+  -webkit-backdrop-filter: blur(14px) saturate(210%) brightness(1.04);
+}
+
+/* ---------- هدر بالای صفحه — شیشه‌ای محو‌شونده ---------- */
+.lg4-header-fade {
+  background: linear-gradient(180deg, var(--lg4-fade) 0%, var(--lg4-fade) 45%, transparent 100%);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  mask-image: linear-gradient(180deg, #000 55%, transparent);
+  -webkit-mask-image: linear-gradient(180deg, #000 55%, transparent);
+}

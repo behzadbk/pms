@@ -21,10 +21,11 @@ export function AdminDashboard() {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard label="موجودی صندوق" value={toman(fundBalance(state))} icon={Wallet} tone="ink" />
-        <StatCard label="درآمد این ماه" value={toman(financeSummary.monthIncome)} icon={TrendingUp} tone="tile" />
-        <StatCard label="هزینه این ماه" value={toman(financeSummary.monthExpense)} icon={TrendingDown} tone="brass" />
+        <StatCard glass label="موجودی صندوق" value={toman(fundBalance(state))} icon={Wallet} tone="ink" />
+        <StatCard glass label="درآمد این ماه" value={toman(financeSummary.monthIncome)} icon={TrendingUp} tone="tile" />
+        <StatCard glass label="هزینه این ماه" value={toman(financeSummary.monthExpense)} icon={TrendingDown} tone="brass" />
         <StatCard
+          glass
           label="مطالبات معوق"
           value={toman(overdue.reduce((a, c) => a + c.total, 0))}
           sub={`${overdue.length.toLocaleString('fa-IR')} واحد`}
