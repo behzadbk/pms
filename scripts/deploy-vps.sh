@@ -126,10 +126,13 @@ if [[ -f "$STATE_DIR/deployed-sha" ]]; then
   fi
 fi
 if [[ "$build_all" == 1 ]]; then
-  compose_at "$release" build
-elif (( ${#build_services[@]} )); then
+  build_services=(identity-svc property-svc facility-svc finance-svc guard-svc notification-svc audit-svc fnb-svc frontend)
+fi
+if (( ${#build_services[@]} )); then
   mapfile -t build_services < <(printf '%s\n' "${build_services[@]}" | sort -u)
-  compose_at "$release" build "${build_services[@]}"
+  for build_service in "${build_services[@]}"; do
+    compose_at "$release" build "$build_service"
+  done
 fi
 compose_at "$release" up -d --wait postgres rabbitmq redis
 

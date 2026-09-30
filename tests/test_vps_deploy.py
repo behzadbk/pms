@@ -108,6 +108,17 @@ class DeploymentTest(unittest.TestCase):
         self.assertEqual(second.returncode, 0, second.stderr)
         self.assertEqual(len(self.calls()), count)
 
+    def test_shared_change_builds_each_application_separately(self):
+        (self.repo / 'docker-compose.yml').write_text((self.repo / 'docker-compose.yml').read_text() + '# shared change\n')
+        self.git('add', '.')
+        self.git('commit', '-qm', 'Shared configuration change')
+        result = self.run_deploy()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        builds = [call for call in self.calls() if 'build' in call]
+        self.assertEqual(len(builds), 10)
+        self.assertEqual({call[-1] for call in builds}, {'migrate', 'identity-svc', 'property-svc', 'facility-svc', 'finance-svc', 'guard-svc', 'notification-svc', 'audit-svc', 'fnb-svc', 'frontend'})
+        self.assertTrue(all(call[-2] == 'build' for call in builds))
+
     def test_build_failure_preserves_current_release_and_blocks_repeat(self):
         result = self.run_deploy('build')
         self.assertEqual(result.returncode, 42, result.stderr)

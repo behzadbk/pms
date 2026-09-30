@@ -161,7 +161,9 @@ build_images() {
   step 5/10 "build ایمیج‌ها (بار اول ۵ تا ۱۵ دقیقه طول می‌کشد)"
   dc pull --quiet postgres rabbitmq redis gateway
   dc --profile tools build migrate
-  dc build
+  for build_service in identity-svc property-svc facility-svc finance-svc guard-svc notification-svc audit-svc fnb-svc frontend; do
+    dc build "$build_service"
+  done
   ok "همه‌ی ایمیج‌ها آماده‌اند"
 }
 
