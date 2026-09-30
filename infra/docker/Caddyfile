@@ -1,0 +1,4 @@
+pms.asaantechlab.ir {
+    reverse_proxy 127.0.0.1:8080
+    encode gzip
+}

@@ -31,6 +31,8 @@ Thumbs.db
 # Database / local runtime data
 postgres-data/
 *.sql.bak
+/releases/
+/current
 
 # Docker local overrides
 **/docker-compose.override.yml

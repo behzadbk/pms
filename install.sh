@@ -58,6 +58,13 @@ done
 
 [[ $EUID -eq 0 ]] || die "این اسکریپت باید با sudo اجرا شود:  sudo bash install.sh $*"
 
+# Serialize manual updates with the VPS GitHub watcher when it is installed.
+if [[ "$CMD" == install || "$CMD" == update ]] && [[ -d /var/lib/pms-deploy ]]; then
+  exec 8>/var/lib/pms-deploy/deploy.lock
+  flock 8
+  export COMPOSE_PARALLEL_LIMIT=1
+fi
+
 dc() { docker compose --env-file "$ROOT/.env" -f "$ROOT/docker-compose.yml" "$@"; }
 
 # ─────────────────────────────── ۱) پیش‌نیازها ───────────────────────────────

@@ -1,0 +1,7 @@
+REPOSITORY=https://github.com/behzadbk/pms.git
+BRANCH=main
+STATE_DIR=/var/lib/pms-deploy
+RELEASES_DIR=/opt/pms/releases
+ENV_FILE=/opt/pms/.env
+PUBLIC_URL=https://pms.asaantechlab.ir
+BOOTSTRAP_DIR=/etc/pms-deploy/bootstrap

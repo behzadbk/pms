@@ -4,7 +4,7 @@
 # Build Context باید ریشه مخزن (pms/) باشد، چون هم به frontend/ و هم به infra/docker/nginx.conf نیاز دارد:
 #   docker build -f infra/docker/Dockerfile.frontend -t pms-frontend:latest .
 
-FROM node:20-alpine AS build
+FROM node:24-alpine AS build
 WORKDIR /app
 COPY frontend/package*.json ./
 # NPM_REGISTRY اختیاری — برای سرورهایی که به registry.npmjs.org دسترسی ندارند (مثلاً میرور داخلی)

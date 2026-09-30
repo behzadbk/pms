@@ -13,7 +13,7 @@
 # ریشه، امکان COPY آن‌ها را بدون تغییر ساختار می‌دهد.
 
 # ---------- Stage 1: نصب وابستگی‌ها و build ----------
-FROM node:20-alpine AS builder
+FROM node:24-alpine AS builder
 ARG SERVICE_PATH
 WORKDIR /app
 
@@ -26,18 +26,24 @@ RUN if [ -n "$NPM_REGISTRY" ]; then npm config set registry "$NPM_REGISTRY"; fi 
 COPY ${SERVICE_PATH}/ ./
 RUN npm run build
 
-# حذف devDependencies پس از build تا فقط production deps در layer بعدی کپی شود
-RUN npm prune --omit=dev
+# Install runtime dependencies separately to avoid copying and then pruning
+# thousands of development files through Docker's overlay filesystem.
+FROM node:24-alpine AS dependencies
+ARG SERVICE_PATH
+WORKDIR /app
+COPY ${SERVICE_PATH}/package*.json ./
+ARG NPM_REGISTRY=""
+RUN if [ -n "$NPM_REGISTRY" ]; then npm config set registry "$NPM_REGISTRY"; fi && npm ci --omit=dev --no-audit --no-fund
 
 # ---------- Stage 2: ایمیج نهایی سبک اجرا ----------
-FROM node:20-alpine AS runtime
+FROM node:24-alpine AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
 
 # کاربر غیر-root برای اجرا (سیاست امنیتی K8s PodSecurityStandards: Restricted)
 RUN addgroup -S app && adduser -S app -G app
 
-COPY --from=builder --chown=app:app /app/node_modules ./node_modules
+COPY --from=dependencies --chown=app:app /app/node_modules ./node_modules
 COPY --from=builder --chown=app:app /app/dist ./dist
 COPY --from=builder --chown=app:app /app/package.json ./package.json
 
