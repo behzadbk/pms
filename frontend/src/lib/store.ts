@@ -64,6 +64,9 @@ export function viewerAudiences(role: Role, perms: string[] = []): AudienceKey[]
   switch (role) {
     case 'resident':
       return ['all_residents', 'owners', 'block:A', 'unit:واحد ۱۲']
+    case 'child':
+      // کودک فقط اطلاعیه‌های عمومی ساکنین را می‌بیند (نه مالکین/مجمع)
+      return ['all_residents']
     case 'admin':
       return ['admin']
     case 'staff':

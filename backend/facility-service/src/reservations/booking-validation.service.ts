@@ -36,7 +36,7 @@ export class BookingValidationService {
     const periodStart = this.startOfPeriod(rule.period_type, startAt)
     const countRes = await client.query(
       `SELECT COUNT(*) FROM facility.reservations
-       WHERE amenity_id = $1 AND unit_id = $2 AND status IN ('confirmed', 'pending_approval')
+       WHERE amenity_id = $1 AND unit_id = $2 AND status IN ('confirmed', 'pending')
          AND start_at >= $3`,
       [rule.amenity_id, unitId, periodStart],
     )
@@ -58,7 +58,7 @@ export class BookingValidationService {
     // ۴) بررسی همپوشانی (پیش‌بررسی UX-پسند — تضمین نهایی همچنان EXCLUDE Constraint دیتابیس است)
     const overlapRes = await client.query(
       `SELECT 1 FROM facility.reservations
-       WHERE amenity_id = $1 AND status IN ('confirmed', 'pending_approval')
+       WHERE amenity_id = $1 AND status IN ('confirmed', 'pending')
          AND tstzrange(start_at, end_at) && tstzrange($2, $3)`,
       [rule.amenity_id, startAt, endAt],
     )

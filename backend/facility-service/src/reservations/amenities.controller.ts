@@ -18,7 +18,9 @@ export class AmenitiesController {
   @Get()
   async list(@CurrentUser() user: JwtPayload) {
     return this.db.withTenant(user.tenant_id!, async (client) => {
-      const res = await client.query(`SELECT * FROM facility.amenities ORDER BY name`)
+      const res = await client.query(
+        `SELECT *, requires_approval AS needs_approval FROM facility.amenities WHERE is_active ORDER BY requires_approval DESC, name`,
+      )
       return res.rows
     })
   }

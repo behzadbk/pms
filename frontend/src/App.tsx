@@ -7,6 +7,22 @@ import { Layout } from './components/Layout'
 import { Login } from './pages/Login'
 import { Onboarding, ONBOARDING_SEEN_KEY } from './pages/Onboarding'
 import { Settings } from './pages/shared/Settings'
+import { MoreScreen } from './components/Layout'
+import { PermissionsProvider, usePermissions } from './context/PermissionsContext'
+import type { AppModule } from './lib/api/residents'
+import { AdminResidents } from './pages/admin/residents/Residents'
+import { AdminResidentForm } from './pages/admin/residents/ResidentForm'
+import { AdminUnitFile } from './pages/admin/residents/UnitFile'
+import { AdminJoinRequests } from './pages/admin/residents/JoinRequests'
+import { AdminMoveOut } from './pages/admin/residents/MoveOut'
+import { SuperAdminResidents, SuperAdminBuildingResidents, SuperAdminUserFile } from './pages/superadmin/Residents'
+import { ResidentHousehold } from './pages/resident/household/Household'
+import { ResidentHouseholdAdd } from './pages/resident/household/AddMember'
+import { ResidentParentControl } from './pages/resident/household/ParentControl'
+import { ResidentChildLogin, ResidentChildRequests } from './pages/resident/household/ChildAccess'
+import { ResidentBook } from './pages/resident/Book'
+import { ChildHome, ChildWaiting, ChildQuiet, ChildBook } from './pages/child/ChildApp'
+import { LobbyJoin, AcceptInvite } from './pages/public/Join'
 
 import { AdminDashboard } from './pages/admin/Dashboard'
 import { AdminFinance } from './pages/admin/Finance'
@@ -14,7 +30,6 @@ import { AdminTickets } from './pages/admin/Tickets'
 import { AdminAnnouncements } from './pages/admin/Announcements'
 import { AdminReservations } from './pages/admin/Reservations'
 import { AdminAmenityRules } from './pages/admin/AmenityRules'
-import { AdminUnits } from './pages/admin/Units'
 import { AdminAuditLog } from './pages/admin/AuditLog'
 import { AnnouncementsFeed } from './pages/shared/AnnouncementsFeed'
 import { AccountantDashboard } from './pages/accountant/Dashboard'
@@ -25,7 +40,6 @@ import { ResidentDashboard } from './pages/resident/Dashboard'
 import { ResidentCharges } from './pages/resident/Charges'
 import { ResidentFinance } from './pages/resident/Finance'
 import { ResidentGuestPass } from './pages/resident/GuestPass'
-import { ResidentReservations } from './pages/resident/Reservations'
 import { ResidentTickets } from './pages/resident/Tickets'
 import { ResidentFoodOrder } from './pages/resident/FoodOrder'
 
@@ -116,12 +130,26 @@ function RequirePermission({ permission, children }: { permission: StaffPermissi
   return <RequireRole role="staff">{allowed ? children : <StaffNoAccess />}</RequireRole>
 }
 
+/**
+ * بخشی که در /me/permissions «پنهان» است فقط از منو حذف نمی‌شود: لینک مستقیمش هم به خانه برمی‌گردد.
+ */
+function RequireModule({ module, children }: { module: AppModule; children: ReactElement }) {
+  const { visible, perms } = usePermissions()
+  const { role } = useRole()
+  if (perms && !visible(module)) return <Navigate to={`/${role}`} replace />
+  return children
+}
+
 function AppRoutes() {
   return (
     <Routes>
       <Route path="/onboarding" element={<Onboarding />} />
       <Route path="/login" element={<Login />} />
       <Route path="/super-admin/login" element={<SuperAdminLogin />} />
+      {/* عمومی: QR لابی، لینک دعوت پیامکی، اسکن QR خانواده با دوربین */}
+      <Route path="/join/:token" element={<LobbyJoin />} />
+      <Route path="/invite/:token" element={<AcceptInvite />} />
+      <Route path="/family-login" element={<Login />} />
 
       <Route
         element={
@@ -133,6 +161,7 @@ function AppRoutes() {
         <Route path="/" element={<HomeRedirect />} />
         {/* شخصی‌سازی ظاهر — برای هر نقش لاگین‌شده در دسترس است (طراحی Liquid Glass v4) */}
         <Route path="/settings" element={<Settings />} />
+        <Route path="/more" element={<MoreScreen />} />
 
         <Route path="/admin" element={<RequireRole role="admin"><AdminDashboard /></RequireRole>} />
         {/* شارژ و فاکتور به پنل حسابداری منتقل شد؛ مدیر فقط گزارش می‌بیند */}
@@ -142,18 +171,39 @@ function AppRoutes() {
         <Route path="/admin/announcements" element={<RequireRole role="admin"><AdminAnnouncements /></RequireRole>} />
         <Route path="/admin/reservations" element={<RequireRole role="admin"><AdminReservations /></RequireRole>} />
         <Route path="/admin/amenity-rules" element={<RequireRole role="admin"><AdminAmenityRules /></RequireRole>} />
-        <Route path="/admin/units" element={<RequireRole role="admin"><AdminUnits /></RequireRole>} />
+        {/* ساکنین (RESIDENTS.md §3) — صفحه‌ی قدیمی «واحدها» با پرونده‌ی واحد جایگزین شد */}
+        <Route path="/admin/units" element={<Navigate to="/admin/residents" replace />} />
+        <Route path="/admin/residents" element={<RequireRole role="admin"><AdminResidents /></RequireRole>} />
+        <Route path="/admin/residents/new" element={<RequireRole role="admin"><AdminResidentForm /></RequireRole>} />
+        <Route path="/admin/residents/requests" element={<RequireRole role="admin"><AdminJoinRequests /></RequireRole>} />
+        <Route path="/admin/units/:id" element={<RequireRole role="admin"><AdminUnitFile /></RequireRole>} />
+        <Route path="/admin/units/:id/edit" element={<RequireRole role="admin"><AdminResidentForm /></RequireRole>} />
+        <Route path="/admin/units/:id/move-out" element={<RequireRole role="admin"><AdminMoveOut /></RequireRole>} />
         <Route path="/admin/staff" element={<RequireRole role="admin"><AdminStaff /></RequireRole>} />
         <Route path="/admin/logs" element={<RequireRole role="admin"><AdminAuditLog /></RequireRole>} />
 
         <Route path="/resident" element={<RequireRole role="resident"><ResidentDashboard /></RequireRole>} />
-        <Route path="/resident/charges" element={<RequireRole role="resident"><ResidentCharges /></RequireRole>} />
-        <Route path="/resident/finance" element={<RequireRole role="resident"><ResidentFinance /></RequireRole>} />
-        <Route path="/resident/guest" element={<RequireRole role="resident"><ResidentGuestPass /></RequireRole>} />
-        <Route path="/resident/reservations" element={<RequireRole role="resident"><ResidentReservations /></RequireRole>} />
-        <Route path="/resident/tickets" element={<RequireRole role="resident"><ResidentTickets /></RequireRole>} />
-        <Route path="/resident/food-order" element={<RequireRole role="resident"><ResidentFoodOrder /></RequireRole>} />
-        <Route path="/resident/announcements" element={<RequireRole role="resident"><AnnouncementsFeed /></RequireRole>} />
+        <Route path="/resident/charges" element={<RequireRole role="resident"><RequireModule module="finance"><ResidentCharges /></RequireModule></RequireRole>} />
+        <Route path="/resident/finance" element={<RequireRole role="resident"><RequireModule module="finance"><ResidentFinance /></RequireModule></RequireRole>} />
+        <Route path="/resident/guest" element={<RequireRole role="resident"><RequireModule module="guest"><ResidentGuestPass /></RequireModule></RequireRole>} />
+        <Route path="/resident/reservations" element={<RequireRole role="resident"><RequireModule module="amenity"><ResidentBook /></RequireModule></RequireRole>} />
+        <Route path="/resident/tickets" element={<RequireRole role="resident"><RequireModule module="ticket"><ResidentTickets /></RequireModule></RequireRole>} />
+        <Route path="/resident/food-order" element={<RequireRole role="resident"><RequireModule module="food"><ResidentFoodOrder /></RequireModule></RequireRole>} />
+        <Route path="/resident/announcements" element={<RequireRole role="resident"><RequireModule module="notice"><AnnouncementsFeed /></RequireModule></RequireRole>} />
+        {/* خانوار من، حالت والدین، ورود کودک، درخواست‌های کودک */}
+        <Route path="/resident/family" element={<RequireRole role="resident"><RequireModule module="household"><ResidentHousehold /></RequireModule></RequireRole>} />
+        <Route path="/resident/family/add" element={<RequireRole role="resident"><RequireModule module="household"><ResidentHouseholdAdd /></RequireModule></RequireRole>} />
+        <Route path="/resident/family/requests" element={<RequireRole role="resident"><RequireModule module="household"><ResidentChildRequests /></RequireModule></RequireRole>} />
+        <Route path="/resident/family/requests/:id" element={<RequireRole role="resident"><RequireModule module="household"><ResidentChildRequests /></RequireModule></RequireRole>} />
+        <Route path="/resident/family/:id/parent" element={<RequireRole role="resident"><RequireModule module="household"><ResidentParentControl /></RequireModule></RequireRole>} />
+        <Route path="/resident/family/:id/login" element={<RequireRole role="resident"><RequireModule module="household"><ResidentChildLogin /></RequireModule></RequireRole>} />
+
+        {/* اپ کودک — دو تب؛ بخش پنهان نه تب دارد، نه کاشی، نه لینک */}
+        <Route path="/child" element={<RequireRole role="child"><ChildHome /></RequireRole>} />
+        <Route path="/child/announcements" element={<RequireRole role="child"><RequireModule module="notice"><AnnouncementsFeed /></RequireModule></RequireRole>} />
+        <Route path="/child/book" element={<RequireRole role="child"><RequireModule module="amenity"><ChildBook /></RequireModule></RequireRole>} />
+        <Route path="/child/waiting/:id" element={<RequireRole role="child"><ChildWaiting /></RequireRole>} />
+        <Route path="/child/quiet" element={<RequireRole role="child"><ChildQuiet /></RequireRole>} />
 
         <Route path="/guard" element={<RequireRole role="guard"><GuardDashboard /></RequireRole>} />
         <Route path="/guard/guest-check" element={<RequireRole role="guard"><GuardGuestCheck /></RequireRole>} />
@@ -180,6 +230,9 @@ function AppRoutes() {
 
         <Route path="/super-admin" element={<RequireSuperAdmin><SuperAdminDashboard /></RequireSuperAdmin>} />
         <Route path="/super-admin/buildings" element={<RequireSuperAdmin><SuperAdminBuildings /></RequireSuperAdmin>} />
+        <Route path="/super-admin/residents" element={<RequireSuperAdmin><SuperAdminResidents /></RequireSuperAdmin>} />
+        <Route path="/super-admin/residents/:id" element={<RequireSuperAdmin><SuperAdminBuildingResidents /></RequireSuperAdmin>} />
+        <Route path="/super-admin/users/:id" element={<RequireSuperAdmin><SuperAdminUserFile /></RequireSuperAdmin>} />
         <Route path="/super-admin/tenants" element={<RequireSuperAdmin><SuperAdminTenants /></RequireSuperAdmin>} />
         <Route path="/super-admin/plans" element={<RequireSuperAdmin><SuperAdminPlans /></RequireSuperAdmin>} />
         <Route path="/super-admin/billing" element={<RequireSuperAdmin><SuperAdminBilling /></RequireSuperAdmin>} />
@@ -193,9 +246,11 @@ export default function App() {
     <ThemeProvider>
       <AuthProvider>
         <RoleProvider>
-          <BrowserRouter>
-            <AppRoutes />
-          </BrowserRouter>
+          <PermissionsProvider>
+            <BrowserRouter>
+              <AppRoutes />
+            </BrowserRouter>
+          </PermissionsProvider>
         </RoleProvider>
       </AuthProvider>
     </ThemeProvider>

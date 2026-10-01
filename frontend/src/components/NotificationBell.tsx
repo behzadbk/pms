@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Bell, CalendarRange, Megaphone, Ticket, Vote, Wallet } from 'lucide-react'
+import { Bell, CalendarRange, Megaphone, Ticket, Vote, Wallet, UsersRound } from 'lucide-react'
+import { residentsApi, ago, type InboxItem } from '../lib/api/residents'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useRole } from '../context/RoleContext'
 import { useStore, markNotificationsRead, faDateTime, type NotificationRec } from '../lib/store'
@@ -27,7 +28,36 @@ export function NotificationBell({ variant }: { variant: 'dark' | 'light' }) {
   const { user } = useAuth()
   const reader = user?.id ?? role
   const mine = notifications.filter((n) => n.audience.some((a) => aud.includes(a)))
-  const unread = mine.filter((n) => !n.readBy.includes(reader)).length
+  // صندوق اعلان سرور (notification.inbox): درخواست کودک، درخواست عضویت، رزرو منتظر تأیید، …
+  const [inbox, setInbox] = useState<InboxItem[]>([])
+  const loadInbox = useRef<() => void>(() => undefined)
+  useEffect(() => {
+    if (!user || user.role === 'super_admin') return
+    let alive = true
+    loadInbox.current = () =>
+      residentsApi
+        .inbox()
+        .then((r) => alive && setInbox(r.items))
+        .catch(() => undefined)
+    loadInbox.current()
+    const t = window.setInterval(() => loadInbox.current(), 30_000)
+    return () => {
+      alive = false
+      window.clearInterval(t)
+    }
+  }, [user])
+  const unread = mine.filter((n) => !n.readBy.includes(reader)).length + inbox.filter((n) => !n.read).length
+
+  /** لینک‌های سرور برای نقش فعلی (مثلاً مدیر به‌جای میز مسئول مشاعات به رزروها می‌رود) */
+  function goInbox(n: InboxItem) {
+    setOpen(false)
+    residentsApi.readInbox(n.id).then(() => loadInbox.current()).catch(() => undefined)
+    let to = n.link
+    if (to === '/staff/amenity-desk' && role === 'admin') to = '/admin/reservations'
+    if (to === '/resident/reservations' && role === 'child') to = '/child'
+    if (n.kind === 'child_request_result' || n.kind === 'child_request_expired') to = role === 'child' ? `/child/waiting/${n.ref_id}` : to
+    if (to) navigate(to)
+  }
 
   useEffect(() => {
     if (!open) return
@@ -76,13 +106,36 @@ export function NotificationBell({ variant }: { variant: 'dark' | 'light' }) {
             <div className="flex items-center justify-between px-4 py-3 border-b border-line">
               <p className="font-semibold text-sm">اعلان‌ها</p>
               {unread > 0 && (
-                <button onClick={() => markNotificationsRead(reader, aud)} className="text-xs text-tile hover:underline">
+                <button
+                  onClick={() => {
+                    markNotificationsRead(reader, aud)
+                    residentsApi.readInbox('all').then(() => loadInbox.current()).catch(() => undefined)
+                  }}
+                  className="text-xs text-tile hover:underline"
+                >
                   علامت همه به‌عنوان خوانده‌شده
                 </button>
               )}
             </div>
             <div className="max-h-96 overflow-y-auto">
-              {mine.length === 0 && <p className="text-sm text-muted text-center py-8">اعلانی ندارید</p>}
+              {mine.length === 0 && inbox.length === 0 && <p className="text-sm text-muted text-center py-8">اعلانی ندارید</p>}
+              {inbox.slice(0, 20).map((n) => (
+                <button
+                  key={n.id}
+                  onClick={() => goInbox(n)}
+                  className={`w-full text-right flex gap-3 px-4 py-3 border-b border-line last:border-0 hover:bg-canvas ${!n.read ? 'bg-tile-soft/40' : ''}`}
+                >
+                  <span className="w-8 h-8 shrink-0 rounded-full bg-canvas flex items-center justify-center text-tile">
+                    {n.kind.startsWith('reservation') ? <CalendarRange size={15} /> : <UsersRound size={15} />}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className={`block text-sm truncate ${!n.read ? 'font-bold' : 'font-medium'}`}>{n.title}</span>
+                    {n.body && <span className="block text-xs text-muted mt-0.5 line-clamp-2">{n.body}</span>}
+                    <span className="block text-[11px] text-muted/70 mt-1">{ago(n.created_at)}</span>
+                  </span>
+                  {!n.read && <span className="w-2 h-2 rounded-full bg-tile mt-2 shrink-0" />}
+                </button>
+              ))}
               {mine.slice(0, 30).map((n) => {
                 const Icon = kindIcon[n.kind]
                 const isUnread = !n.readBy.includes(reader)

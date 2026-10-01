@@ -20,18 +20,19 @@ export const ROLE_SWITCHER_ENABLED =
 
 export function RoleProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth()
-  const [role, setRole] = useState<Role>(user?.role ?? 'admin')
+  // نقشی که سوییچر دمو انتخاب کرده؛ null = نقش واقعی کاربر. قبلاً نقش در state جدا نگه داشته می‌شد
+  // و در اولین رندر بعد از بازیابی نشست هنوز 'admin' بود؛ در حالت توسعه رفرش روی لینک مستقیم
+  // (مثلاً /resident/family/requests) کاربر را به خانه‌ی نقش پرت می‌کرد.
+  const [override, setOverride] = useState<Role | null>(null)
 
-  // بعد از لاگین واقعی (یا بازیابی نشست)، نقش UI با نقش واقعی کاربر همگام می‌شود.
-  // (سوییچر نقش در Layout همچنان برای پیش‌نمایش دمو در دسترس است و می‌تواند override کند.)
   useEffect(() => {
-    if (user) setRole(user.role)
+    setOverride(null)
   }, [user])
 
-  // در حالت عادی نقش مؤثر همیشه نقش واقعی کاربر است و setRole کاری نمی‌کند
-  const effectiveRole = ROLE_SWITCHER_ENABLED ? role : ((user?.role as Role | undefined) ?? role)
+  const realRole = (user?.role as Role | undefined) ?? 'admin'
+  const effectiveRole = ROLE_SWITCHER_ENABLED ? override ?? realRole : realRole
   const guardedSetRole = (r: Role) => {
-    if (ROLE_SWITCHER_ENABLED) setRole(r)
+    if (ROLE_SWITCHER_ENABLED) setOverride(r)
   }
 
   return <RoleContext.Provider value={{ role: effectiveRole, setRole: guardedSetRole }}>{children}</RoleContext.Provider>

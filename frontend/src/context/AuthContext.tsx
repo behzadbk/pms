@@ -3,6 +3,7 @@ import { getToken } from '../lib/api/client'
 import { identityApi, platformApi } from '../lib/api'
 import type { AuthUser } from '../lib/api/identity'
 import { ApiError } from '../lib/api/client'
+import { residentsApi } from '../lib/api/residents'
 
 interface AuthContextValue {
   /** کاربر لاگین‌شده فعلی — null یعنی هنوز لاگین نشده (یا نشست منقضی شده) */
@@ -13,6 +14,8 @@ interface AuthContextValue {
   login: (email: string, password: string, tenantSubdomain: string) => Promise<void>
   /** ورود سوپرادمین با نام کاربری/رمز (بدون subdomain) */
   loginPlatform: (username: string, password: string) => Promise<void>
+  /** ورود کودک با کد ۶ رقمی یا QR خانواده (یک‌بارمصرف، ۵ دقیقه) */
+  loginFamily: (tenantSubdomain: string, code: { code?: string; qr_token?: string }) => Promise<void>
   logout: () => void
 }
 
@@ -72,13 +75,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  async function loginFamily(tenantSubdomain: string, code: { code?: string; qr_token?: string }) {
+    setError(null)
+    try {
+      const res = await residentsApi.familyCode(tenantSubdomain, code)
+      setUser({ id: res.user.id, fullName: res.user.fullName, role: 'child', tenantId: res.user.tenantId })
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'ورود ناموفق بود')
+      throw err
+    }
+  }
+
   function logout() {
     identityApi.logout()
     setUser(null)
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, error, login, loginPlatform, logout }}>
+    <AuthContext.Provider value={{ user, loading, error, login, loginPlatform, loginFamily, logout }}>
       {children}
     </AuthContext.Provider>
   )

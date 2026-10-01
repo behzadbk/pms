@@ -333,3 +333,319 @@
   mask-image: linear-gradient(180deg, #000 55%, transparent);
   -webkit-mask-image: linear-gradient(180deg, #000 55%, transparent);
 }
+
+/* ============================================================================
+ * Hamino v5 — ماژول ساکنین، خانوار، حالت والدین و رزرو مشاعات
+ * مرجع: «Hamino - New Modules v2.dc.html». نام‌های طراحی (--pri, --g-card, …) روی
+ * توکن‌های موجود v4 نگاشت شده‌اند تا رنگ‌بندی/حالت تیره‌ی شخصی‌سازی همین‌جا هم اعمال شود.
+ * مقیاس تایپ ۱۲/۱۴/۱۶/۲۰ (+۲۸ برای عدد قهرمان)، وزن فقط ۴۰۰/۷۰۰، شعاع ۱۲/۱۶/۲۴.
+ * ========================================================================== */
+:root {
+  --hm-pri: var(--lg4-pri);
+  --hm-pri-soft: color-mix(in srgb, var(--lg4-pri) 13%, transparent);
+  --hm-acc: var(--lg4-acc);
+  --hm-acc-soft: color-mix(in srgb, var(--lg4-acc) 15%, transparent);
+  --hm-ok: var(--lg-success);
+  --hm-ok-soft: color-mix(in srgb, var(--lg-success) 14%, transparent);
+  --hm-warn: #a86f00;
+  --hm-warn-soft: color-mix(in srgb, #d39a1c 17%, transparent);
+  --hm-bad: var(--lg-danger);
+  --hm-bad-soft: color-mix(in srgb, var(--lg-danger) 13%, transparent);
+  --hm-t1: var(--lg-text-primary);
+  --hm-t2: var(--lg-text-secondary);
+  --hm-t3: var(--lg-text-tertiary);
+  --hm-hair: var(--lg-border-hairline);
+  --hm-ease: cubic-bezier(0.32, 0.72, 0, 1);
+}
+[data-theme='dark'] {
+  --hm-warn: #e0b04d;
+}
+
+.hm-card {
+  border-radius: 24px;
+  background: var(--lg4-card);
+  border: 1px solid var(--lg4-card-border);
+  box-shadow: var(--lg4-shadow);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+}
+.hm-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-radius: 16px;
+  background: var(--lg4-card);
+  border: 1px solid var(--lg4-card-border);
+  box-shadow: var(--lg4-shadow);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  text-align: right;
+  width: 100%;
+  transition: transform 0.18s var(--hm-ease);
+}
+button.hm-row:active,
+a.hm-row:active {
+  transform: scale(0.985);
+}
+.hm-row-dashed {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-radius: 16px;
+  border: 1.5px dashed var(--lg4-card-border);
+  background: color-mix(in srgb, var(--lg4-card) 55%, transparent);
+  width: 100%;
+  text-align: right;
+}
+.hm-divided > * + * {
+  border-top: 1px solid var(--hm-hair);
+}
+
+.hm-back {
+  width: 44px;
+  height: 44px;
+  flex: none;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--lg4-card);
+  border: 1px solid var(--lg4-card-border);
+  box-shadow: var(--lg4-shadow);
+  color: var(--hm-t1);
+}
+
+.hm-chip {
+  flex: none;
+  min-height: 36px;
+  padding: 0 14px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  background: var(--lg4-chip);
+  color: var(--hm-t1);
+  border: 1px solid var(--lg4-card-border);
+  white-space: nowrap;
+}
+.hm-chip[data-on='true'] {
+  background: var(--hm-pri);
+  border-color: var(--hm-pri);
+  color: #fff;
+}
+
+.hm-seg {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 999px;
+  background: var(--lg4-inner);
+  border: 1px solid var(--lg4-card-border);
+}
+.hm-seg > button {
+  flex: 1;
+  min-height: 40px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--hm-t2);
+  background: transparent;
+  transition: background 0.2s var(--hm-ease), color 0.2s var(--hm-ease);
+}
+.hm-seg > button[data-on='true'] {
+  background: var(--lg4-lens);
+  color: var(--hm-pri);
+  box-shadow: var(--lg4-lens-shadow);
+}
+.hm-seg-sm > button {
+  min-height: 34px;
+}
+
+.hm-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.6;
+  padding: 2px 8px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.hm-tone-pri { background: var(--hm-pri-soft); color: var(--hm-pri); }
+.hm-tone-ok { background: var(--hm-ok-soft); color: var(--hm-ok); }
+.hm-tone-warn { background: var(--hm-warn-soft); color: var(--hm-warn); }
+.hm-tone-bad { background: var(--hm-bad-soft); color: var(--hm-bad); }
+.hm-tone-acc { background: var(--hm-acc-soft); color: var(--hm-acc); }
+.hm-tone-mute { background: var(--lg4-chip); color: var(--hm-t2); }
+
+.hm-icon-tile {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  padding: 10px;
+  background: var(--hm-pri-soft);
+  color: var(--hm-pri);
+}
+
+.hm-cta {
+  width: 100%;
+  min-height: 52px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 16px;
+  font-weight: 700;
+}
+.hm-cta-ghost {
+  min-height: 52px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 700;
+  background: var(--lg4-chip);
+  border: 1px solid var(--lg4-card-border);
+  color: var(--hm-t1);
+}
+.hm-cta-danger {
+  min-height: 52px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: 999px;
+  font-size: 16px;
+  font-weight: 700;
+  color: #fff;
+  background: linear-gradient(180deg, color-mix(in oklab, var(--hm-bad) 82%, white), var(--hm-bad));
+  box-shadow: 0 8px 22px color-mix(in srgb, var(--hm-bad) 28%, transparent), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+/* CTA چسبیده به پایین صفحه، بالای نوار تب */
+.hm-sticky {
+  position: sticky;
+  bottom: calc(84px + env(safe-area-inset-bottom));
+  z-index: 20;
+  padding-top: 12px;
+  background: linear-gradient(to top, var(--lg-bg-base) 55%, transparent);
+}
+@media (min-width: 1024px) {
+  .hm-sticky {
+    bottom: 0;
+    padding-bottom: 12px;
+  }
+}
+
+.hm-toggle {
+  width: 51px;
+  height: 31px;
+  border-radius: 999px;
+  position: relative;
+  flex: none;
+  background: rgba(120, 130, 150, 0.3);
+  transition: background 0.2s var(--hm-ease);
+}
+.hm-toggle[data-on='true'] {
+  background: var(--hm-ok);
+}
+.hm-toggle::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  right: 22px;
+  width: 27px;
+  height: 27px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
+  transition: right 0.22s cubic-bezier(0.34, 1.45, 0.64, 1);
+}
+.hm-toggle[data-on='true']::after {
+  right: 2px;
+}
+
+.hm-input {
+  width: 100%;
+  border: none;
+  outline: none;
+  background: transparent;
+  padding: 0;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--hm-t1);
+}
+.hm-input::placeholder {
+  color: var(--hm-t3);
+  font-weight: 400;
+}
+
+.hm-avatar {
+  width: 44px;
+  height: 44px;
+  flex: none;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  font-weight: 700;
+}
+.hm-unitno {
+  width: 52px;
+  height: 52px;
+  flex: none;
+  border-radius: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 700;
+  background: var(--hm-pri-soft);
+  color: var(--hm-pri);
+}
+.hm-bar {
+  height: 6px;
+  border-radius: 99px;
+  background: var(--hm-hair);
+  overflow: hidden;
+}
+.hm-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: 99px;
+  background: var(--hm-pri);
+  transition: width 0.4s var(--hm-ease);
+}
+.hm-note {
+  display: flex;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  line-height: 1.7;
+}
+.hm-fade-in {
+  animation: hm-fade 0.28s var(--hm-ease) both;
+}
+@keyframes hm-fade {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes hm-pulse {
+  0% { transform: scale(0.9); opacity: 0.55; }
+  70% { transform: scale(1.35); opacity: 0; }
+  100% { opacity: 0; }
+}
+@keyframes hm-spark {
+  from { transform: rotate(var(--a)) translateY(0) scale(1); opacity: 1; }
+  to { transform: rotate(var(--a)) translateY(-54px) scale(0.2); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hm-fade-in { animation: none; }
+}

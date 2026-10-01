@@ -6,6 +6,7 @@ export DATABASE_URL="${DATABASE_URL:-postgresql://app_user:testpass@localhost:54
 export JWT_SECRET="${JWT_SECRET:-local_e2e_secret_32_chars_minimum_xx}"
 export PAYMENT_WEBHOOK_SECRET="${PAYMENT_WEBHOOK_SECRET:-local_webhook_secret}"
 export PROPERTY_SVC_GRPC_URL="${PROPERTY_SVC_GRPC_URL:-localhost:50052}"
+export RESIDENTS_HOUSEKEEPING_THROTTLE_MS="${RESIDENTS_HOUSEKEEPING_THROTTLE_MS:-0}"
 export REDIS_HOST="${REDIS_HOST:-localhost}" RABBITMQ_URL="${RABBITMQ_URL:-amqp://guest:guest@localhost:5672}"
 i=1
 for s in identity property facility finance guard notification audit fnb; do

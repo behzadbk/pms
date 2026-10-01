@@ -1,4 +1,4 @@
-export type Role = 'admin' | 'resident' | 'guard' | 'staff' | 'accountant' | 'super_admin'
+export type Role = 'admin' | 'resident' | 'guard' | 'staff' | 'accountant' | 'super_admin' | 'child'
 
 export interface RoleInfo {
   id: Role
