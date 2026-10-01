@@ -5,6 +5,7 @@ import { StatusPill } from '../../components/ui/StatusPill'
 import { LiveCalendar } from '../../components/LiveCalendar'
 import { Modal, TextField, TextArea, SelectField, PrimaryButton, GhostButton } from '../../components/ui/Modal'
 import { useStore, addReservation, decideReservation, faDateTime, type ReservationRec } from '../../lib/store'
+import { ReservationQueue } from '../../components/reservations/ReservationQueue'
 
 const quickReasons = [
   'این بازه قبلاً برای برنامه‌ی ساختمان رزرو شده است',
@@ -56,6 +57,8 @@ export function AdminReservations({ mode = 'admin' }: { mode?: 'admin' | 'desk' 
           ثبت دستی رزرو
         </PrimaryButton>
       </div>
+
+      <ReservationQueue />
 
       <div className="flex gap-2 flex-wrap">
         {amenities.map((a) => (

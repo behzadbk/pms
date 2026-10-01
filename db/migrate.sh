@@ -42,12 +42,19 @@ MIGRATIONS=(
   "backend/audit-service/prisma/migrations/001_audit_schema.sql"
   "backend/fnb-service/prisma/migrations/001_fnb_schema.sql"
   "db/migrations/900_grants_and_indexes.sql"
+  # ── بعد از 900 اضافه شده‌اند؛ هر کدام دسترسی و RLS خودش را کامل می‌سازد، پس روی
+  #    دیتابیس‌های موجودی که 900 را قبلاً اجرا کرده‌اند هم درست اجرا می‌شوند.
+  #    نکته: داخل این آرایه پرانتز ننویسید؛ windows/launcher.mjs آن را با regex می‌خواند.
+  "backend/identity-service/prisma/migrations/005_residents_household.sql"
+  "backend/facility-service/prisma/migrations/002_amenity_reservations_v2.sql"
+  "backend/notification-service/prisma/migrations/002_inbox.sql"
 )
 
 SEEDS=(
   "backend/identity-service/prisma/seed-dev.sql"
   "backend/identity-service/prisma/seed-platform-admins.sql"
   "db/seeds/003_demo_operational_data.sql"
+  "db/seeds/004_residents_demo.sql"
 )
 
 log() { printf '%s\n' "$*"; }
@@ -125,7 +132,7 @@ case "${1:-}" in
   --seed)   cmd_migrate; cmd_seed ;;
   --reset)
     log "⚠  حذف کامل اسکیماها…"
-    "${PSQL[@]}" -c "DROP SCHEMA IF EXISTS identity, property, facility, finance, guard, notification, audit, fnb, platform CASCADE" >/dev/null
+    "${PSQL[@]}" -c "DROP SCHEMA IF EXISTS residency, identity, property, facility, finance, guard, notification, audit, fnb, platform CASCADE" >/dev/null
     cmd_migrate; cmd_seed ;;
   "")       cmd_migrate ;;
   *)        log "گزینه نامعتبر: $1"; exit 1 ;;

@@ -3,10 +3,11 @@ import { jwtSecret } from './jwt-secret'
 import { PassportStrategy } from '@nestjs/passport'
 import { ExtractJwt, Strategy } from 'passport-jwt'
 import { JwtPayload } from './decorators/current-user.decorator'
+import { DatabaseService } from '../database/database.service'
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
-  constructor() {
+  constructor(private readonly db: DatabaseService) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
@@ -23,6 +24,26 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     // refreshToken (عمر ۳۰ روزه) نباید به‌عنوان accessToken روی Endpointها پذیرفته شود
     if (payload.typ === 'refresh') {
       throw new UnauthorizedException('از refreshToken نمی‌توان برای دسترسی استفاده کرد')
+    }
+    // «خروج از همه‌ی دستگاه‌ها»، مسدودسازی، تخلیه و حذف عضو: در identity-svc فوراً اعمال می‌شود
+    // (سرویس‌های دیگر حداکثر تا انقضای ۱۵ دقیقه‌ای accessToken؛ تمدید هم رد می‌شود).
+    if (payload.tenant_id && payload.role !== 'super_admin') {
+      const revoked = await this.db.withTenant(payload.tenant_id, async (c) => {
+        const r = payload.kind === 'family'
+          ? await c.query<{ ok: boolean }>(
+            `SELECT (p.status = 'active' AND m.status = 'active'
+                     AND to_timestamp($3) >= p.sessions_valid_after - interval '1 second') AS ok
+               FROM residency.users p JOIN residency.memberships m ON m.user_id = p.id AND m.id = $2
+              WHERE p.id = $1`, [payload.sub, payload.mid ?? null, payload.iat ?? 0])
+          : await c.query<{ ok: boolean }>(
+            `SELECT (u.is_active
+                     AND COALESCE(p.status, 'active') = 'active'
+                     AND to_timestamp($2) >= GREATEST(u.sessions_valid_after, COALESCE(p.sessions_valid_after, '-infinity')) - interval '1 second') AS ok
+               FROM identity.users u LEFT JOIN residency.users p ON p.id = u.person_id
+              WHERE u.id = $1`, [payload.sub, payload.iat ?? 0])
+        return !r.rows[0]?.ok
+      })
+      if (revoked) throw new UnauthorizedException('نشست شما باطل شده است؛ دوباره وارد شوید')
     }
     return payload
   }

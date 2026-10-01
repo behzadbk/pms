@@ -72,7 +72,7 @@ export class ReservationsController {
         throw new ConflictException({ message: 'این رزرو مجاز نیست', violations: check.violations })
       }
 
-      const status = amenity.requires_approval ? 'pending_approval' : 'confirmed'
+      const status = amenity.requires_approval ? 'pending' : 'confirmed'
 
       // نکته: حتی با عبور از چک بالا، درج زیر ممکن است به‌خاطر EXCLUDE Constraint
       // (رزرو هم‌زمان رقیب) با خطای دیتابیس رد شود — این دقیقاً لایه دفاعی دوم
@@ -96,7 +96,7 @@ export class ReservationsController {
 
       const reservation = insertRes.rows[0]
       this.events.publish(
-        status === 'pending_approval' ? 'reservation.pending_approval' : 'reservation.created',
+        status === 'pending' ? 'reservation.pending_approval' : 'reservation.created',
         { reservationId: reservation.id, unitId: body.unitId, amenityId, startAt: body.startAt },
         tenantId,
       )

@@ -6,6 +6,7 @@ import { AuthModule } from './auth/auth.module'
 import { UsersModule } from './users/users.module'
 import { EventsModule } from './events/events.module'
 import { PlatformModule } from './platform/platform.module'
+import { ResidentsModule } from './residents/residents.module'
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { PlatformModule } from './platform/platform.module'
     AuthModule,
     UsersModule,
     PlatformModule,
+    ResidentsModule,
   ],
 })
 export class AppModule {}

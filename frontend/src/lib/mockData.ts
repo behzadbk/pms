@@ -7,6 +7,7 @@ export const roles: RoleInfo[] = [
   { id: 'staff', label: 'تکنسین / پرسنل', personaName: 'ن. صادقی', personaSub: 'واحد فنی' },
   { id: 'accountant', label: 'حسابداری', personaName: 'ف. نادری', personaSub: 'حسابدار ساختمان' },
   { id: 'super_admin', label: 'Super-Admin', personaName: 'پ. احمدزاده', personaSub: 'مدیر پلتفرم SaaS' },
+  { id: 'child', label: 'کودک (حالت والدین)', personaName: 'سارا', personaSub: 'واحد ۱۲۰۴ · حالت والدین' },
 ]
 
 /** فهرست واحدها — مشترک بین صفحه‌ی واحدها و محاسبه‌ی شارژ حسابداری */

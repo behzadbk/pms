@@ -9,6 +9,9 @@ import { JwtPayload } from './decorators/current-user.decorator'
 import { effectivePermissions } from '../users/staff.constants'
 
 interface UserRow {
+  person_id: string | null
+  person_status: string | null
+  sessions_valid_after: Date | null
   id: string
   full_name: string
   email: string | null
@@ -19,7 +22,17 @@ interface UserRow {
   is_active: boolean
 }
 
-const USER_COLUMNS = 'id, full_name, email, username, role, department, permissions, is_active'
+// person_status/sessions_valid_after از حساب شخص (ماژول ساکنین) می‌آید: مسدودی/خروج از همه‌ی دستگاه‌ها
+const USER_COLUMNS = `id, full_name, email, username, role, department, permissions, is_active, person_id,
+  (SELECT p.status FROM residency.users p WHERE p.id = identity.users.person_id) AS person_status,
+  GREATEST(sessions_valid_after,
+           COALESCE((SELECT p.sessions_valid_after FROM residency.users p WHERE p.id = identity.users.person_id), '-infinity')) AS sessions_valid_after`
+
+/** توکنی که قبل از «خروج از همه‌ی دستگاه‌ها»/تخلیه/مسدودی صادر شده دیگر تمدید نمی‌شود */
+export function tokenRevoked(iat: number | undefined, validAfter: Date | null | undefined): boolean {
+  if (!validAfter || !isFinite(new Date(validAfter).getTime())) return false
+  return !iat || iat * 1000 < new Date(validAfter).getTime() - 999
+}
 
 /** خروجی کاربر برای فرانت — کارمند بخش و دسترسی‌های مؤثرش را هم می‌گیرد تا پنل خودش باز شود */
 function publicUser(u: UserRow, tenantId: string) {
@@ -31,6 +44,15 @@ function publicUser(u: UserRow, tenantId: string) {
     ...(u.role === 'staff'
       ? { department: u.department, permissions: effectivePermissions(u.department, u.permissions) }
       : {}),
+    ...(u.person_id ? { personId: u.person_id } : {}),
+  }
+}
+
+/** ادعاهای اضافه‌ی توکن: شخص (برای ماژول ساکنین) و دسترسی کارمند (برای سرویس‌های دیگر) */
+function extraClaims(u: UserRow) {
+  return {
+    ...(u.person_id ? { pid: u.person_id } : {}),
+    ...(u.role === 'staff' ? { perms: effectivePermissions(u.department, u.permissions) } : {}),
   }
 }
 
@@ -64,7 +86,7 @@ export class AuthService {
     private readonly events: EventsService,
   ) {}
 
-  private issueTokens(payload: { sub: string; tenant_id: string | null; role: string; email: string | null }) {
+  private issueTokens(payload: { sub: string; tenant_id: string | null; role: string; email: string | null; pid?: string; perms?: string[] }) {
     const accessToken = this.jwt.sign({ ...payload, typ: 'access' }, { expiresIn: '15m' })
     const refreshToken = this.jwt.sign({ ...payload, typ: 'refresh' }, { expiresIn: '30d' })
     return { accessToken, refreshToken }
@@ -98,12 +120,15 @@ export class AuthService {
     if (!user || !user.is_active || !(await bcrypt.compare(dto.password, user.password_hash))) {
       throw new UnauthorizedException('نام کاربری/ایمیل یا رمز عبور نادرست است')
     }
+    if (user.person_status === 'blocked') {
+      throw new UnauthorizedException('این حساب توسط پشتیبانی مسدود شده است')
+    }
 
     await this.db.withTenant(tenant.id, async (client) => {
       await client.query('UPDATE identity.users SET last_login_at = now() WHERE id = $1', [user.id])
     })
 
-    const payload = { sub: user.id, tenant_id: tenant.id, role: user.role, email: user.email ?? user.username }
+    const payload = { sub: user.id, tenant_id: tenant.id, role: user.role, email: user.email ?? user.username, ...extraClaims(user) }
     const { accessToken, refreshToken } = this.issueTokens(payload)
 
     this.events.publish('user.logged_in', { userId: user.id, tenantId: tenant.id })
@@ -178,12 +203,29 @@ export class AuthService {
       }
     }
 
-    const user = await this.fetchUser(payload.tenant_id, payload.sub)
-    if (!user || !user.is_active) {
-      throw new UnauthorizedException('کاربر یافت نشد')
+    // نشست کودک (کد خانواده): عضویت باید هنوز فعال باشد
+    if (payload.kind === 'family') {
+      const child = await this.fetchFamilyMember(payload.tenant_id, payload.mid, payload.sub)
+      if (!child || tokenRevoked(payload.iat, child.sessions_valid_after)) {
+        throw new UnauthorizedException('دسترسی این حساب قطع شده است')
+      }
+      const p = { sub: child.id, pid: child.id, tenant_id: payload.tenant_id, role: 'child', email: null, kind: 'family' as const, mid: payload.mid }
+      return {
+        accessToken: this.jwt.sign({ ...p, typ: 'access' }, { expiresIn: '15m' }),
+        refreshToken: this.jwt.sign({ ...p, typ: 'refresh' }, { expiresIn: '90d' }),
+        user: { id: child.id, fullName: child.name, role: 'child', tenantId: payload.tenant_id, membershipId: payload.mid },
+      } as AuthResult
     }
 
-    const newPayload = { sub: user.id, tenant_id: payload.tenant_id, role: user.role, email: user.email ?? user.username }
+    const user = await this.fetchUser(payload.tenant_id, payload.sub)
+    if (!user || !user.is_active || user.person_status === 'blocked') {
+      throw new UnauthorizedException('کاربر یافت نشد')
+    }
+    if (tokenRevoked(payload.iat, user.sessions_valid_after)) {
+      throw new UnauthorizedException('نشست شما باطل شده است؛ دوباره وارد شوید')
+    }
+
+    const newPayload = { sub: user.id, tenant_id: payload.tenant_id, role: user.role, email: user.email ?? user.username, ...extraClaims(user) }
     const { accessToken, refreshToken: newRefreshToken } = this.issueTokens(newPayload)
 
     return {
@@ -202,11 +244,29 @@ export class AuthService {
       }
       return { id: admin.id, fullName: admin.full_name, role: 'super_admin', tenantId: null }
     }
+    if (current.kind === 'family') {
+      const child = await this.fetchFamilyMember(current.tenant_id, current.mid, current.sub)
+      if (!child) throw new UnauthorizedException('دسترسی این حساب قطع شده است')
+      return { id: child.id, fullName: child.name, role: 'child', tenantId: current.tenant_id, membershipId: current.mid }
+    }
     const user = await this.fetchUser(current.tenant_id, current.sub)
-    if (!user || !user.is_active) {
+    if (!user || !user.is_active || user.person_status === 'blocked') {
       throw new UnauthorizedException('کاربر یافت نشد')
     }
     return publicUser(user, current.tenant_id)
+  }
+
+  /** کودکِ نشست خانواده — فقط اگر عضویتش فعال و حساب شخص فعال باشد */
+  private fetchFamilyMember(tenantId: string, membershipId: string | undefined, personId: string) {
+    if (!membershipId) return Promise.resolve(undefined)
+    return this.db.withTenant(tenantId, async (client) => {
+      const res = await client.query<{ id: string; name: string; sessions_valid_after: Date }>(
+        `SELECT p.id, p.name, p.sessions_valid_after FROM residency.memberships m JOIN residency.users p ON p.id = m.user_id
+          WHERE m.id = $1 AND m.user_id = $2 AND m.status = 'active' AND p.status = 'active'`,
+        [membershipId, personId],
+      )
+      return res.rows[0]
+    })
   }
 
   private fetchUser(tenantId: string, userId: string): Promise<UserRow | undefined> {

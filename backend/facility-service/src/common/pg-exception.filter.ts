@@ -18,6 +18,7 @@ const PG_CODE_TO_HTTP: Record<string, { status: number; message: string }> = {
   '23505': { status: HttpStatus.CONFLICT, message: 'این رکورد قبلاً ثبت شده است' },
   '23514': { status: HttpStatus.BAD_REQUEST, message: 'مقدار ورودی مجاز نیست' },
   '42501': { status: HttpStatus.FORBIDDEN, message: 'دسترسی به این داده مجاز نیست' },
+  '23P01': { status: HttpStatus.CONFLICT, message: 'این بازه‌ی زمانی قبلاً رزرو شده است' },
 }
 
 @Catch()
