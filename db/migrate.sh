@@ -48,6 +48,7 @@ MIGRATIONS=(
   "backend/identity-service/prisma/migrations/005_residents_household.sql"
   "backend/facility-service/prisma/migrations/002_amenity_reservations_v2.sql"
   "backend/notification-service/prisma/migrations/002_inbox.sql"
+  "db/migrations/910_role_test_accounts.sql"
 )
 
 SEEDS=(
