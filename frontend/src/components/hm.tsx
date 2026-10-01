@@ -5,6 +5,7 @@
  * کلاس‌ها در styles/liquid-glass.css (بخش Hamino v5) تعریف شده‌اند.
  */
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
 import { ArrowRight, Check, Loader2, X, type LucideIcon } from 'lucide-react'
@@ -235,7 +236,9 @@ export function Sheet({ open, onClose, children, label }: { open: boolean; onClo
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [open, onClose])
-  return (
+  // پورتال به body: والد صفحه transform دارد (انیمیشن ورود) و fixed داخل آن نسبت به خودش جا می‌گیرد،
+  // پس بدون پورتال برگه زیر نوار تب می‌ماند.
+  return createPortal(
     <AnimatePresence>
       {open && (
         <div className="fixed inset-0 z-[60] flex flex-col justify-end" role="dialog" aria-modal="true" aria-label={label}>
@@ -269,7 +272,8 @@ export function Sheet({ open, onClose, children, label }: { open: boolean; onClo
           </motion.div>
         </div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body,
   )
 }
 
@@ -343,7 +347,7 @@ export function useToast() {
     t.current = window.setTimeout(() => setMsg(''), 2800)
   }, [])
   useEffect(() => () => window.clearTimeout(t.current), [])
-  return { toast: show, toastNode: <GlassToast message={msg} /> }
+  return { toast: show, toastNode: createPortal(<GlassToast message={msg} />, document.body) }
 }
 
 /** بارگذاری ساده‌ی داده با وضعیت loading/error و reload */

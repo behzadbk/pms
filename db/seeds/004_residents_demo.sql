@@ -134,8 +134,9 @@ INSERT INTO facility.reservations (id, tenant_id, amenity_id, unit_id, requested
 ON CONFLICT (id) DO NOTHING;
 
 -- ── تاریخچه‌ی نمونه در audit (برای «پرونده شخص» سوپرادمین) ───────────────────
-SELECT audit.ensure_month_partition(CURRENT_DATE);
-SELECT audit.ensure_month_partition(CURRENT_DATE - 31);
+-- تاریخچه‌ی نمونه تا ۳۰ روز قبل است؛ پارتیشن ماه‌های اخیر را مطمئن کن
+SELECT audit.ensure_month_partition(d::date) FROM generate_series(CURRENT_DATE - 62, CURRENT_DATE, interval '1 month') d;
+SELECT audit.ensure_month_partition((now() - interval '30 days')::date);
 INSERT INTO audit.event_logs (tenant_id, occurred_at, session_id, source, level, action, actor_role, request_body)
 SELECT :'tenant', ts, gen_random_uuid(), 'identity-svc', 'info', act, role, body::jsonb
   FROM (VALUES
