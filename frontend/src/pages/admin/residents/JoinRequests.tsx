@@ -221,7 +221,7 @@ function LobbyQr({ buildingId }: { buildingId: string }) {
   const url = data.url.startsWith('http') ? data.url : origin + data.url
   return (
     <div className="flex flex-col items-center gap-4 text-center" id="lobby-qr">
-      <div className="p-5 rounded-3xl bg-white" style={{ boxShadow: 'var(--lg4-shadow)' }}>
+      <div className="p-5 rounded-3xl bg-card" style={{ boxShadow: 'var(--lg4-shadow)' }}>
         <QRCodeSVG value={url} size={220} level="M" />
       </div>
       <div>

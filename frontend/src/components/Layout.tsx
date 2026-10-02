@@ -98,6 +98,37 @@ export function Layout() {
     moreItems.some((i) => location.pathname === i.to || location.pathname.startsWith(i.to + '/'))
   const isChild = role === 'child'
 
+  // کیبورد موبایل باز است ⇒ نوار تب شناور پنهان شود (CSS: html[data-kbd='on'])
+  useEffect(() => {
+    const root = document.documentElement
+    const isTextField = (el: EventTarget | null) => {
+      if (!(el instanceof HTMLElement)) return false
+      if (el instanceof HTMLTextAreaElement || el instanceof HTMLSelectElement) return true
+      if (el instanceof HTMLInputElement) return !['checkbox', 'radio', 'button', 'submit', 'range', 'file'].includes(el.type)
+      return el.isContentEditable
+    }
+    let t: number | undefined
+    const onIn = (e: FocusEvent) => {
+      if (!isTextField(e.target)) return
+      window.clearTimeout(t)
+      root.setAttribute('data-kbd', 'on')
+    }
+    const onOut = () => {
+      window.clearTimeout(t)
+      t = window.setTimeout(() => {
+        if (!isTextField(document.activeElement)) root.removeAttribute('data-kbd')
+      }, 120)
+    }
+    document.addEventListener('focusin', onIn)
+    document.addEventListener('focusout', onOut)
+    return () => {
+      document.removeEventListener('focusin', onIn)
+      document.removeEventListener('focusout', onOut)
+      window.clearTimeout(t)
+      root.removeAttribute('data-kbd')
+    }
+  }, [])
+
   return (
     <div className="min-h-screen lg:flex">
       {/* ---------- هدر موبایل (فقط زیر lg) ---------- */}
@@ -293,7 +324,7 @@ export function Layout() {
 
         <NotificationPrompt />
 
-        <main className="flex-1 p-4 sm:p-6 pb-24 lg:pb-6 overflow-y-auto overscroll-contain">
+        <main className="flex-1 p-4 sm:p-6 pb-24 lg:pb-6">
           <AnimatePresence mode="wait">
             <motion.div
               key={location.pathname}
