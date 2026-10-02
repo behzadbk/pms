@@ -86,7 +86,7 @@ export function NotificationBell({ variant }: { variant: 'dark' | 'light' }) {
         className={`relative p-2 rounded-lg transition-colors ${variant === 'dark' ? '-ml-2 active:bg-white/10' : 'rounded-full hover:bg-canvas'}`}
         aria-label={`اعلان‌ها${unread ? ` — ${unread} خوانده‌نشده` : ''}`}
       >
-        <Bell size={20} className={variant === 'light' ? 'text-ink-soft' : ''} />
+        <Bell size={20} className={variant === 'light' ? 'text-muted' : ''} />
         {unread > 0 && (
           <span className="absolute top-1 left-1 min-w-4 h-4 px-1 rounded-full bg-bad text-white text-[10px] leading-4 text-center font-bold">
             {unread > 9 ? '۹+' : unread.toLocaleString('fa-IR')}

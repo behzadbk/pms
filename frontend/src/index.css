@@ -30,6 +30,31 @@
   --color-bad-soft: #fbe9e5;
 }
 
+/* ---------- حالت تیره ----------
+   ThemeContext مقدار data-theme را روی <html> می‌گذارد، ولی توکن‌های بالا (canvas/card/ink-text/line/…)
+   که بیشتر صفحات از طریق کلاس‌های Tailwind (bg-card، text-ink-text، border-line، …) می‌خوانند
+   فقط یک مقدار روشن داشتند. نتیجه: در حالت تیره پس‌زمینه روشن می‌ماند ولی متن/کارت‌های شیشه‌ای
+   تیره‌/روشن می‌شدند و متن ناخوانا بود. اینجا همه‌ی توکن‌ها مقدار تیره می‌گیرند. */
+[data-theme='dark'] {
+  --color-ink: #0f2236;
+  --color-ink-soft: #1b3350;
+  --color-tile: #1fb5b3;
+  --color-tile-soft: rgba(31, 181, 179, 0.16);
+  --color-brass: #e0b04d;
+  --color-brass-soft: rgba(224, 176, 77, 0.16);
+  --color-canvas: #0b1017;
+  --color-card: #151c26;
+  --color-ink-text: #eef2f7;
+  --color-muted: #9aa7b7;
+  --color-line: rgba(255, 255, 255, 0.1);
+  --color-good: #3dbe84;
+  --color-good-soft: rgba(61, 190, 132, 0.16);
+  --color-warn: #e0b04d;
+  --color-warn-soft: rgba(224, 176, 77, 0.16);
+  --color-bad: #ef6a57;
+  --color-bad-soft: rgba(239, 106, 87, 0.16);
+}
+
 body {
   background: var(--color-canvas);
   color: var(--color-ink-text);

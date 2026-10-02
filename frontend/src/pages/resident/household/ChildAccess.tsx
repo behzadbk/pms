@@ -52,7 +52,7 @@ export function ResidentChildLogin() {
       {err && <ErrorBlock message={err} retry={issue} />}
       {code && (
         <>
-          <div className="p-5 mt-4 rounded-3xl bg-white" style={{ boxShadow: 'var(--lg4-shadow)', opacity: left ? 1 : 0.25 }}>
+          <div className="p-5 mt-4 rounded-3xl bg-card" style={{ boxShadow: 'var(--lg4-shadow)', opacity: left ? 1 : 0.25 }}>
             {/* لینک وب: با دوربین معمولی گوشی هم باز می‌شود و مستقیم وارد اپ کودک می‌شود */}
             <QRCodeSVG value={`${window.location.origin}/family-login?t=${encodeURIComponent(code.subdomain)}&k=${code.qr_token}`} size={189} level="M" />
           </div>

@@ -8,6 +8,10 @@
 
 :root {
   color-scheme: light dark;
+  /* هدر موبایل + منوی کشویی — مقدار نهایی را ThemeContext بر اساس رنگ‌بندی/حالت می‌گذارد */
+  --hdr-bg: #0f4a44;
+  --hdr-soft: #17625a;
+  --hdr-acc: #14a695;
 
   /* ---------- Light Mode ---------- */
   --lg-bg-base: #f4f6f9;
@@ -312,6 +316,12 @@
   transition: all 0.2s var(--lg-ease-fluid);
 }
 
+/* در حالت تیره رنگ اصلی روشن است (#4fd1b9 …) و متن سفید روی آن کنتراست کافی ندارد */
+[data-theme='dark'] .lg4-capsule,
+[data-theme='dark'] .hm-chip[data-on='true'] {
+  color: #04201c;
+}
+
 /* ---------- نوار تب شناور (موبایل) ---------- */
 .lg4-tabbar {
   display: flex;
@@ -527,9 +537,15 @@ a.hm-row:active {
   box-shadow: 0 8px 22px color-mix(in srgb, var(--hm-bad) 28%, transparent), inset 0 1px 0 rgba(255, 255, 255, 0.35);
 }
 /* CTA چسبیده به پایین صفحه، بالای نوار تب */
+/* ارتفاع واقعی نوار تب شناور: ۵۲ (تب) + ۱۲ (padding) + ۲ (border) + ۸ (mb-2) + safe-area پایین
+   (همان max(...) که pb-safe در Layout می‌گذارد). قبلاً ۸۴px ثابت + safe-area جمع می‌شد و روی
+   آیفون‌های دارای home-indicator دکمه زیر نوار تب می‌رفت. */
+:root {
+  --hm-tabbar-h: calc(74px + max(env(safe-area-inset-bottom), 0.5rem));
+}
 .hm-sticky {
   position: sticky;
-  bottom: calc(84px + env(safe-area-inset-bottom));
+  bottom: calc(var(--hm-tabbar-h) + 8px);
   z-index: 20;
   padding-top: 12px;
   background: linear-gradient(to top, var(--lg-bg-base) 55%, transparent);
@@ -539,6 +555,14 @@ a.hm-row:active {
     bottom: 0;
     padding-bottom: 12px;
   }
+}
+/* کیبورد باز است (Layout این attribute را می‌گذارد): نوار تب پنهان می‌شود تا روی فیلد/دکمه نیفتد
+   و CTA کف صفحه‌ی قابل‌دیدن می‌نشیند. */
+html[data-kbd='on'] nav[aria-label='ناوبری اصلی'] {
+  display: none;
+}
+html[data-kbd='on'] .hm-sticky {
+  bottom: 8px;
 }
 
 .hm-toggle {

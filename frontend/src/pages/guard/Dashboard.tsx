@@ -38,7 +38,7 @@ export function GuardDashboard() {
           <span className="font-medium text-sm">ثبت مرسوله جدید</span>
         </Link>
         <Link to="/guard/traffic" className="bg-card border border-line rounded-2xl p-5 flex items-center gap-3 hover:border-tile">
-          <CarFront size={22} className="text-ink-soft" />
+          <CarFront size={22} className="text-muted" />
           <span className="font-medium text-sm">ثبت تردد خودرو</span>
         </Link>
       </div>
@@ -66,7 +66,7 @@ export function GuardDashboard() {
               const Icon = feedIcon[g.type]
               return (
                 <div key={g.id} className="flex items-center gap-3 text-sm">
-                  <div className="bg-canvas text-ink-soft rounded-lg p-2 shrink-0">
+                  <div className="bg-canvas text-muted rounded-lg p-2 shrink-0">
                     <Icon size={15} />
                   </div>
                   <div className="min-w-0 flex-1">
