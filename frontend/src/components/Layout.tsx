@@ -49,7 +49,9 @@ export function Layout() {
   // (مثلاً روی /admin/charges) کاربر به داشبورد پرتاب می‌شد و لینک مستقیم کار نمی‌کرد.
   useEffect(() => {
     const section = `/${nav[0].to.split('/')[1]}`
-    if (location.pathname !== section && !location.pathname.startsWith(`${section}/`)) {
+    // /settings و /more مشترک بین همه‌ی نقش‌ها هستند — رفرش روی آن‌ها نباید به داشبورد پرت کند
+    const shared = location.pathname === '/settings' || location.pathname === '/more'
+    if (!shared && location.pathname !== section && !location.pathname.startsWith(`${section}/`)) {
       navigate(nav[0].to)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -119,9 +121,18 @@ export function Layout() {
         if (!isTextField(document.activeElement)) root.removeAttribute('data-kbd')
       }, 120)
     }
+    // iOS: کیبورد visual viewport را کوچک می‌کند ولی نوار تب fixed وسط صفحه می‌ماند → با کوچک‌شدن ناگهانی پنهان شود
+    const vv = window.visualViewport
+    const onVv = () => {
+      if (!vv) return
+      if (window.innerHeight - vv.height > 140) root.setAttribute('data-kbd', 'on')
+      else if (!isTextField(document.activeElement)) root.removeAttribute('data-kbd')
+    }
+    vv?.addEventListener('resize', onVv)
     document.addEventListener('focusin', onIn)
     document.addEventListener('focusout', onOut)
     return () => {
+      vv?.removeEventListener('resize', onVv)
       document.removeEventListener('focusin', onIn)
       document.removeEventListener('focusout', onOut)
       window.clearTimeout(t)
@@ -134,7 +145,7 @@ export function Layout() {
       {/* ---------- هدر موبایل (فقط زیر lg) ---------- */}
       {/* pt-safe روی خود header و ارتفاع ثابت روی ردیف داخلی — قبلاً هر دو روی یک المان بودند و
           padding ناچ از داخل h-14 کم می‌شد، پس محتوای هدر زیر نوار وضعیت/ناچ می‌رفت. */}
-      <header className="lg:hidden sticky top-0 z-30 bg-ink text-white pt-safe shrink-0">
+      <header className="lg:hidden sticky top-0 z-30 bg-[var(--hdr-bg)] text-white pt-safe shrink-0">
        <div className="h-14 px-4 flex items-center justify-between gap-3">
         <button
           onClick={() => setDrawerOpen(true)}
@@ -144,7 +155,7 @@ export function Layout() {
           <Menu size={22} />
         </button>
         <div className="flex items-center gap-2 min-w-0">
-          <div className="bg-tile rounded-lg p-1.5 shrink-0">
+          <div className="bg-[var(--hdr-acc)] rounded-lg p-1.5 shrink-0">
             <Building2 size={16} />
           </div>
           <p className="font-semibold text-sm truncate">برج آفتاب</p>
@@ -155,13 +166,6 @@ export function Layout() {
           )}
         </div>
         <div className="flex items-center gap-1">
-          <button
-            onClick={() => navigate('/settings')}
-            className="p-2 rounded-lg active:bg-white/10 transition-colors"
-            aria-label="شخصی‌سازی"
-          >
-            <Sparkles size={19} />
-          </button>
           <NotificationBell variant="dark" />
         </div>
        </div>
@@ -184,7 +188,7 @@ export function Layout() {
       {/* ---------- سایدبار: ثابت روی دسکتاپ، Drawer روی موبایل ---------- */}
       <motion.aside
         key="sidebar"
-        className="w-72 lg:w-64 shrink-0 bg-ink text-white flex flex-col fixed lg:static inset-y-0 right-0 z-50 lg:z-auto"
+        className="w-72 lg:w-64 shrink-0 bg-[var(--hdr-bg)] text-white flex flex-col fixed lg:static inset-y-0 right-0 z-50 lg:z-auto"
         initial={false}
         animate={{ x: isDesktop || drawerOpen ? 0 : '100%' }}
         transition={{ type: 'tween', duration: 0.28, ease: [0.32, 0.72, 0, 1] }}
@@ -194,7 +198,7 @@ export function Layout() {
         <div className="border-b border-white/10 pt-safe lg:pt-0 shrink-0">
         <div className="flex items-center justify-between gap-2.5 px-5 h-16">
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className="bg-tile rounded-lg p-1.5 shrink-0">
+            <div className="bg-[var(--hdr-acc)] rounded-lg p-1.5 shrink-0">
               <Building2 size={20} />
             </div>
             <div className="min-w-0">
@@ -225,7 +229,7 @@ export function Layout() {
                 end={item.to === `/${role}`}
                 className={({ isActive }) =>
                   `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors active:scale-[0.98] ${
-                    isActive ? 'bg-tile text-white font-medium' : 'text-white/70 hover:bg-white/5 hover:text-white'
+                    isActive ? 'bg-[var(--hdr-acc)] text-white font-medium' : 'text-white/70 hover:bg-white/5 hover:text-white'
                   }`
                 }
               >
@@ -259,7 +263,7 @@ export function Layout() {
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: 6, scale: 0.98 }}
                   transition={{ duration: 0.15 }}
-                  className="absolute bottom-full mb-2 left-3 right-3 bg-ink-soft rounded-xl border border-white/10 overflow-hidden shadow-xl z-20"
+                  className="absolute bottom-full mb-2 left-3 right-3 bg-[var(--hdr-soft)] rounded-xl border border-white/10 overflow-hidden shadow-xl z-20"
                 >
                   {roles.map((r) => (
                     <button
@@ -283,7 +287,7 @@ export function Layout() {
 
           <button
             onClick={() => navigate('/settings')}
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-white/70 hover:bg-white/5 hover:text-white active:bg-white/10 transition-colors"
+            className="hidden lg:flex w-full items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-white/70 hover:bg-white/5 hover:text-white active:bg-white/10 transition-colors"
           >
             <Sparkles size={18} strokeWidth={2} />
             شخصی‌سازی
@@ -311,13 +315,6 @@ export function Layout() {
             <p className="font-semibold">{user?.fullName ?? info.personaName} — {user?.role === 'staff' ? departmentLabel(user.department) : info.personaSub}</p>
           </div>
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => navigate('/settings')}
-              className="w-9 h-9 rounded-full lg4-card flex items-center justify-center text-[var(--lg4-pri)]"
-              aria-label="شخصی‌سازی"
-            >
-              <Sparkles size={17} />
-            </button>
             <NotificationBell variant="light" />
           </div>
         </header>

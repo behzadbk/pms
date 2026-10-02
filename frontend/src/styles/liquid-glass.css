@@ -8,6 +8,10 @@
 
 :root {
   color-scheme: light dark;
+  /* هدر موبایل + منوی کشویی — مقدار نهایی را ThemeContext بر اساس رنگ‌بندی/حالت می‌گذارد */
+  --hdr-bg: #0f4a44;
+  --hdr-soft: #17625a;
+  --hdr-acc: #14a695;
 
   /* ---------- Light Mode ---------- */
   --lg-bg-base: #f4f6f9;

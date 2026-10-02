@@ -19,6 +19,17 @@ export const PALETTES: { id: Palette; label: string }[] = [
   { id: 'graphite', label: 'گرافیتی' },
 ]
 
+/** رنگ هدر موبایل و منوی کشویی (همبرگر) — یک منبع واحد تا هر دو همیشه یک‌رنگ و هماهنگ با رنگ‌بندی انتخابی باشند */
+const HEADER_COLORS: Record<Palette, { light: [string, string, string]; dark: [string, string, string] }> = {
+  // [پس‌زمینه، پس‌زمینه‌ی نرم (پاپ‌آپ)، رنگ تأکید (آیکن/آیتم فعال)]
+  teal: { light: ['#0f4a44', '#17625a', '#14a695'], dark: ['#0a2a27', '#103a35', '#14a695'] },
+  blue: { light: ['#1d3f9e', '#2a52b8', '#4a88ff'], dark: ['#0f1f4a', '#182c63', '#3f74e8'] },
+  violet: { light: ['#3b2594', '#4d34b0', '#8467f0'], dark: ['#1b1245', '#271a5e', '#6a4cdb'] },
+  coral: { light: ['#9c3216', '#b8421f', '#f07650'], dark: ['#40160a', '#5a2010', '#d4552f'] },
+  rose: { light: ['#8a1c55', '#a52a69', '#e0559a'], dark: ['#3d0c25', '#561434', '#c2387a'] },
+  graphite: { light: ['#232a38', '#313a4d', '#6b7a96'], dark: ['#10141c', '#1a202b', '#4d586e'] },
+}
+
 interface ThemePrefs {
   mode: ThemeMode
   palette: Palette
@@ -79,6 +90,15 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     root.setAttribute('data-pal', prefs.palette)
     root.setAttribute('data-lg-easy', prefs.easy ? 'on' : 'off')
     root.setAttribute('data-lg-motion', prefs.reducedMotion ? 'off' : 'on')
+    root.style.colorScheme = resolvedTheme
+
+    const [bg, soft, acc] = HEADER_COLORS[prefs.palette][resolvedTheme]
+    root.style.setProperty('--hdr-bg', bg)
+    root.style.setProperty('--hdr-soft', soft)
+    root.style.setProperty('--hdr-acc', acc)
+    // نوار وضعیت گوشی/مرورگر هم همان رنگ هدر را بگیرد
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', bg)
+    document.querySelector('meta[name="color-scheme"]')?.setAttribute('content', resolvedTheme)
   }, [resolvedTheme, prefs.palette, prefs.easy, prefs.reducedMotion])
 
   const value = useMemo<ThemeContextValue>(
