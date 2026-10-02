@@ -36,6 +36,15 @@ export class AddResidentDto {
   @IsOptional() @IsIn(['head', 'adult', 'senior']) role?: 'head' | 'adult' | 'senior'
 }
 
+export class CreateUnitsDto {
+  /** یک شماره‌ی واحد یا چند شماره با جداکننده‌ی فاصله/ویرگول/خط‌جدید (مثلاً «101, 102, 103») */
+  @IsString() @MinLength(1, { message: 'شماره‌ی واحد را وارد کنید' }) @MaxLength(400) unit_numbers: string
+  @IsOptional() @IsInt() @Min(-5) @Max(200) floor?: number
+  @IsOptional() @Min(1) @Max(100000) area?: number
+  @IsOptional() @IsInt() @Min(0) @Max(20) parking_count?: number
+  @IsOptional() @IsString() @MaxLength(20) storage_no?: string
+}
+
 export class UpdateMembershipDto {
   @IsOptional() @IsString() @MinLength(2) @MaxLength(120) name?: string
   @IsOptional() @IsString() @MaxLength(24) phone?: string

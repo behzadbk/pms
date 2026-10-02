@@ -217,6 +217,15 @@ export function AdminResidentForm() {
           setUnitId(u.id)
           setPicking(false)
         }}
+        onCreated={async (created) => {
+          const r = await residentsApi.units(buildingId)
+          setUnits(r.units)
+          // یک واحد ساخته شده ⇒ همان را انتخاب کن
+          if (created.length === 1) {
+            setUnitId(created[0].id)
+            setPicking(false)
+          }
+        }}
       />
       {toastNode}
     </div>

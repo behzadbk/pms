@@ -138,6 +138,7 @@ export function AdminResidents({ buildingId: forced, readOnly }: { buildingId?: 
         units={data?.units ?? []}
         buildingId={buildingId}
         onClose={() => setPicker(null)}
+        onUnitsChanged={() => void reload(true)}
         onDone={(msg) => {
           setPicker(null)
           toast(msg)
@@ -201,14 +202,37 @@ export function UnitPickSheet({
   units,
   onClose,
   onPick,
+  onCreated,
 }: {
   open: boolean
   title: string
   units: UnitListItem[]
   onClose: () => void
   onPick: (u: UnitListItem) => void
+  /** اگر داده شود، مدیر می‌تواند واحد جدید را دستی بسازد؛ بعد از ساخت فراخوانی می‌شود (برای بارگذاری دوباره‌ی فهرست) */
+  onCreated?: (created: { id: string; no: string }[]) => void | Promise<void>
 }) {
+  const buildingId = useBuildingId()
   const [q, setQ] = useState('')
+  const [adding, setAdding] = useState(false)
+  const [numbers, setNumbers] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
+  async function create() {
+    setErr(null)
+    setBusy(true)
+    try {
+      const r = await residentsApi.createUnits(buildingId, { unit_numbers: numbers.trim() || q.trim() })
+      await onCreated?.(r.created)
+      setNumbers('')
+      setAdding(false)
+      setQ('')
+    } catch (e) {
+      setErr(errText(e))
+    } finally {
+      setBusy(false)
+    }
+  }
   const list = useMemo(() => units.filter((u) => !q || u.no.includes(q.replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)))) || (u.name ?? '').includes(q)), [units, q])
   return (
     <Sheet open={open} onClose={onClose} label={title}>
@@ -231,6 +255,33 @@ export function UnitPickSheet({
         ))}
         {list.length === 0 && <p className="text-center text-sm text-[var(--hm-t2)] py-6">واحدی پیدا نشد</p>}
       </div>
+      {onCreated && (
+        <div className="mt-3 flex flex-col gap-2">
+          {adding || list.length === 0 ? (
+            <div className="hm-card p-3 flex flex-col gap-2">
+              <p className="text-sm font-bold">افزودن واحد جدید</p>
+              <input
+                className="hm-input !font-normal hm-row !py-2"
+                value={numbers}
+                onChange={(e) => setNumbers(e.target.value)}
+                placeholder={q.trim() ? q.trim() : 'مثلاً ۱۲۰۴ — یا چند واحد: ۱۰۱، ۱۰۲، ۱۰۳'}
+                inputMode="text"
+                dir="rtl"
+                aria-label="شماره‌ی واحد جدید"
+              />
+              <p className="text-xs text-[var(--hm-t2)]">طبقه از روی شماره حدس زده می‌شود (۱۲۰۴ ← طبقه ۱۲) و بعداً قابل ویرایش است.</p>
+              {err && <p className="text-xs font-bold text-[var(--hm-bad)]">{err}</p>}
+              <Cta onClick={create} busy={busy} disabled={!numbers.trim() && !q.trim()}>
+                ساخت واحد
+              </Cta>
+            </div>
+          ) : (
+            <button className="hm-cta-ghost w-full" onClick={() => setAdding(true)}>
+              <UserPlus size={18} /> افزودن واحد جدید
+            </button>
+          )}
+        </div>
+      )}
     </Sheet>
   )
 }
@@ -241,12 +292,14 @@ function InviteSheet({
   units,
   onClose,
   onDone,
+  onUnitsChanged,
 }: {
   open: boolean
   units: UnitListItem[]
   buildingId: string
   onClose: () => void
   onDone: (msg: string) => void
+  onUnitsChanged?: () => void
 }) {
   const [unit, setUnit] = useState<UnitListItem | null>(null)
   const [phone, setPhone] = useState('')
@@ -305,6 +358,7 @@ function InviteSheet({
           setUnit(u)
           setPicking(false)
         }}
+        onCreated={() => onUnitsChanged?.()}
       />
     </>
   )

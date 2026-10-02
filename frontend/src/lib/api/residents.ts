@@ -271,6 +271,9 @@ export const residentsApi = {
   // ── مدیر ──
   units: (buildingId: string, filter?: string, q?: string) => api.get<UnitsResponse>(`${I}/buildings/${buildingId}/units${qs({ filter, q })}`),
   unit: (id: string) => api.get<UnitFile>(`${I}/units/${id}`),
+  /** ساخت دستی واحد(ها): unit_numbers می‌تواند چند شماره با فاصله/ویرگول باشد */
+  createUnits: (buildingId: string, body: { unit_numbers: string; floor?: number; area?: number }) =>
+    api.post<{ created: { id: string; no: string }[]; skipped: string[] }>(`${I}/buildings/${buildingId}/units`, body),
   addResident: (unitId: string, body: AddResidentBody) => api.post<{ membership_id: string; role: string; status: string }>(`${I}/units/${unitId}/residents`, body),
   updateMembership: (id: string, body: Record<string, unknown>) => api.patch<UnitFile>(`${I}/memberships/${id}`, body),
   invite: (unitId: string, phone: string) => api.post<{ membership_id: string; resent: boolean }>(`${I}/units/${unitId}/invite`, { phone }),

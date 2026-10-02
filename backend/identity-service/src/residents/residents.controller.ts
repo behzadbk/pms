@@ -14,7 +14,7 @@ import { ChildService } from './child.service'
 import { AdminResidentsService } from './admin-residents.service'
 import { HousekeepingService } from './housekeeping.service'
 import {
-  AcceptInviteDto, AddMemberDto, AddResidentDto, ChildRequestDto, DecideChildRequestDto, ExitUnlockDto, FamilyCodeLoginDto,
+  AcceptInviteDto, AddMemberDto, AddResidentDto, ChildRequestDto, CreateUnitsDto, DecideChildRequestDto, ExitUnlockDto, FamilyCodeLoginDto,
   InviteDto, LobbyJoinDto, MergeDto, MoveOutDto, ParentControlDto, RejectDto, TransferDto, TransferHeadDto, UpdateMembershipDto,
 } from './dto/residents.dto'
 
@@ -36,6 +36,11 @@ export class ManagerResidentsController {
     const tenant = scopeTenant(u, id)
     await this.hk.touch(tenant)
     return this.manager.listUnits(tenant, FILTERS.includes(filter as UnitFilter) ? (filter as UnitFilter) : 'all', q ?? '')
+  }
+
+  @Post('buildings/:id/units')
+  createUnits(@ReqCtx() ctx: RequestCtx, @Param('id', ParseUUIDPipe) id: string, @Body() dto: CreateUnitsDto) {
+    return this.manager.createUnits(scopeTenant(ctx.user, id), dto, ctx)
   }
 
   @Get('units/:id')
