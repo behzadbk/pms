@@ -2,12 +2,15 @@ import { useState } from 'react'
 import { CreditCard, CheckCircle2, Loader2 } from 'lucide-react'
 import { Card, CardHeader } from '../../components/ui/Card'
 import { StatusPill } from '../../components/ui/StatusPill'
-import { myCharges, toman } from '../../lib/mockData'
+import { toman } from '../../lib/mockData'
+import { useMyCharges, useMyUnit } from '../../lib/myUnit'
 
 type PayState = 'idle' | 'processing' | 'success'
 
 export function ResidentCharges() {
   const [payState, setPayState] = useState<PayState>('idle')
+  const { charges: myCharges, loading, error } = useMyCharges()
+  const my = useMyUnit()
   const pending = myCharges.filter((c) => c.status !== 'paid')
   const pendingTotal = pending.reduce((sum, c) => sum + c.total, 0)
 
@@ -20,7 +23,7 @@ export function ResidentCharges() {
     <div className="space-y-6">
       <div>
         <h1 className="text-xl font-bold">شارژ و پرداخت</h1>
-        <p className="text-muted text-sm mt-1">تاریخچه شارژهای واحد ۱۲ و پرداخت آنلاین</p>
+        <p className="text-muted text-sm mt-1">تاریخچه شارژهای {my.label ?? 'واحد شما'} و پرداخت آنلاین</p>
       </div>
 
       {payState === 'success' ? (
@@ -86,6 +89,13 @@ export function ResidentCharges() {
               </tr>
             </thead>
             <tbody>
+              {myCharges.length === 0 && (
+                <tr>
+                  <td colSpan={4} className="px-5 py-6 text-center text-muted">
+                    {loading ? 'در حال بارگذاری…' : error || 'هنوز شارژی برای این واحد صادر نشده است'}
+                  </td>
+                </tr>
+              )}
               {myCharges.map((c) => (
                 <tr key={c.id} className="border-b border-line last:border-0">
                   <td className="px-5 py-3 font-medium">{c.period}</td>

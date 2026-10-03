@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Put } from '@nestjs/common'
+import { BadRequestException, Body, Controller, Delete, Get, NotFoundException, Param, ParseUUIDPipe, Patch, Post, Put } from '@nestjs/common'
 import { DatabaseService } from '../database/database.service'
 import { CurrentUser, JwtPayload } from '../auth/decorators/current-user.decorator'
 import { Roles } from '../auth/decorators/roles.decorator'
@@ -10,6 +10,39 @@ interface UpsertRuleBody {
   minAdvanceHours: number
   maxAdvanceDays: number
   depositAmount?: number
+}
+
+interface AmenityBody {
+  name?: string
+  type?: 'pool' | 'hall' | 'roof_garden' | 'gym' | 'cinema' | 'other'
+  capacity?: number | null
+  requiresApproval?: boolean
+  ruleText?: string | null
+}
+
+/** نوع مشاع → آیکن صفحه‌ی رزرو ساکن */
+const ICON_BY_TYPE: Record<string, string> = { pool: 'pool', hall: 'groups', roof_garden: 'deck', gym: 'fitness_center', cinema: 'movie', other: 'groups' }
+const TYPES = Object.keys(ICON_BY_TYPE)
+
+function cleanAmenity(b: AmenityBody, partial: boolean) {
+  const out: { name?: string; type?: string; capacity?: number | null; requires_approval?: boolean; rule_text?: string | null } = {}
+  if (b.name !== undefined || !partial) {
+    const name = String(b.name ?? '').trim()
+    if (!name || name.length > 80) throw new BadRequestException('نام مشاع لازم است (حداکثر ۸۰ نویسه)')
+    out.name = name
+  }
+  if (b.type !== undefined || !partial) {
+    const type = b.type ?? 'other'
+    if (!TYPES.includes(type)) throw new BadRequestException('نوع مشاع نامعتبر است')
+    out.type = type
+  }
+  if (b.capacity !== undefined) {
+    if (b.capacity !== null && (!Number.isInteger(b.capacity) || b.capacity < 1 || b.capacity > 10000)) throw new BadRequestException('ظرفیت باید عدد مثبت باشد')
+    out.capacity = b.capacity
+  }
+  if (b.requiresApproval !== undefined) out.requires_approval = !!b.requiresApproval
+  if (b.ruleText !== undefined) out.rule_text = b.ruleText ? String(b.ruleText).slice(0, 300) : null
+  return out
 }
 
 @Controller('amenities')
@@ -29,6 +62,53 @@ export class AmenitiesController {
         [unit],
       )
       return res.rows
+    })
+  }
+
+  /** ساخت مشاع برای ساختمان (ساختمان تازه هیچ مشاعی ندارد) */
+  @Roles('admin')
+  @Post()
+  async create(@Body() body: AmenityBody, @CurrentUser() user: JwtPayload) {
+    const a = cleanAmenity(body ?? {}, false)
+    return this.db.withTenant(user.tenant_id!, async (client) => {
+      const res = await client.query(
+        `INSERT INTO facility.amenities (tenant_id, name, type, capacity, requires_approval, icon, rule_text)
+         VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *, requires_approval AS needs_approval`,
+        [user.tenant_id, a.name, a.type, a.capacity ?? null, a.requires_approval ?? false, ICON_BY_TYPE[a.type!], a.rule_text ?? null],
+      )
+      return res.rows[0]
+    })
+  }
+
+  @Roles('admin')
+  @Patch(':id')
+  async update(@Param('id', ParseUUIDPipe) id: string, @Body() body: AmenityBody, @CurrentUser() user: JwtPayload) {
+    const a = cleanAmenity(body ?? {}, true)
+    return this.db.withTenant(user.tenant_id!, async (client) => {
+      const res = await client.query(
+        `UPDATE facility.amenities SET
+           name = COALESCE($2, name),
+           type = COALESCE($3, type),
+           icon = COALESCE($4, icon),
+           capacity = CASE WHEN $5::boolean THEN $6::int ELSE capacity END,
+           requires_approval = COALESCE($7, requires_approval),
+           rule_text = CASE WHEN $8::boolean THEN $9 ELSE rule_text END
+         WHERE id = $1 AND is_active RETURNING *, requires_approval AS needs_approval`,
+        [id, a.name ?? null, a.type ?? null, a.type ? ICON_BY_TYPE[a.type] : null, 'capacity' in a, a.capacity ?? null, a.requires_approval ?? null, 'rule_text' in a, a.rule_text ?? null],
+      )
+      if (!res.rows[0]) throw new NotFoundException('مشاع یافت نشد')
+      return res.rows[0]
+    })
+  }
+
+  /** حذف = غیرفعال‌سازی (رزروهای گذشته و سابقه می‌مانند) */
+  @Roles('admin')
+  @Delete(':id')
+  async remove(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: JwtPayload) {
+    return this.db.withTenant(user.tenant_id!, async (client) => {
+      const res = await client.query(`UPDATE facility.amenities SET is_active = false WHERE id = $1 AND is_active RETURNING id`, [id])
+      if (!res.rows[0]) throw new NotFoundException('مشاع یافت نشد')
+      return { ok: true }
     })
   }
 

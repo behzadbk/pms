@@ -113,18 +113,18 @@ function TowerRules() {
       <p className="-mt-2 text-xs leading-6 text-[var(--hm-t2)]">برای هر بخش یا مشاع انتخاب کنید که واحد بدهکار بتواند استفاده کند یا نه.</p>
 
       <div className="hm-card px-4 py-1 hm-divided">
-        {data.modules.map((m) => (
+        {(data.modules ?? []).map((m) => (
           <RuleRow key={m.key} title={m.label} hint={m.hint} value={mode(m.key)} onChange={(v) => set(m.key, v)} />
         ))}
       </div>
 
       <p className="text-sm font-bold">مشاعات</p>
       <div className="hm-card px-4 py-1 hm-divided">
-        {data.amenities.length === 0 && <p className="py-3 text-xs text-[var(--hm-t2)]">مشاع فعالی ثبت نشده است</p>}
+        {(data.amenities ?? []).length === 0 && <p className="py-3 text-xs text-[var(--hm-t2)]">مشاع فعالی ثبت نشده است</p>}
         {allAmenities && (
           <p className="py-2 text-xs text-[var(--hm-warn)]">گزینه‌ی «همه‌ی مشاعات» بسته است؛ همه‌ی مشاعات زیر برای بدهکار بسته می‌ماند.</p>
         )}
-        {data.amenities.map((a) => (
+        {(data.amenities ?? []).map((a) => (
           <RuleRow
             key={a.key}
             title={a.label}

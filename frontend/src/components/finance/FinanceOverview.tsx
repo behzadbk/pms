@@ -4,6 +4,8 @@ import { StatCard } from '../ui/StatCard'
 import { StatusPill } from '../ui/StatusPill'
 import { toman } from '../../lib/mockData'
 import { useStore } from '../../lib/store'
+import { useRole } from '../../context/RoleContext'
+import { AccountingTools } from './AccountingTools'
 import { chargeStats, expenseByCategory, fundBalance, periods } from '../../lib/finance'
 
 const barColors = ['#16324F', '#0E9594', '#C08A3E', '#1D9A6C', '#C4442E', '#7A5C3E']
@@ -12,6 +14,7 @@ const barColors = ['#16324F', '#0E9594', '#C08A3E', '#1D9A6C', '#C4442E', '#7A5C
 export function FinanceOverview() {
   const state = useStore()
   const { charges, invoices } = state
+  const { role } = useRole()
   const current = charges.filter((c) => c.period === periods(charges)[0])
   const stats = chargeStats(current)
   const allOverdue = charges.filter((c) => c.status === 'overdue')
@@ -21,6 +24,7 @@ export function FinanceOverview() {
 
   return (
     <div className="space-y-5">
+      {(role === 'accountant' || role === 'admin') && <AccountingTools />}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard label="موجودی صندوق" value={toman(fundBalance(state))} icon={Wallet} tone="ink" />
         <StatCard label={`وصول شارژ ${current[0]?.period ?? ''}`} value={`${stats.rate.toLocaleString('fa-IR')}٪`} sub={`${toman(stats.paid)} از ${toman(stats.total)}`} icon={Percent} tone="tile" />

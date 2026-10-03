@@ -11,6 +11,7 @@ import { effectivePermissions } from '../users/staff.constants'
 interface UserRow {
   person_id: string | null
   person_status: string | null
+  tenant_name?: string | null
   sessions_valid_after: Date | null
   id: string
   full_name: string
@@ -25,6 +26,7 @@ interface UserRow {
 // person_status/sessions_valid_after از حساب شخص (ماژول ساکنین) می‌آید: مسدودی/خروج از همه‌ی دستگاه‌ها
 const USER_COLUMNS = `id, full_name, email, username, role, department, permissions, is_active, person_id,
   (SELECT p.status FROM residency.users p WHERE p.id = identity.users.person_id) AS person_status,
+  (SELECT t.name FROM identity.tenants t WHERE t.id = identity.users.tenant_id) AS tenant_name,
   GREATEST(sessions_valid_after,
            COALESCE((SELECT p.sessions_valid_after FROM residency.users p WHERE p.id = identity.users.person_id), '-infinity')) AS sessions_valid_after`
 
@@ -41,6 +43,7 @@ function publicUser(u: UserRow, tenantId: string) {
     fullName: u.full_name,
     role: u.role,
     tenantId,
+    ...(u.tenant_name ? { tenantName: u.tenant_name } : {}),
     ...(u.role === 'staff'
       ? { department: u.department, permissions: effectivePermissions(u.department, u.permissions) }
       : {}),

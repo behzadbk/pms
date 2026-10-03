@@ -11,6 +11,8 @@ export interface AuthUser {
   role: Role
   /** برای سوپرادمین null است — کاربر سطح پلتفرم به هیچ مجتمعی تعلق ندارد */
   tenantId: string | null
+  /** نام ساختمان (برای سربرگ پنل‌ها) */
+  tenantName?: string
   /** فقط برای کارکنان (role=staff): بخش و دسترسی‌های مؤثر — تعیین می‌کند کدام پنل‌ها باز شود */
   department?: string | null
   permissions?: string[]

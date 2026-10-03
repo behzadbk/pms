@@ -3,11 +3,10 @@ import { Wrench, ThumbsDown, Lightbulb, MessageSquareText, MapPin, ArrowRight, C
 import { Card, CardHeader } from '../../components/ui/Card'
 import { StatusPill } from '../../components/ui/StatusPill'
 import { SelectField, TextField, TextArea } from '../../components/ui/Modal'
-import { useStore, addTicket, ticketKindInfo, DEMO_RESIDENT_UNIT, faDateTime, type TicketKind } from '../../lib/store'
+import { useStore, addTicket, ticketKindInfo, faDateTime, type TicketKind } from '../../lib/store'
+import { useMyUnit } from '../../lib/myUnit'
 
 /** پروفایل واحد ساکن — بعداً از property-svc (واحد/طبقه/بلوک کاربر) خوانده می‌شود */
-const MY_FLOOR = 3
-const MY_BLOCK = 'A'
 
 const kinds: { id: TicketKind; icon: typeof Wrench; hint: string }[] = [
   { id: 'fault', icon: Wrench, hint: 'چیزی خراب شده یا کار نمی‌کند' },
@@ -22,26 +21,29 @@ const areas = ['راهرو', 'راه‌پله', 'آسانسور', 'لابی', '�
 type Where = 'unit' | 'floor' | 'other'
 
 export function ResidentTickets() {
+  const my = useMyUnit()
+  const MY_UNIT = my.label ?? 'واحد من'
+  const MY_FLOOR = my.floor
   const { tickets } = useStore()
   const [kind, setKind] = useState<TicketKind | null>(null)
   const [subject, setSubject] = useState('')
   const [body, setBody] = useState('')
   const [urgent, setUrgent] = useState(false)
   const [where, setWhere] = useState<Where>('unit')
-  const [floor, setFloor] = useState(MY_FLOOR.toLocaleString('fa-IR'))
+  const [floor, setFloor] = useState(MY_FLOOR != null ? MY_FLOOR.toLocaleString('fa-IR') : '')
   const [area, setArea] = useState(areas[0])
   const [spot, setSpot] = useState('')
   const [submitted, setSubmitted] = useState<string | null>(null)
-  const mine = tickets.filter((t) => t.unit === DEMO_RESIDENT_UNIT)
+  const mine = tickets.filter((t) => t.unit === MY_UNIT)
 
-  const myFloor = MY_FLOOR.toLocaleString('fa-IR')
+  const myFloor = MY_FLOOR != null ? MY_FLOOR.toLocaleString('fa-IR') : '—'
   const location =
     kind !== 'fault'
       ? undefined
       : where === 'unit'
-        ? `داخل ${DEMO_RESIDENT_UNIT} · طبقه ${myFloor} · بلوک ${MY_BLOCK}`
+        ? `داخل ${MY_UNIT} · طبقه ${myFloor}`
         : where === 'floor'
-          ? `طبقه ${myFloor} (مشاعات) · بلوک ${MY_BLOCK}${spot ? ` · ${spot}` : ''}`
+          ? `طبقه ${myFloor} (مشاعات)${spot ? ` · ${spot}` : ''}`
           : [floor.match(/^[-۰-۹]/) ? `طبقه ${floor}` : floor, area, spot].filter(Boolean).join(' · ')
 
   const subjectPlaceholder = {
@@ -57,10 +59,10 @@ export function ResidentTickets() {
       kind,
       subject: subject.trim(),
       body: body.trim(),
-      unit: DEMO_RESIDENT_UNIT,
+      unit: MY_UNIT,
       category: ticketKindInfo[kind].category,
       priority: kind === 'fault' ? (urgent ? 'urgent' : 'normal') : 'low',
-      reporter: DEMO_RESIDENT_UNIT,
+      reporter: MY_UNIT,
       location,
     })
     setSubmitted(kind === 'direct' ? 'پیام شما برای مدیر ساختمان ارسال شد.' : 'ثبت شد و به مدیریت ساختمان ارسال گردید.')
@@ -122,7 +124,7 @@ export function ResidentTickets() {
                   </p>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                     {([
-                      ['unit', `داخل واحد من`, `${DEMO_RESIDENT_UNIT} · طبقه ${myFloor}`],
+                      ['unit', `داخل واحد من`, `${MY_UNIT} · طبقه ${myFloor}`],
                       ['floor', 'طبقه‌ی من (مشاعات)', `راهرو/راه‌پله طبقه ${myFloor}`],
                       ['other', 'جای دیگر', 'طبقه یا بخش دیگری از ساختمان'],
                     ] as [Where, string, string][]).map(([id, label, sub]) => (

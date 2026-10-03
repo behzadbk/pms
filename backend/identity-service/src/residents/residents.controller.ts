@@ -33,6 +33,8 @@ export class ManagerResidentsController {
     private readonly tower: TowerService,
   ) {}
 
+  // حسابدار هم فهرست واحدها را می‌خواند (صدور شارژ و ورود فایل حسابداری بر اساس واحدهای واقعی)
+  @Roles('admin', 'super_admin', 'accountant')
   @Get('buildings/:id/units')
   async units(@CurrentUser() u: JwtPayload, @Param('id', ParseUUIDPipe) id: string, @Query('filter') filter?: string, @Query('q') q?: string) {
     const tenant = scopeTenant(u, id)

@@ -10,6 +10,7 @@
  * برای برگرداندن داده‌ی نمونه: resetDemoStore()
  */
 import { useSyncExternalStore } from 'react'
+import { DEMO_DATA } from './demoMode'
 import type { Amenity, AmenitySession, BookingRule, Charge, FnbOrder, MenuItem, OrderStatus, Reservation, Role, Ticket } from './types'
 import {
   amenitiesList,
@@ -60,10 +61,12 @@ export function audienceLabel(key: AudienceKey) {
  * کاربر فعلی (در حالت دمو بر اساس نقش) در کدام مخاطب‌ها قرار می‌گیرد.
  * بعداً از پروفایل واقعی (واحد، بلوک، مالک/مستأجر) در /auth/me پر می‌شود.
  */
-export function viewerAudiences(role: Role, perms: string[] = []): AudienceKey[] {
+export function viewerAudiences(role: Role, perms: string[] = [], unitLabel: string | null = null): AudienceKey[] {
   switch (role) {
     case 'resident':
-      return ['all_residents', 'owners', 'block:A', 'unit:واحد ۱۲']
+      return DEMO_DATA
+        ? ['all_residents', 'owners', 'block:A', 'unit:واحد ۱۲']
+        : (['all_residents', 'owners', ...(unitLabel ? [`unit:${unitLabel}`] : [])] as AudienceKey[])
     case 'child':
       // کودک فقط اطلاعیه‌های عمومی ساکنین را می‌بیند (نه مالکین/مجمع)
       return ['all_residents']
@@ -77,7 +80,6 @@ export function viewerAudiences(role: Role, perms: string[] = []): AudienceKey[]
   }
 }
 
-export const DEMO_RESIDENT_UNIT = 'واحد ۱۲'
 
 export interface PollOption {
   id: string
@@ -227,12 +229,28 @@ export interface DemoState {
   charges: ChargeRec[]
   menu: MenuItem[]
   orders: FnbOrder[]
+  /** موجودی اولیه‌ی صندوق (ورود دستی یا از فایل حسابداری) — ساختمان تازه ۰ است */
+  openingBalance: number
 }
 
 /* ═══════════════════════════ داده‌ی اولیه ═══════════════════════════ */
 
-const STORAGE_KEY = 'hamin.demo-store'
-const VERSION = 2
+const LEGACY_KEY = 'hamin.demo-store'
+const VERSION = 3
+/**
+ * هر ساختمان استور جدا دارد (کلید با شناسه‌ی tenant) تا داده‌ی یک ساختمان در ساختمان دیگرِ همان مرورگر
+ * دیده نشود. حالت دمو (VITE_DEMO_DATA) همان کلید قدیمی را نگه می‌دارد.
+ */
+const keyFor = (tenantId: string | null) => (DEMO_DATA ? LEGACY_KEY : `hamin.store.v3.${tenantId ?? 'none'}`)
+let STORAGE_KEY = keyFor(null)
+
+/** ساختمان تازه: همه‌چیز خالی و صفر */
+function emptyState(): DemoState {
+  return {
+    version: VERSION, amenities: [], rules: {}, sessions: [], reservations: [], announcements: [], notifications: [],
+    tickets: [], assets: [], services: [], invoices: [], charges: [], menu: [], orders: [], openingBalance: 0,
+  }
+}
 
 export function uid(prefix = 'id') {
   return `${prefix}_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`
@@ -265,6 +283,7 @@ const ticketBodies: Record<string, { body: string; reporter: string; assetId?: s
 }
 
 function seed(): DemoState {
+  if (!DEMO_DATA) return emptyState()
   const assets: AssetRec[] = [
     { id: 'as-elev-a', name: 'آسانسور A', category: 'elevator', location: 'لابی بلوک A', serviceIntervalDays: 30 },
     { id: 'as-elev-b', name: 'آسانسور B', category: 'elevator', location: 'لابی بلوک B', serviceIntervalDays: 30 },
@@ -372,6 +391,7 @@ function seed(): DemoState {
     charges: seedCharges.map((c) => ({ ...c, paidAt: c.status === 'paid' ? daysAgo(15) : undefined, payMethod: c.status === 'paid' ? 'درگاه آنلاین' : undefined })),
     menu: seedMenuItems.map((m) => ({ ...m })),
     orders: seedKitchenQueue.map((o) => ({ ...o })),
+    openingBalance: 199_250_000,
   }
 }
 
@@ -383,6 +403,7 @@ function load(): DemoState {
     if (raw) {
       const parsed = JSON.parse(raw) as DemoState
       if (parsed.version === VERSION) return parsed
+      if (!DEMO_DATA) return emptyState()
       // نسخه‌ی قدیمی‌تر: داده‌ی ساخته‌شده توسط کاربر حفظ می‌شود و فقط بخش‌های جدید اضافه می‌شوند
       if (parsed.version < VERSION) return { ...seed(), ...parsed, version: VERSION }
     }
@@ -392,7 +413,7 @@ function load(): DemoState {
   return seed()
 }
 
-let state: DemoState = load()
+let state: DemoState = DEMO_DATA ? load() : emptyState()
 const listeners = new Set<() => void>()
 
 function persist() {
@@ -434,6 +455,19 @@ function subscribe(l: () => void) {
 /** کل state را برمی‌گرداند؛ کامپوننت‌ها خودشان فیلتر/محاسبه می‌کنند (بدون selector تا حلقه‌ی رندر پیش نیاید) */
 export function useStore(): DemoState {
   return useSyncExternalStore(subscribe, getState, getState)
+}
+
+/** تغییر ساختمان فعال (ورود/خروج): استور همان ساختمان بارگذاری می‌شود. emit=false برای فراخوانی هنگام رندر */
+export function setStoreScope(tenantId: string | null, notifyListeners = true) {
+  const key = keyFor(tenantId)
+  if (key === STORAGE_KEY) return
+  STORAGE_KEY = key
+  state = load()
+  if (notifyListeners) emit()
+}
+
+export function refreshStore() {
+  emit()
 }
 
 export function resetDemoStore() {
@@ -709,6 +743,23 @@ export function deleteInvoice(id: string) {
   setState((s) => ({ ...s, invoices: s.invoices.filter((x) => x.id !== id) }))
 }
 
+export function setOpeningBalance(amount: number) {
+  setState((s) => ({ ...s, openingBalance: Math.max(0, Math.round(amount) || 0) }))
+}
+
+/** ورود شارژ از فایل حسابداری: ردیف‌های همان (واحد، دوره) جایگزین می‌شوند */
+export function importCharges(rows: Omit<ChargeRec, 'id'>[]) {
+  setState((s) => {
+    const key = (c: { unit: string; period: string }) => `${c.unit}|${c.period}`
+    const incoming = new Set(rows.map(key))
+    return { ...s, charges: [...rows.map((r) => ({ ...r, id: uid('ch') })), ...s.charges.filter((c) => !incoming.has(key(c)))] }
+  })
+}
+
+export function importInvoices(rows: Omit<InvoiceRec, 'id'>[]) {
+  setState((s) => ({ ...s, invoices: [...rows.map((r) => ({ ...r, id: uid('inv') })), ...s.invoices] }))
+}
+
 export function updateCharge(id: string, patch: Partial<ChargeRec>) {
   setState((s) => ({ ...s, charges: s.charges.map((c) => (c.id === id ? { ...c, ...patch } : c)) }))
 }
@@ -793,5 +844,15 @@ export function setOrderStatus(id: string, status: OrderStatus) {
       })
     }
     return next
+  })
+}
+
+/** فهرست مشاعات را با سرور یکی می‌کند (قوانین/سانس‌های محلی هر مشاع حفظ می‌شود) */
+export function syncAmenities(list: Amenity[]) {
+  setState((s) => {
+    const color = new Map(s.amenities.map((a) => [a.id, a.color]))
+    const ids = new Set(list.map((a) => a.id))
+    const rules = Object.fromEntries(Object.entries(s.rules).filter(([k]) => ids.has(k)))
+    return { ...s, amenities: list.map((a) => ({ ...a, color: color.get(a.id) ?? a.color })), rules, sessions: s.sessions.filter((x) => ids.has(x.amenityId)) }
   })
 }

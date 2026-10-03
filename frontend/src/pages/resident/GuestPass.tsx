@@ -4,16 +4,48 @@ import { QrCode } from 'lucide-react'
 import { Card, CardHeader } from '../../components/ui/Card'
 import { StatusPill } from '../../components/ui/StatusPill'
 import { guestPasses } from '../../lib/mockData'
+import { DEMO_DATA } from '../../lib/demoMode'
+import { issuePass } from '../../lib/api/guard'
+import { ApiError } from '../../lib/api/client'
+import { usePermissions } from '../../context/PermissionsContext'
 
 export function ResidentGuestPass() {
   const [name, setName] = useState('')
   const [validity, setValidity] = useState('today')
   const [issued, setIssued] = useState<{ name: string; code: string } | null>(null)
+  const [err, setErr] = useState('')
+  const [busy, setBusy] = useState(false)
+  const { perms } = usePermissions()
+  // کدهای صادرشده در همین نشست (سوابق کامل کدها هنوز API فهرست ندارد)
+  const [history, setHistory] = useState(DEMO_DATA ? guestPasses : [])
 
-  function handleIssue() {
+  async function handleIssue() {
     if (!name.trim()) return
-    const code = Math.floor(100000 + Math.random() * 900000).toString()
-    setIssued({ name, code })
+    setErr('')
+    if (DEMO_DATA) {
+      const code = Math.floor(100000 + Math.random() * 900000).toString()
+      setIssued({ name, code })
+      return
+    }
+    const unitId = perms?.unit?.id
+    if (!unitId) return setErr('حساب شما هنوز به واحدی متصل نیست')
+    const until = new Date()
+    if (validity === 'week') until.setDate(until.getDate() + 7)
+    else until.setHours(23, 59, 0, 0)
+    setBusy(true)
+    try {
+      const p = await issuePass(unitId, name.trim(), until)
+      setIssued({ name: p.guest_name, code: p.code })
+      setHistory((h) => [
+        { id: p.id, guestName: p.guest_name, code: p.code, validUntil: new Date(p.valid_until).toLocaleString('fa-IR', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }), usesLeft: 1, status: 'active' as const },
+        ...h,
+      ])
+      setName('')
+    } catch (e) {
+      setErr(e instanceof ApiError ? e.message : 'صدور کد ممکن نشد')
+    } finally {
+      setBusy(false)
+    }
   }
 
   return (
@@ -45,16 +77,17 @@ export function ResidentGuestPass() {
               >
                 <option value="today">فقط امروز</option>
                 <option value="week">تا پایان هفته</option>
-                <option value="custom">بازه دلخواه</option>
               </select>
             </label>
             <button
-              onClick={handleIssue}
+              onClick={() => void handleIssue()}
+              disabled={busy}
               className="w-full flex items-center justify-center gap-2 bg-tile text-white py-3 rounded-xl text-sm font-medium hover:opacity-90"
             >
               <QrCode size={16} />
               صدور کد ورود
             </button>
+            {err && <p className="text-sm text-bad">{err}</p>}
           </div>
         </Card>
 
@@ -79,7 +112,8 @@ export function ResidentGuestPass() {
       <Card>
         <CardHeader title="سوابق کدهای مهمان" />
         <div className="px-5 pb-5 space-y-3">
-          {guestPasses.map((g) => (
+          {history.length === 0 && <p className="text-sm text-muted">هنوز کدی صادر نشده است</p>}
+          {history.map((g) => (
             <div key={g.id} className="flex items-center justify-between p-3 rounded-xl border border-line">
               <div>
                 <p className="text-sm font-medium">{g.guestName}</p>

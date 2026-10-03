@@ -1,17 +1,18 @@
 import { useState } from 'react'
 import { QrCode, CheckCircle2, XCircle, Search, Car, Zap } from 'lucide-react'
 import { Card, CardHeader } from '../../components/ui/Card'
+import { DEMO_DATA } from '../../lib/demoMode'
+import { checkInPass, verifyPass } from '../../lib/api/guard'
+import { ApiError } from '../../lib/api/client'
 
 type Tab = 'code' | 'plate'
-type Result = null | { ok: true; guest: string; unit: string } | { ok: false }
+type Result = null | { ok: true; guest: string; unit: string; passId?: string } | { ok: false; reason?: string }
 
-const validCodes: Record<string, { guest: string; unit: string }> = {
-  '481926': { guest: 'آرش محمدی', unit: 'واحد ۱۲' },
-}
+// فقط حالت دمو؛ در حالت عادی کد از سرور (guard-service) بررسی می‌شود
+const validCodes: Record<string, { guest: string; unit: string }> = DEMO_DATA ? { '481926': { guest: 'آرش محمدی', unit: 'واحد ۱۲' } } : {}
 
-const knownPlates: Record<string, { unit: string; owner: string }> = {
-  '12ایران445ب77': { unit: 'واحد ۴', owner: 'خانم احمدی' },
-}
+// پلاک‌ها هنوز در سرور ثبت نمی‌شوند؛ فهرست نمونه فقط در حالت دمو
+const knownPlates: Record<string, { unit: string; owner: string }> = DEMO_DATA ? { '12ایران445ب77': { unit: 'واحد ۴', owner: 'خانم احمدی' } } : {}
 
 export function GuardGuestCheck() {
   const [tab, setTab] = useState<Tab>('code')
@@ -21,10 +22,41 @@ export function GuardGuestCheck() {
   const [plateResult, setPlateResult] = useState<null | { found: boolean; unit?: string; owner?: string }>(null)
   const [checkedIn, setCheckedIn] = useState(false)
 
-  function verifyCode() {
-    const match = validCodes[code.trim()]
-    setResult(match ? { ok: true, ...match } : { ok: false })
+  const [busy, setBusy] = useState(false)
+  const [checkErr, setCheckErr] = useState('')
+  const digits = (s: string) => s.replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d))).trim()
+
+  async function verifyCode() {
     setCheckedIn(false)
+    setCheckErr('')
+    if (DEMO_DATA) {
+      const match = validCodes[digits(code)]
+      setResult(match ? { ok: true, ...match } : { ok: false })
+      return
+    }
+    setBusy(true)
+    try {
+      const r = await verifyPass(digits(code))
+      setResult(r.ok ? { ok: true, guest: r.guestName, unit: '', passId: r.passId } : { ok: false, reason: r.reason })
+    } catch (e) {
+      setResult({ ok: false, reason: e instanceof ApiError ? e.message : 'ارتباط با سرور برقرار نشد' })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function checkIn() {
+    if (!result?.ok) return
+    if (DEMO_DATA || !result.passId) return setCheckedIn(true)
+    setBusy(true)
+    try {
+      await checkInPass(result.passId)
+      setCheckedIn(true)
+    } catch (e) {
+      setCheckErr(e instanceof ApiError ? e.message : 'ثبت ورود ممکن نشد')
+    } finally {
+      setBusy(false)
+    }
   }
 
   function searchPlate() {
@@ -62,7 +94,7 @@ export function GuardGuestCheck() {
             <div className="px-5 pb-5 space-y-4">
               <div className="border-2 border-dashed border-line rounded-xl flex flex-col items-center justify-center py-10 text-muted gap-2">
                 <QrCode size={36} />
-                <p className="text-xs">دوربین برای اسکن QR آماده است (نمای دمو)</p>
+                <p className="text-xs">کد ۶ رقمی مهمان را وارد کنید</p>
               </div>
               <div className="flex gap-2">
                 <input
@@ -71,11 +103,11 @@ export function GuardGuestCheck() {
                   placeholder="کد ۶ رقمی را وارد کنید"
                   className="flex-1 rounded-xl border border-line px-3.5 py-2.5 text-sm font-mono"
                 />
-                <button onClick={verifyCode} className="bg-tile text-white px-5 rounded-xl text-sm font-medium hover:opacity-90">
+                <button onClick={() => void verifyCode()} disabled={busy} className="bg-tile text-white px-5 rounded-xl text-sm font-medium hover:opacity-90">
                   بررسی
                 </button>
               </div>
-              <p className="text-xs text-muted">برای تست: کد <span className="font-mono">۴۸۱۹۲۶</span> را وارد کنید</p>
+              {DEMO_DATA && <p className="text-xs text-muted">برای تست: کد <span className="font-mono">۴۸۱۹۲۶</span> را وارد کنید</p>}
             </div>
           </Card>
 
@@ -87,9 +119,11 @@ export function GuardGuestCheck() {
                 <div className="flex flex-col items-center gap-3">
                   <CheckCircle2 size={44} className="text-good" />
                   <p className="font-semibold text-good">کد معتبر است</p>
-                  <p className="text-sm">{result.guest} — مهمان {result.unit}</p>
+                  <p className="text-sm">{result.guest}{result.unit ? ` — مهمان ${result.unit}` : ''}</p>
+                  {checkErr && <p className="text-xs text-bad">{checkErr}</p>}
                   <button
-                    onClick={() => setCheckedIn(true)}
+                    disabled={busy}
+                    onClick={() => void checkIn()}
                     className="mt-2 bg-good text-white px-5 py-2 rounded-xl text-sm font-medium hover:opacity-90"
                   >
                     ثبت ورود با یک کلیک
@@ -102,13 +136,13 @@ export function GuardGuestCheck() {
                     <Zap size={26} />
                   </div>
                   <p className="font-semibold text-good text-sm">ورود ثبت شد و به ساکن اطلاع داده شد</p>
-                  <p className="text-xs text-muted">{result.guest} — {result.unit} · اکنون</p>
+                  <p className="text-xs text-muted">{result.guest}{result.unit ? ` — ${result.unit}` : ''} · اکنون</p>
                 </div>
               )}
               {result && !result.ok && (
                 <div className="flex flex-col items-center gap-3">
                   <XCircle size={44} className="text-bad" />
-                  <p className="font-semibold text-bad">کد نامعتبر یا منقضی‌شده است</p>
+                  <p className="font-semibold text-bad">{result.reason ?? 'کد نامعتبر یا منقضی‌شده است'}</p>
                   <p className="text-sm text-muted">می‌توانید با ساکن واحد تماس بگیرید یا تیکت ثبت کنید</p>
                 </div>
               )}
@@ -132,7 +166,7 @@ export function GuardGuestCheck() {
                 <Search size={15} /> جستجو
               </button>
             </div>
-            <p className="text-xs text-muted">برای تست: <span className="font-mono">12ایران445ب77</span> را وارد کنید</p>
+            {DEMO_DATA && <p className="text-xs text-muted">برای تست: <span className="font-mono">12ایران445ب77</span> را وارد کنید</p>}
 
             {plateResult?.found && (
               <div className="flex items-center gap-3 p-4 rounded-xl bg-good-soft text-good">

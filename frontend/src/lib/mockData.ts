@@ -1,3 +1,4 @@
+import { demo } from './demoMode'
 import type { Charge, GuestPass, Parcel, Reservation, RoleInfo, Ticket, WorkOrder, PlatformTenant, PlatformPlan, PlatformInvoice } from './types'
 
 export const roles: RoleInfo[] = [
@@ -11,7 +12,7 @@ export const roles: RoleInfo[] = [
 ]
 
 /** فهرست واحدها — مشترک بین صفحه‌ی واحدها و محاسبه‌ی شارژ حسابداری */
-export const unitsDirectory = [
+const unitsDirectory_DEMO= [
   { unit: 'واحد ۴', owner: 'خانم احمدی', area: 92, occupants: 3, status: 'ساکن مالک' },
   { unit: 'واحد ۷', owner: 'آقای نوری', area: 105, occupants: 2, status: 'مستأجر' },
   { unit: 'واحد ۱۲', owner: 'آقای کریمی', area: 98, occupants: 4, status: 'ساکن مالک' },
@@ -19,7 +20,7 @@ export const unitsDirectory = [
   { unit: 'واحد ۲۰', owner: 'آقای صادقی', area: 120, occupants: 3, status: 'خالی' },
 ]
 
-export const charges: Charge[] = [
+const charges_DEMO: Charge[] = [
   { id: 'c1', unit: 'واحد ۴', period: 'شهریور ۱۴۰۴', base: 2_450_000, lateFee: 0, total: 2_450_000, dueDate: '۱۴۰۴/۰۶/۱۰', status: 'paid' },
   { id: 'c2', unit: 'واحد ۷', period: 'شهریور ۱۴۰۴', base: 3_100_000, lateFee: 155_000, total: 3_255_000, dueDate: '۱۴۰۴/۰۶/۱۰', status: 'overdue' },
   { id: 'c3', unit: 'واحد ۱۲', period: 'شهریور ۱۴۰۴', base: 2_800_000, lateFee: 0, total: 2_800_000, dueDate: '۱۴۰۴/۰۶/۱۰', status: 'pending' },
@@ -27,44 +28,44 @@ export const charges: Charge[] = [
   { id: 'c5', unit: 'واحد ۲۰', period: 'شهریور ۱۴۰۴', base: 3_400_000, lateFee: 170_000, total: 3_570_000, dueDate: '۱۴۰۴/۰۶/۱۰', status: 'overdue' },
 ]
 
-export const myCharges: Charge[] = [
+const myCharges_DEMO: Charge[] = [
   { id: 'm1', unit: 'واحد ۱۲', period: 'شهریور ۱۴۰۴', base: 2_800_000, lateFee: 0, total: 2_800_000, dueDate: '۱۴۰۴/۰۶/۱۰', status: 'pending' },
   { id: 'm2', unit: 'واحد ۱۲', period: 'مرداد ۱۴۰۴', base: 2_800_000, lateFee: 0, total: 2_800_000, dueDate: '۱۴۰۴/۰۵/۱۰', status: 'paid' },
   { id: 'm3', unit: 'واحد ۱۲', period: 'تیر ۱۴۰۴', base: 2_750_000, lateFee: 0, total: 2_750_000, dueDate: '۱۴۰۴/۰۴/۱۰', status: 'paid' },
 ]
 
-export const tickets: Ticket[] = [
+const tickets_DEMO: Ticket[] = [
   { id: 't1', subject: 'نشتی آب در پارکینگ طبقه -۱', unit: 'مشاعات', category: 'گزارش خرابی', status: 'in_progress', priority: 'high', createdAt: '۲ روز پیش' },
   { id: 't2', subject: 'صدای غیرعادی آسانسور B', unit: 'مشاعات', category: 'گزارش خرابی', status: 'open', priority: 'urgent', createdAt: '۵ ساعت پیش' },
   { id: 't3', subject: 'درخواست نصب دوربین در راهرو', unit: 'واحد ۷', category: 'پیشنهاد', status: 'open', priority: 'low', createdAt: '۱ هفته پیش' },
   { id: 't4', subject: 'چراغ راه‌پله طبقه ۳ خراب است', unit: 'واحد ۱۲', category: 'گزارش خرابی', status: 'resolved', priority: 'normal', createdAt: '۳ روز پیش' },
 ]
 
-export const reservations: Reservation[] = [
+const reservations_DEMO: Reservation[] = [
   { id: 'r1', amenity: 'سالن اجتماعات', unit: 'واحد ۹', date: '۱۴۰۴/۰۶/۰۳', time: '۱۸:۰۰ - ۲۰:۰۰', status: 'confirmed' },
   { id: 'r2', amenity: 'استخر', unit: 'واحد ۱۲', date: '۱۴۰۴/۰۶/۰۴', time: '۱۰:۰۰ - ۱۱:۰۰', status: 'pending' },
   { id: 'r3', amenity: 'روف‌گاردن', unit: 'واحد ۱۵', date: '۱۴۰۴/۰۶/۰۵', time: '۱۹:۰۰ - ۲۲:۰۰', status: 'confirmed' },
 ]
 
-export const guestPasses: GuestPass[] = [
+const guestPasses_DEMO: GuestPass[] = [
   { id: 'g1', guestName: 'آرش محمدی', code: '۴۸۱۹۲۶', validUntil: 'امروز، ۲۳:۵۹', usesLeft: 1, status: 'active' },
   { id: 'g2', guestName: 'شرکت پیک تهران', code: '۷۷۲۰۱۱', validUntil: 'دیروز', usesLeft: 0, status: 'used' },
 ]
 
-export const parcels: Parcel[] = [
+const parcels_DEMO: Parcel[] = [
   { id: 'p1', unit: 'واحد ۴', courier: 'اسنپ‌باکس', receivedAt: '۱۰:۲۰', status: 'pending_pickup' },
   { id: 'p2', unit: 'واحد ۱۲', courier: 'پست', receivedAt: '۰۹:۰۵', status: 'pending_pickup' },
   { id: 'p3', unit: 'واحد ۷', courier: 'تیپاکس', receivedAt: 'دیروز', status: 'picked_up' },
 ]
 
-export const workOrders: WorkOrder[] = [
+const workOrders_DEMO: WorkOrder[] = [
   { id: 'w1', title: 'سرویس دوره‌ای موتورخانه', asset: 'موتورخانه مرکزی', priority: 'normal', status: 'assigned', dueDate: '۱۴۰۴/۰۶/۰۲' },
   { id: 'w2', title: 'تعمیر نشتی پارکینگ -۱', asset: 'لوله‌کشی مشاعات', priority: 'high', status: 'in_progress', dueDate: '۱۴۰۴/۰۵/۳۰' },
   { id: 'w3', title: 'بازدید سالانه کپسول آتش‌نشانی', asset: 'سیستم اطفا حریق', priority: 'urgent', status: 'open', dueDate: '۱۴۰۴/۰۵/۲۹' },
   { id: 'w4', title: 'سرویس آسانسور B', asset: 'آسانسور B', priority: 'normal', status: 'done', dueDate: '۱۴۰۴/۰۵/۲۵' },
 ]
 
-export const financeSummary = {
+const financeSummary_DEMO= {
   fundBalance: 184_500_000,
   monthIncome: 42_300_000,
   monthExpense: 19_800_000,
@@ -72,7 +73,7 @@ export const financeSummary = {
   overdueUnits: 4,
 }
 
-export const monthlyTrend = [
+const monthlyTrend_DEMO= [
   { month: 'فروردین', income: 36, expense: 22 },
   { month: 'اردیبهشت', income: 38, expense: 19 },
   { month: 'خرداد', income: 40, expense: 25 },
@@ -89,14 +90,14 @@ export function toman(n: number) {
 
 import type { Amenity, BookingRule, AmenitySession, CalendarSlot, GuardLogEntry, ExpenseCategoryShare } from './types'
 
-export const amenitiesList: Amenity[] = [
+const amenitiesList_DEMO: Amenity[] = [
   { id: 'am1', name: 'استخر', type: 'pool', capacity: 12, requiresApproval: false, color: '#0E9594' },
   { id: 'am2', name: 'سالن اجتماعات', type: 'hall', capacity: 40, requiresApproval: true, color: '#C08A3E' },
   { id: 'am3', name: 'روف‌گاردن', type: 'roof_garden', capacity: 20, requiresApproval: false, color: '#1D9A6C' },
   { id: 'am4', name: 'سالن بدنسازی', type: 'gym', capacity: 8, requiresApproval: false, color: '#16324F' },
 ]
 
-export const bookingRules: Record<string, BookingRule> = {
+const bookingRules_DEMO: Record<string, BookingRule> = {
   am1: {
     amenityId: 'am1', maxBookingsPerUnitPerPeriod: 4, periodType: 'month',
     minAdvanceHours: 12, maxAdvanceDays: 3, minSlotMinutes: 60, maxSlotMinutes: 120,
@@ -119,7 +120,7 @@ export const bookingRules: Record<string, BookingRule> = {
   },
 }
 
-export const amenitySessions: AmenitySession[] = [
+const amenitySessions_DEMO: AmenitySession[] = [
   { id: 's1', amenityId: 'am1', dayOfWeek: 6, startTime: '09:00', endTime: '13:00', sessionType: 'female_only', maxOccupancy: 12 },
   { id: 's2', amenityId: 'am1', dayOfWeek: 6, startTime: '14:00', endTime: '18:00', sessionType: 'male_only', maxOccupancy: 12 },
   { id: 's3', amenityId: 'am1', dayOfWeek: 5, startTime: '10:00', endTime: '22:00', sessionType: 'family', maxOccupancy: 10 },
@@ -146,14 +147,14 @@ export function generateDaySlots(amenityId: string, seed = 0): CalendarSlot[] {
   }))
 }
 
-export const guardLiveFeed: GuardLogEntry[] = [
+const guardLiveFeed_DEMO: GuardLogEntry[] = [
   { id: 'gl1', type: 'guest_entry', summary: 'مهمان آرش محمدی — واحد ۱۲ وارد شد', time: '۲ دقیقه پیش' },
   { id: 'gl2', type: 'parcel', summary: 'مرسوله اسنپ‌باکس برای واحد ۴ ثبت شد', time: '۱۵ دقیقه پیش' },
   { id: 'gl3', type: 'vehicle_in', summary: 'پلاک ۱۲ ایران ۴۴۵ ب ۷۷ وارد پارکینگ شد', time: '۲۲ دقیقه پیش' },
   { id: 'gl4', type: 'vehicle_out', summary: 'پلاک ۳۳ ایران ۹۰۱ الف ۲۲ از پارکینگ خارج شد', time: '۴۰ دقیقه پیش' },
 ]
 
-export const expenseBreakdown: ExpenseCategoryShare[] = [
+const expenseBreakdown_DEMO: ExpenseCategoryShare[] = [
   { category: 'حقوق و دستمزد پرسنل', amount: 12_500_000, colorVar: '#16324F' },
   { category: 'قبض برق و آب مشاعات', amount: 4_100_000, colorVar: '#0E9594' },
   { category: 'نظافت و مواد مصرفی', amount: 3_200_000, colorVar: '#C08A3E' },
@@ -161,7 +162,7 @@ export const expenseBreakdown: ExpenseCategoryShare[] = [
   { category: 'بیمه و متفرقه', amount: 1_400_000, colorVar: '#C4442E' },
 ]
 
-export const myChargeSplit = {
+const myChargeSplit_DEMO= {
   period: 'شهریور ۱۴۰۴',
   total: 2_800_000,
   ownerShare: 1_800_000,
@@ -171,14 +172,14 @@ export const myChargeSplit = {
 }
 
 // تعداد رزرو انجام‌شده توسط واحد ۱۲ در بازه جاری هر مشاع — برای بررسی سقف رزرو
-export const myBookingCounts: Record<string, number> = {
+const myBookingCounts_DEMO: Record<string, number> = {
   am1: 1, // استخر — سقف ۴ بار در ماه
   am2: 2, // سالن اجتماعات — سقف ۲ بار در ماه (تکمیل‌شده، برای نمایش رد قانون)
   am3: 0, // روف‌گاردن
   am4: 3, // سالن بدنسازی — سقف ۸ بار در ماه
 }
 
-export const myInvoices = [
+const myInvoices_DEMO= [
   { id: 'inv1', title: 'رسید شارژ مرداد ۱۴۰۴', date: '۱۴۰۴/۰۵/۱۰', amount: 2_800_000 },
   { id: 'inv2', title: 'رسید شارژ تیر ۱۴۰۴', date: '۱۴۰۴/۰۴/۱۰', amount: 2_750_000 },
   { id: 'inv3', title: 'فاکتور بیعانه رزرو سالن اجتماعات', date: '۱۴۰۴/۰۳/۲۲', amount: 1_500_000 },
@@ -192,7 +193,7 @@ export const platformPlans: PlatformPlan[] = [
   { id: 'pl3', name: 'سازمانی', monthlyPrice: 8_900_000, maxUnits: 500, modules: ['همه ماژول‌ها', 'SLA اختصاصی', 'API'], tenantCount: 6 },
 ]
 
-export const platformTenants: PlatformTenant[] = [
+const platformTenants_DEMO: PlatformTenant[] = [
   { id: 'tn1', name: 'برج آفتاب', subdomain: 'aftab', plan: 'حرفه‌ای', status: 'active', unitCount: 24, unitLimit: 100, mrr: 3_400_000, joinedAt: '۱۴۰۳/۰۲/۱۵' },
   { id: 'tn2', name: 'مجتمع نگین', subdomain: 'negin', plan: 'استارتر', status: 'active', unitCount: 22, unitLimit: 30, mrr: 1_200_000, joinedAt: '۱۴۰۳/۰۶/۰۱' },
   { id: 'tn3', name: 'برج پارسیان', subdomain: 'parsian', plan: 'سازمانی', status: 'active', unitCount: 340, unitLimit: 500, mrr: 8_900_000, joinedAt: '۱۴۰۲/۱۱/۱۰' },
@@ -200,14 +201,14 @@ export const platformTenants: PlatformTenant[] = [
   { id: 'tn5', name: 'برج الماس', subdomain: 'almas', plan: 'حرفه‌ای', status: 'suspended', unitCount: 60, unitLimit: 100, mrr: 0, joinedAt: '۱۴۰۳/۰۱/۰۵' },
 ]
 
-export const platformInvoices: PlatformInvoice[] = [
+const platformInvoices_DEMO: PlatformInvoice[] = [
   { id: 'pinv1', tenantName: 'برج آفتاب', period: 'شهریور ۱۴۰۴', amount: 3_400_000, status: 'paid', date: '۱۴۰۴/۰۶/۰۱' },
   { id: 'pinv2', tenantName: 'برج پارسیان', period: 'شهریور ۱۴۰۴', amount: 8_900_000, status: 'paid', date: '۱۴۰۴/۰۶/۰۱' },
   { id: 'pinv3', tenantName: 'مجتمع نگین', period: 'شهریور ۱۴۰۴', amount: 1_200_000, status: 'pending', date: '۱۴۰۴/۰۶/۰۱' },
   { id: 'pinv4', tenantName: 'برج الماس', period: 'مرداد ۱۴۰۴', amount: 3_400_000, status: 'failed', date: '۱۴۰۴/۰۵/۰۱' },
 ]
 
-export const platformSummary = {
+const platformSummary_DEMO= {
   totalMrr: 13_500_000,
   activeTenants: 3,
   trialTenants: 1,
@@ -219,12 +220,12 @@ export const platformSummary = {
 
 import type { FnbVenue, MenuItem, DeliveryZone, FnbOrder, AuditLogEntry, AuditVolumePoint } from './types'
 
-export const fnbVenues: FnbVenue[] = [
+const fnbVenues_DEMO: FnbVenue[] = [
   { id: 'v1', name: 'کافه‌رستوران آفتاب', icon: 'restaurant', isOpen: true, prepTimeMinutes: 25, billing: 'wallet', categories: ['همه', 'غذای اصلی', 'صبحانه', 'دسر'] },
   { id: 'v2', name: 'کافی‌شاپ لابی', icon: 'cafe', isOpen: true, prepTimeMinutes: 8, billing: 'monthly_charge', categories: ['همه', 'قهوه', 'دمنوش', 'کیک و شیرینی'] },
 ]
 
-export const menuItems: MenuItem[] = [
+const menuItems_DEMO: MenuItem[] = [
   { id: 'm1', venueId: 'v1', category: 'غذای اصلی', name: 'برگر خانگی آفتاب', price: 385_000, icon: 'burger', color: '#c9a227', availability: 'available' },
   { id: 'm2', venueId: 'v1', category: 'غذای اصلی', name: 'پاستا آلفردو', price: 320_000, icon: 'pasta', color: '#0e9594', availability: 'available' },
   { id: 'm3', venueId: 'v1', category: 'غذای اصلی', name: 'استیک راسته', price: 690_000, icon: 'steak', color: '#c0392b', availability: 'sold_out' },
@@ -240,7 +241,7 @@ export const menuItems: MenuItem[] = [
   { id: 'c7', venueId: 'v2', category: 'کیک و شیرینی', name: 'کروسان کره', price: 98_000, icon: 'croissant', color: '#c9a227', availability: 'available' },
 ]
 
-export const deliveryZones: DeliveryZone[] = [
+const deliveryZones_DEMO: DeliveryZone[] = [
   { id: 'z1', name: 'استخر' },
   { id: 'z2', name: 'سینما' },
   { id: 'z3', name: 'بدنسازی' },
@@ -248,7 +249,7 @@ export const deliveryZones: DeliveryZone[] = [
 ]
 
 // صف زنده آشپزخانه — کارت‌های Kanban برای Kitchen Display (بخش ۴.۴ سند)
-export const kitchenQueue: FnbOrder[] = [
+const kitchenQueue_DEMO: FnbOrder[] = [
   {
     id: 'o1043', orderNumber: '۱۰۴۳', venueId: 'v1', venueName: 'کافه‌رستوران آفتاب',
     deliveryType: 'amenity_zone', destinationLabel: 'استخر — تخت شماره ۷', status: 'placed', billing: 'wallet',
@@ -280,7 +281,7 @@ export const kitchenQueue: FnbOrder[] = [
 const SESSION_A = 'a1c9e4d2-8f31-4e6a-9b12-77c4f0a1e001'
 const SESSION_B = 'b2d8f5e3-7a42-4f1b-8c23-88d5a1b2f002'
 
-export const auditLogs: AuditLogEntry[] = [
+const auditLogs_DEMO: AuditLogEntry[] = [
   { id: 'lg1', occurredAt: '۱۴:۳۱:۵۸', sessionId: SESSION_A, traceId: 'tr-9001', userId: 'u12', actorRole: 'resident', source: 'identity-svc', level: 'info', action: 'auth.refresh', httpMethod: 'POST', httpPath: '/api/auth/refresh', statusCode: 200, durationMs: 120, device: { os: 'iOS 17.4', browser: 'Safari', isPwa: true } },
   { id: 'lg2', occurredAt: '۱۴:۳۲:۰۶', sessionId: SESSION_A, traceId: 'tr-9002', userId: 'u12', actorRole: 'resident', source: 'fnb-svc', level: 'info', action: 'menu.fetch', httpMethod: 'GET', httpPath: '/api/fnb/venues/v1/menu', statusCode: 200, durationMs: 340, device: { os: 'iOS 17.4', browser: 'Safari', isPwa: true } },
   { id: 'lg3', occurredAt: '۱۴:۳۲:۰۷', sessionId: SESSION_A, traceId: 'tr-9003', userId: 'u12', actorRole: 'resident', source: 'fnb-svc', level: 'error', action: 'order.place', httpMethod: 'POST', httpPath: '/api/fnb/orders', statusCode: 500, durationMs: 1840, device: { os: 'iOS 17.4', browser: 'Safari', isPwa: true } },
@@ -291,7 +292,7 @@ export const auditLogs: AuditLogEntry[] = [
   { id: 'lg8', occurredAt: '۱۲:۱۰:۰۲', sessionId: SESSION_A, traceId: 'tr-9000', userId: 'u12', actorRole: 'resident', source: 'client', level: 'debug', action: 'app.foreground', statusCode: undefined, durationMs: undefined, device: { os: 'iOS 17.4', browser: 'Safari', isPwa: true } },
 ]
 
-export const auditVolume: AuditVolumePoint[] = [
+const auditVolume_DEMO: AuditVolumePoint[] = [
   { label: '۱۰:۰۰', count: 42, errorCount: 1 },
   { label: '۱۱:۰۰', count: 58, errorCount: 0 },
   { label: '۱۲:۰۰', count: 65, errorCount: 2 },
@@ -299,3 +300,36 @@ export const auditVolume: AuditVolumePoint[] = [
   { label: '۱۴:۰۰', count: 88, errorCount: 6 },
   { label: '۱۵:۰۰', count: 54, errorCount: 1 },
 ]
+
+/* ── حالت خام: بدون VITE_DEMO_DATA همه‌ی داده‌های نمونه خالی/صفر است ── */
+export const unitsDirectory = demo(unitsDirectory_DEMO, [] as typeof unitsDirectory_DEMO)
+export const charges = demo(charges_DEMO, [] as typeof charges_DEMO)
+export const myCharges = demo(myCharges_DEMO, [] as typeof myCharges_DEMO)
+export const tickets = demo(tickets_DEMO, [] as typeof tickets_DEMO)
+export const reservations = demo(reservations_DEMO, [] as typeof reservations_DEMO)
+export const guestPasses = demo(guestPasses_DEMO, [] as typeof guestPasses_DEMO)
+export const parcels = demo(parcels_DEMO, [] as typeof parcels_DEMO)
+export const workOrders = demo(workOrders_DEMO, [] as typeof workOrders_DEMO)
+export const financeSummary = demo(financeSummary_DEMO, { fundBalance: 0, monthIncome: 0, monthExpense: 0, overdueTotal: 0, overdueUnits: 0 } as typeof financeSummary_DEMO)
+export const monthlyTrend = demo(monthlyTrend_DEMO, [] as typeof monthlyTrend_DEMO)
+export const amenitiesList = demo(amenitiesList_DEMO, [] as typeof amenitiesList_DEMO)
+export const bookingRules = demo(bookingRules_DEMO, {} as typeof bookingRules_DEMO)
+export const amenitySessions = demo(amenitySessions_DEMO, [] as typeof amenitySessions_DEMO)
+export const guardLiveFeed = demo(guardLiveFeed_DEMO, [] as typeof guardLiveFeed_DEMO)
+export const expenseBreakdown = demo(expenseBreakdown_DEMO, [] as typeof expenseBreakdown_DEMO)
+export const myBookingCounts = demo(myBookingCounts_DEMO, {} as typeof myBookingCounts_DEMO)
+export const myInvoices = demo(myInvoices_DEMO, [] as typeof myInvoices_DEMO)
+export const platformTenants = demo(platformTenants_DEMO, [] as typeof platformTenants_DEMO)
+export const platformInvoices = demo(platformInvoices_DEMO, [] as typeof platformInvoices_DEMO)
+/** ساختار ثابت (نه داده‌ی نمونه): هر ساختمان یک رستوران (v1 ← دسترسی kitchen) و یک کافی‌شاپ (v2 ← cafe) دارد؛ منو خالی است */
+export const fnbVenues = demo(fnbVenues_DEMO, [
+  { id: 'v1', name: 'رستوران ساختمان', icon: 'restaurant', isOpen: true, prepTimeMinutes: 25, billing: 'wallet', categories: ['همه'] },
+  { id: 'v2', name: 'کافی‌شاپ ساختمان', icon: 'cafe', isOpen: true, prepTimeMinutes: 10, billing: 'monthly_charge', categories: ['همه'] },
+] as typeof fnbVenues_DEMO)
+export const menuItems = demo(menuItems_DEMO, [] as typeof menuItems_DEMO)
+export const deliveryZones = demo(deliveryZones_DEMO, [] as typeof deliveryZones_DEMO)
+export const kitchenQueue = demo(kitchenQueue_DEMO, [] as typeof kitchenQueue_DEMO)
+export const auditLogs = demo(auditLogs_DEMO, [] as typeof auditLogs_DEMO)
+export const auditVolume = demo(auditVolume_DEMO, [] as typeof auditVolume_DEMO)
+export const myChargeSplit = demo(myChargeSplit_DEMO, { period: '—', total: 0, ownerShare: 0, tenantShare: 0, payerType: 'tenant' as const, note: '' } as typeof myChargeSplit_DEMO)
+export const platformSummary = demo(platformSummary_DEMO, { totalMrr: 0, activeTenants: 0, trialTenants: 0, suspendedTenants: 0, totalUnitsManaged: 0 } as typeof platformSummary_DEMO)

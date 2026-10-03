@@ -1,12 +1,16 @@
 import { Card } from '../../components/ui/Card'
 import { AlertTriangle, Clock } from 'lucide-react'
+import { DEMO_DATA } from '../../lib/demoMode'
 
-const schedules = [
+const schedules_DEMO = [
   { asset: 'آسانسور A', task: 'سرویس ماهانه', nextDue: '۱۴۰۴/۰۶/۰۵', daysLeft: 3, urgent: true },
   { asset: 'آسانسور B', task: 'سرویس ماهانه', nextDue: '۱۴۰۴/۰۶/۱۲', daysLeft: 10, urgent: false },
   { asset: 'موتورخانه مرکزی', task: 'بازرسی فصلی', nextDue: '۱۴۰۴/۰۶/۲۰', daysLeft: 18, urgent: false },
   { asset: 'سیستم اطفا حریق', task: 'بازدید سالانه کپسول‌ها', nextDue: '۱۴۰۴/۰۵/۲۹', daysLeft: -2, urgent: true },
 ]
+
+// فقط در حالت دمو؛ ساختمان تازه هنوز برنامه‌ی سرویسی ندارد
+const schedules = DEMO_DATA ? schedules_DEMO : []
 
 export function StaffSchedule() {
   return (
@@ -18,6 +22,7 @@ export function StaffSchedule() {
 
       <Card>
         <div className="divide-y divide-line">
+          {schedules.length === 0 && <p className="p-4 text-sm text-muted">هنوز برنامه‌ی سرویس دوره‌ای ثبت نشده است</p>}
           {schedules.map((s) => (
             <div key={s.asset + s.task} className="flex items-center justify-between p-4">
               <div className="flex items-center gap-3">

@@ -1,9 +1,11 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Sparkles, CheckCircle2 } from 'lucide-react'
 import { Card, CardHeader } from '../../components/ui/Card'
 import { StatusPill } from '../../components/ui/StatusPill'
 import { Modal, TextField, SelectField, PrimaryButton, GhostButton } from '../../components/ui/Modal'
-import { toman, unitsDirectory } from '../../lib/mockData'
+import { toman } from '../../lib/mockData'
+import { useAuth } from '../../context/AuthContext'
+import { residentsApi, type UnitListItem } from '../../lib/api/residents'
 import { useStore, updateCharge, issueCharges, type ChargeRec } from '../../lib/store'
 import { chargeStats, periods } from '../../lib/finance'
 
@@ -23,7 +25,7 @@ export function AccountantCharges() {
   const allPeriods = periods(charges)
   const [period, setPeriod] = useState(allPeriods[0] ?? '')
   const [formula, setFormula] = useState<FormulaType>('hybrid')
-  const [params, setParams] = useState({ fixed: 2_800_000, base: 1_200_000, perArea: 4_500, perPerson: 80_000, area: 6_200, person: 650_000 })
+  const [params, setParams] = useState({ fixed: 0, base: 0, perArea: 0, perPerson: 0, area: 0, person: 0 })
   const [issuePeriod, setIssuePeriod] = useState({ month: 'مهر', year: '۱۴۰۵', due: '۱۴۰۵/۰۷/۱۰' })
   const [preview, setPreview] = useState(false)
   const [editing, setEditing] = useState<ChargeRec | null>(null)
@@ -33,6 +35,14 @@ export function AccountantCharges() {
   const stats = chargeStats(current)
   const num = (v: string) => Number(v.replace(/[^\d]/g, '')) || 0
 
+  // واحدهای واقعی همین ساختمان (متراژ و تعداد نفرات در فرمول‌های متراژی/نفری با ۰ شروع می‌شود)
+  const { user } = useAuth()
+  const [units, setUnits] = useState<UnitListItem[]>([])
+  useEffect(() => {
+    if (!user?.tenantId) return
+    residentsApi.units(user.tenantId).then((r) => setUnits(r.units)).catch(() => setUnits([]))
+  }, [user?.tenantId])
+  const unitsDirectory = units.map((u) => ({ unit: u.no, area: 0, occupants: u.member_count }))
   const rows = unitsDirectory.map((u) => {
     const base =
       formula === 'fixed'

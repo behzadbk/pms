@@ -13,6 +13,7 @@ export function StaffWorkOrders() {
       <Card>
         <CardHeader title="کارهای فعال" />
         <div className="px-5 pb-5 space-y-3">
+          {workOrders.length === 0 && <p className="text-sm text-muted">کار فعالی به شما واگذار نشده است</p>}
           {workOrders.map((w) => (
             <div key={w.id} className="flex items-center justify-between gap-3 p-4 rounded-xl border border-line">
               <div>

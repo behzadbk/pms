@@ -3,7 +3,7 @@ import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianG
 import { Card, CardHeader } from '../../components/ui/Card'
 import { StatCard } from '../../components/ui/StatCard'
 import { StatusPill } from '../../components/ui/StatusPill'
-import { financeSummary, monthlyTrend, toman } from '../../lib/mockData'
+import { toman } from '../../lib/mockData'
 import { useStore } from '../../lib/store'
 import { fundBalance, periods } from '../../lib/finance'
 
@@ -13,17 +13,31 @@ export function AdminDashboard() {
   const period = periods(state.charges)[0]
   const charges = state.charges.filter((c) => c.period === period)
   const overdue = state.charges.filter((c) => c.status === 'overdue')
+  // همه‌ی ارقام از داده‌ی واقعی همین ساختمان محاسبه می‌شوند؛ ساختمان تازه همه‌چیز ۰ است
+  const monthIncome = charges.filter((c) => c.status === 'paid').reduce((a, c) => a + c.total, 0)
+  const faMonth = (iso: string) => new Date(iso).toLocaleDateString('fa-IR', { month: 'long' })
+  const monthExpense = state.invoices
+    .filter((i) => i.status === 'paid' && period && period.startsWith(faMonth(i.paidAt ?? i.issuedAt)))
+    .reduce((a, i) => a + i.amount, 0)
+  const monthlyTrend = periods(state.charges)
+    .slice(0, 6)
+    .reverse()
+    .map((p) => ({
+      month: p.split(' ')[0],
+      income: Math.round(state.charges.filter((c) => c.period === p && c.status === 'paid').reduce((a, c) => a + c.total, 0) / 1_000_000),
+      expense: Math.round(state.invoices.filter((i) => i.status === 'paid' && p.startsWith(faMonth(i.paidAt ?? i.issuedAt))).reduce((a, i) => a + i.amount, 0) / 1_000_000),
+    }))
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-xl font-bold">داشبورد مدیریت</h1>
-        <p className="text-muted text-sm mt-1">نمای کلی وضعیت مالی و عملیاتی برج آفتاب — شهریور ۱۴۰۴</p>
+        <p className="text-muted text-sm mt-1">نمای کلی وضعیت مالی و عملیاتی ساختمان{period ? ` — ${period}` : ''}</p>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard glass label="موجودی صندوق" value={toman(fundBalance(state))} icon={Wallet} tone="ink" />
-        <StatCard glass label="درآمد این ماه" value={toman(financeSummary.monthIncome)} icon={TrendingUp} tone="tile" />
-        <StatCard glass label="هزینه این ماه" value={toman(financeSummary.monthExpense)} icon={TrendingDown} tone="brass" />
+        <StatCard glass label="درآمد این ماه" value={toman(monthIncome)} icon={TrendingUp} tone="tile" />
+        <StatCard glass label="هزینه این ماه" value={toman(monthExpense)} icon={TrendingDown} tone="brass" />
         <StatCard
           glass
           label="مطالبات معوق"
@@ -37,7 +51,10 @@ export function AdminDashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         <Card className="lg:col-span-2">
           <CardHeader title="روند درآمد و هزینه (میلیون تومان)" />
-          <div className="h-64 px-3 pb-4">
+          <div className="h-64 px-3 pb-4 relative">
+            {monthlyTrend.length === 0 && (
+              <p className="absolute inset-0 flex items-center justify-center text-sm text-muted">هنوز داده‌ی مالی ثبت نشده است</p>
+            )}
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={monthlyTrend} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
                 <defs>
@@ -66,6 +83,7 @@ export function AdminDashboard() {
         <Card>
           <CardHeader title="تیکت‌های اخیر" />
           <div className="px-5 pb-5 space-y-3">
+            {tickets.length === 0 && <p className="text-sm text-muted">تیکتی ثبت نشده است</p>}
             {tickets.slice(0, 4).map((t) => (
               <div key={t.id} className="flex items-start justify-between gap-2 pb-3 border-b border-line last:border-0 last:pb-0">
                 <div className="min-w-0">
@@ -80,7 +98,7 @@ export function AdminDashboard() {
       </div>
 
       <Card>
-        <CardHeader title={`وضعیت شارژ واحدها — ${period ?? ''}`} />
+        <CardHeader title={period ? `وضعیت شارژ واحدها — ${period}` : 'وضعیت شارژ واحدها'} />
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -94,6 +112,11 @@ export function AdminDashboard() {
               </tr>
             </thead>
             <tbody>
+              {charges.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="px-5 py-6 text-center text-muted">هنوز شارژی صادر یا وارد نشده است (حسابداری ← صدور شارژ یا ورود از فایل)</td>
+                </tr>
+              )}
               {charges.map((c) => (
                 <tr key={c.id} className="border-b border-line last:border-0">
                   <td className="px-5 py-3 font-medium">{c.unit}</td>
