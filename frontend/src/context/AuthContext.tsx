@@ -17,6 +17,8 @@ interface AuthContextValue {
   /** ورود کودک با کد ۶ رقمی یا QR خانواده (یک‌بارمصرف، ۵ دقیقه) */
   loginFamily: (tenantSubdomain: string, code: { code?: string; qr_token?: string }) => Promise<void>
   logout: () => void
+  /** بعد از تغییر موفق رمز: پرچم «رمز اولیه» پاک می‌شود */
+  markPasswordChanged: () => void
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
@@ -92,7 +94,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, error, login, loginPlatform, loginFamily, logout }}>
+    <AuthContext.Provider value={{ user, loading, error, login, loginPlatform, loginFamily, logout, markPasswordChanged: () => setUser((u) => (u ? { ...u, mustChangePassword: false } : u)) }}>
       {children}
     </AuthContext.Provider>
   )

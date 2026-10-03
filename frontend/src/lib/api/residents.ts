@@ -267,6 +267,9 @@ export interface ReservationRow {
   requester: string | null
 }
 
+/** اطلاعات ورود ساکن: نام کاربری = موبایل، رمز اولیه = شماره واحد (password فقط هنگام ساخت/بازنشانی پر است) */
+export interface LoginCreds { username: string; password: string | null; created: boolean }
+
 /** قوانین برج */
 export interface RuleOption { key: string; label: string; hint?: string; id?: string; icon?: string | null }
 export interface BuildingRules {
@@ -305,7 +308,7 @@ export const residentsApi = {
   // ── مدیر ──
   units: (buildingId: string, filter?: string, q?: string) => api.get<UnitsResponse>(`${I}/buildings/${buildingId}/units${qs({ filter, q })}`),
   unit: (id: string) => api.get<UnitFile>(sc(`${I}/units/${id}`)),
-  addResident: (unitId: string, body: AddResidentBody) => api.post<{ membership_id: string; role: string; status: string }>(sc(`${I}/units/${unitId}/residents`), body),
+  addResident: (unitId: string, body: AddResidentBody) => api.post<{ membership_id: string; role: string; status: string; credentials?: LoginCreds | null }>(sc(`${I}/units/${unitId}/residents`), body),
   updateMembership: (id: string, body: Record<string, unknown>) => api.patch<UnitFile>(sc(`${I}/memberships/${id}`), body),
   invite: (unitId: string, phone: string) => api.post<{ membership_id: string; resent: boolean }>(sc(`${I}/units/${unitId}/invite`), { phone }),
   moveOutPreview: (unitId: string, date: string) =>
@@ -320,6 +323,9 @@ export const residentsApi = {
   lobbyQr: (buildingId: string) => api.get<{ token: string; url: string; building: string }>(`${I}/buildings/${buildingId}/lobby-qr`),
   importFile: (buildingId: string, file: File) => upload<ImportResult>(`${I}/buildings/${buildingId}/residents/import`, file),
   templatePath: (buildingId: string) => `${I}/buildings/${buildingId}/residents/import/template`,
+
+  /** رمز ساکن را به شماره‌ی واحد برمی‌گرداند (نام کاربری = موبایل) */
+  resetPassword: (membershipId: string) => api.post<{ username: string; password: string }>(sc(`${I}/memberships/${membershipId}/reset-password`)),
 
   // ── واحدها، حذف ساکن، قوانین برج ──
   createUnit: (buildingId: string, body: UnitSpecs & { unit_number: string }) => api.post<{ id: string; no: string }>(`${I}/buildings/${buildingId}/units`, body),

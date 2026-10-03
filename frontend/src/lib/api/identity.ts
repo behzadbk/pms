@@ -13,6 +13,8 @@ export interface AuthUser {
   tenantId: string | null
   /** نام ساختمان (برای سربرگ پنل‌ها) */
   tenantName?: string
+  /** رمز هنوز همان رمز اولیه (شماره واحد) است؛ باید از تنظیمات عوض شود */
+  mustChangePassword?: boolean
   /** فقط برای کارکنان (role=staff): بخش و دسترسی‌های مؤثر — تعیین می‌کند کدام پنل‌ها باز شود */
   department?: string | null
   permissions?: string[]
@@ -47,6 +49,13 @@ export function logout() {
   if (typeof caches !== 'undefined') {
     caches.delete('api-get-cache').catch(() => undefined)
   }
+}
+
+/** تغییر رمز توسط خود کاربر؛ توکن‌های تازه ذخیره می‌شوند تا از دستگاه فعلی بیرون نیفتد */
+export async function changePassword(currentPassword: string, newPassword: string) {
+  const res = await api.post<{ ok: boolean; accessToken: string; refreshToken: string }>('/identity/auth/change-password', { currentPassword, newPassword })
+  setToken(res.accessToken)
+  setRefreshToken(res.refreshToken)
 }
 
 export function getMe() {

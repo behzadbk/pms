@@ -33,8 +33,6 @@ export class ManagerResidentsController {
     private readonly tower: TowerService,
   ) {}
 
-  // حسابدار هم فهرست واحدها را می‌خواند (صدور شارژ و ورود فایل حسابداری بر اساس واحدهای واقعی)
-  @Roles('admin', 'super_admin', 'accountant')
   @Get('buildings/:id/units')
   async units(@CurrentUser() u: JwtPayload, @Param('id', ParseUUIDPipe) id: string, @Query('filter') filter?: string, @Query('q') q?: string) {
     const tenant = scopeTenant(u, id)
@@ -100,6 +98,13 @@ export class ManagerResidentsController {
   @Patch('memberships/:id')
   updateMembership(@ReqCtx() ctx: RequestCtx, @Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateMembershipDto, @Query('building_id') b?: string) {
     return this.manager.updateMembership(scopeTenant(ctx.user, b), id, dto, ctx)
+  }
+
+  /** رمز ساکن را به شماره‌ی واحد برمی‌گرداند و نام‌کاربری/رمز را به مدیر نشان می‌دهد */
+  @Post('memberships/:id/reset-password')
+  @HttpCode(200)
+  resetPassword(@ReqCtx() ctx: RequestCtx, @Param('id', ParseUUIDPipe) id: string, @Query('building_id') b?: string) {
+    return this.manager.resetPassword(scopeTenant(ctx.user, b), id, ctx)
   }
 
   @Post('units/:id/invite')

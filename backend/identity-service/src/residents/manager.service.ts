@@ -15,6 +15,7 @@ import {
   upsertPerson,
 } from './residency.repo'
 import { displayPhone, normalizePhone } from './phone'
+import { ensureLogin, resetToUnitPassword } from './credentials'
 import { formatJalali } from './jalali'
 import { RESIDENCY_LABEL, ROLE_LABEL, ageFromBirthYear, fa } from './residents.constants'
 import type { AddResidentDto, InviteDto, UpdateMembershipDto } from './dto/residents.dto'
@@ -302,9 +303,12 @@ export class ManagerService {
       unit_id: unitId,
       after: { role, residency: dto.residency, status, pays_charge: paysCharge, channel },
     })
+    // حساب ورود: نام کاربری = موبایل، رمز اولیه = شماره واحد (ساکن از «تنظیمات» عوضش می‌کند)
+    const credentials = await ensureLogin(client, tenantId, person, unit.unit_number)
     return {
       membership_id: membershipId,
       user_id: person.id,
+      credentials,
       role,
       status,
       invite: invite ? { id: invite.id, expires_at: invite.expires_at } : null,
@@ -326,6 +330,23 @@ export class ManagerService {
       this.events.publish('invite.sent', { tenantId, phone: out.phone, membershipId: out.membership_id, token, channel: 'sms' }, tenantId)
     }
     return rest as Omit<T, '_token'>
+  }
+
+  /** بازنشانی رمز ساکن به شماره‌ی واحد (مدیر) — ساکن باید در اولین ورود عوضش کند */
+  async resetPassword(tenantId: string, membershipId: string, ctx: RequestCtx) {
+    return this.db.withTenant(tenantId, async (client) => {
+      const m = await getMembershipOr404(client, membershipId)
+      const unit = await getUnitOr404(client, m.unit_id)
+      const person = (await client.query<{ id: string; name: string; phone: string | null }>(`SELECT id, name, phone FROM residency.users WHERE id = $1`, [m.user_id])).rows[0]
+      let creds = await resetToUnitPassword(client, tenantId, person.id, unit.unit_number)
+      if (!creds) {
+        const c = await ensureLogin(client, tenantId, person, unit.unit_number)
+        creds = c?.password ? { username: c.username, password: c.password } : null
+      }
+      if (!creds) throw new BadRequestException('برای این شخص شماره موبایل ثبت نشده یا نام کاربری آن برای حساب دیگری است')
+      await writeAudit(client, tenantId, ctx, 'password.reset', { summary: `رمز ${person.name} به شماره‌ی واحد ${unit.unit_number} بازنشانی شد`, subject_user_id: person.id, membership_id: membershipId, unit_id: m.unit_id })
+      return creds
+    })
   }
 
   /* ───────────── ویرایش عضویت ───────────── */

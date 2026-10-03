@@ -4,6 +4,7 @@ import { Building, Car, History, KeyRound, LogOut, Pencil, Trash2, UserPlus, Cal
 import { residentsApi, errText, fa, type Tone, type UnitFile as UnitFileT, type UnitMember } from '../../../lib/api/residents'
 import { formatJalali } from '../../../lib/jalali'
 import { Avatar, Badge, Cta, ErrorBlock, Field, FieldCard, Loading, Note, PageHeader, Sheet, useLoad, useToast } from '../../../components/hm'
+import { CredentialsSheet } from './CredentialsSheet'
 import { useResidentsScope, useUnitParam } from '../../../lib/residentsScope'
 
 const RES_LABEL = { owner: 'مالک ساکن', tenant: 'مستأجر', owner_absent: 'مالک غیرساکن' } as const
@@ -29,6 +30,7 @@ export function AdminUnitFile() {
   const [busy, setBusy] = useState(false)
   const [specsOpen, setSpecsOpen] = useState(false)
   const [confirmDel, setConfirmDel] = useState(false)
+  const [creds, setCreds] = useState<{ name: string; username: string; password: string } | null>(null)
   const { toast, toastNode } = useToast()
 
   useEffect(() => {
@@ -170,6 +172,25 @@ export function AdminUnitFile() {
                 <span className="text-sm font-bold">ارسال دوباره‌ی دعوت</span>
               </button>
             )}
+            <button
+              className="hm-row"
+              disabled={busy}
+              onClick={async () => {
+                if (!window.confirm(`رمز ${member.name} به شماره‌ی واحد ${fa(u.no)} بازنشانی شود؟ از همه‌ی دستگاه‌ها خارج می‌شود.`)) return
+                setBusy(true)
+                try {
+                  const r = await residentsApi.resetPassword(member.id)
+                  setCreds({ name: member.name, username: r.username, password: r.password })
+                  setMember(null)
+                } catch (e) {
+                  toast(errText(e))
+                } finally {
+                  setBusy(false)
+                }
+              }}
+            >
+              <span className="text-sm font-bold">بازنشانی رمز به شماره واحد</span>
+            </button>
             {member.role !== 'head' && ['adult', 'senior'].includes(member.role) && member.status === 'active' && (
               <button
                 className="hm-row"
@@ -197,6 +218,7 @@ export function AdminUnitFile() {
         )}
       </Sheet>
 
+      {creds && <CredentialsSheet open name={creds.name} unitNo={fa(u.no)} username={creds.username} password={creds.password} onClose={() => setCreds(null)} />}
       <UnitSpecsSheet
         open={specsOpen}
         unit={u}
