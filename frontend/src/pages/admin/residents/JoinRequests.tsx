@@ -5,6 +5,7 @@ import { AlertTriangle, CircleCheckBig, Hourglass, Printer, Sheet as SheetIcon, 
 import { residentsApi, downloadWithAuth, errText, ago, fa, type ImportResult, type JoinRequest } from '../../../lib/api/residents'
 import { EmptyState, ErrorBlock, Loading, PageHeader, Seg, useLoad, useToast } from '../../../components/hm'
 import { useBuildingId } from './Residents'
+import { useResidentsScope } from '../../../lib/residentsScope'
 
 const IMPORT_KEY = 'hamino.last-import'
 
@@ -13,12 +14,13 @@ type Tab = 'requests' | 'import' | 'qr'
 /** A5 — صف درخواست‌های عضویت + نتیجه‌ی ورود از اکسل + QR لابی */
 export function AdminJoinRequests() {
   const buildingId = useBuildingId()
+  const sc = useResidentsScope()
   const [params, setParams] = useSearchParams()
   const tab = (params.get('tab') as Tab) || 'requests'
   const { toast, toastNode } = useToast()
   return (
     <div className="flex flex-col gap-3 hm-fade-in">
-      <PageHeader title="درخواست‌های عضویت" back="/admin/residents" />
+      <PageHeader title="درخواست‌های عضویت" back={sc.list} />
       <Seg<Tab>
         options={[
           ['requests', 'درخواست‌ها'],

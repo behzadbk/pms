@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Building, Info } from 'lucide-react'
 import { residentsApi, errText, fa, type Residency, type UnitFile, type UnitListItem } from '../../../lib/api/residents'
 import { formatJalali, parseDateInput, todayJalali } from '../../../lib/jalali'
 import { Cta, Field, FieldCard, Loading, PageHeader, Seg, StickyCta, useToast } from '../../../components/hm'
+import { useResidentsScope, useUnitParam } from '../../../lib/residentsScope'
 import { UnitPickSheet, useBuildingId } from './Residents'
 
 const RES_HINT: Record<Residency, string> = {
@@ -28,7 +29,8 @@ const EMPTY: FormState = { name: '', phone: '', nid: '', start: todayJalali(), e
 export function AdminResidentForm() {
   const buildingId = useBuildingId()
   const navigate = useNavigate()
-  const { id: editUnitId } = useParams()
+  const editUnitId = useUnitParam() || undefined
+  const sc = useResidentsScope()
   const [search] = useSearchParams()
   const memberId = search.get('member')
   const editing = !!editUnitId && !!memberId
@@ -109,7 +111,7 @@ export function AdminResidentForm() {
           end_date: res === 'tenant' ? end : null,
           pays_charge: res === 'tenant' ? payer === 'tenant' : res === 'owner',
         })
-        navigate(`/admin/units/${unitId}`, { replace: true, state: { toast: 'اطلاعات ساکن ذخیره شد' } })
+        navigate(sc.unit(unitId), { replace: true, state: { toast: 'اطلاعات ساکن ذخیره شد' } })
       } else {
         await residentsApi.addResident(unitId, {
           name: f.name.trim(),
@@ -121,7 +123,7 @@ export function AdminResidentForm() {
           pays_charge: res === 'tenant' ? payer === 'tenant' : res === 'owner' ? true : undefined,
           send_sms: true,
         })
-        navigate('/admin/residents', {
+        navigate(sc.list, {
           replace: true,
           state: { toast: res === 'owner_absent' ? 'مالک ثبت شد · واحد خالی می‌ماند' : 'ساکن ثبت شد · پیامک دعوت ارسال شد' },
         })

@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { CalendarDays, Check, CircleAlert, CircleCheck, Package, CalendarRange } from 'lucide-react'
 import { residentsApi, errText, fa, toman, type MoveOutBlockers, type UnitFile } from '../../../lib/api/residents'
+import { useResidentsScope, useUnitParam } from '../../../lib/residentsScope'
 import { formatJalali, parseDateInput, todayJalali } from '../../../lib/jalali'
 import { Loading, PageHeader, useToast } from '../../../components/hm'
 
@@ -9,7 +10,8 @@ const RES_LABEL = { owner: 'مالک ساکن', tenant: 'مستأجر', owner_ab
 
 /** A6 — تخلیه‌ی واحد: موارد مانع، پیامدها، ثبت */
 export function AdminMoveOut() {
-  const { id = '' } = useParams()
+  const id = useUnitParam()
+  const sc = useResidentsScope()
   const [params] = useSearchParams()
   const navigate = useNavigate()
   const [unit, setUnit] = useState<UnitFile | null>(null)
@@ -40,8 +42,8 @@ export function AdminMoveOut() {
     try {
       const r = await residentsApi.moveOut(id, iso)
       const msg = r.status === 'done' ? 'تخلیه ثبت شد · واحد خالی شد و دسترسی اعضا قطع شد' : `تخلیه ثبت شد · دسترسی اعضا در ${formatJalali(iso, false)} قطع می‌شود`
-      if (thenNew) navigate(`/admin/residents/new?unit=${id}`, { replace: true })
-      else navigate('/admin/residents', { replace: true, state: { toast: msg } })
+      if (thenNew) navigate(`${sc.newResident}?unit=${id}`, { replace: true })
+      else navigate(sc.list, { replace: true, state: { toast: msg } })
     } catch (e) {
       toast(errText(e))
     } finally {

@@ -2,6 +2,7 @@ import { Body, Controller, Get, Param, Put } from '@nestjs/common'
 import { DatabaseService } from '../database/database.service'
 import { CurrentUser, JwtPayload } from '../auth/decorators/current-user.decorator'
 import { Roles } from '../auth/decorators/roles.decorator'
+import { unitOfResident } from './debtor-lock'
 
 interface UpsertRuleBody {
   maxBookingsPerUnitPerPeriod: number
@@ -18,8 +19,14 @@ export class AmenitiesController {
   @Get()
   async list(@CurrentUser() user: JwtPayload) {
     return this.db.withTenant(user.tenant_id!, async (client) => {
+      // «locked»: مشاعِ بسته برای واحد بدهکار (قوانین برج) — برای مدیر/کارکنان همیشه false
+      const unit = await unitOfResident(client, user)
       const res = await client.query(
-        `SELECT *, requires_approval AS needs_approval FROM facility.amenities WHERE is_active ORDER BY requires_approval DESC, name`,
+        `SELECT a.*, a.requires_approval AS needs_approval,
+                CASE WHEN $1::uuid IS NULL THEN false
+                     ELSE (residency.unit_restricted($1, 'module:amenity') OR residency.unit_restricted($1, 'amenity:' || a.id::text)) END AS locked
+           FROM facility.amenities a WHERE a.is_active ORDER BY a.requires_approval DESC, a.name`,
+        [unit],
       )
       return res.rows
     })

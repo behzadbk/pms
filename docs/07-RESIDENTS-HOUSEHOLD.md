@@ -86,3 +86,18 @@ DATABASE_URL=postgres://postgres@localhost:5432/pms python3 tests/e2e_residents.
 cd frontend && npx vite &                          # سپس:
 BASE=http://localhost:5173 node tests/ui_residents.mjs   # پیش از اجرا دوباره --reset
 ```
+
+---
+
+## افزودن: ساخت واحد، حذف ساکن و «قوانین و برج» (۱۴۰۵-۰۷)
+
+**ریشه‌ی «ثبت ساکن ممکن نیست»:** ساختمان تازه واحدی نداشت و هیچ API/UIای برای ساخت واحد نبود؛ نمای سوپرادمین فقط‌خواندنی بود.
+
+- **واحدها:** `POST /buildings/:id/units` (تکی)، `POST /buildings/:id/units/bulk` (`floors × units_per_floor`، شماره‌ی طبقه‌ای ۳۰۱…، تکراری‌ها نادیده)، `PATCH/DELETE /units/:id` (حذف فقط بدون سابقه، وگرنه ۴۰۹).
+- **حذف ساکن:** `DELETE /memberships/:id` (پایان عضویت + قطع نشست‌ها/دعوت‌ها؛ سرپرستِ دارای عضو دیگر → ۴۰۹).
+- **سوپرادمین:** همان صفحه‌های مدیر زیر `/super-admin/residents/:buildingId/…` با دسترسی کامل (`SuperAdminBuildingScope` → `?building_id=` خودکار).
+- **قوانین برج** (`/admin/rules`، مهاجرت `006_building_rules.sql`): مهلت بدهکاری (۰–۳۶۵ روز، پیش‌فرض ۳۰) + برای هر بخش (`module:food|guest|amenity`) یا مشاع (`amenity:<id>`) حالت رادیویی «آزاد / بسته برای بدهکار». تابع‌های SQL `residency.unit_is_debtor / unit_restricted` منبع حقیقت‌اند. مالی، تیکت، اعلانات، مرسوله و اضطراری هرگز بسته نمی‌شوند.
+- **اِعمال سمت سرور:** رزرو مشاع (facility)، مهمان (guard)، سفارش غذا (fnb)، درخواست کودک؛ کد خطا `debtor_restricted` (۴۰۳). در `/me/permissions` مقدار `locked` + `debtor` + `locked_amenities`.
+- **ادغام پنل:** «قوانین رزرو هوشمند» به تب دوم «قوانین و برج» رفت (`/admin/amenity-rules` ریدایرکت می‌شود).
+- **تست:** `tests/e2e_tower_rules.py` (۴۶ سناریو).
+- **توجه:** ویرایشگر سانس/سقف رزرو (تب دوم) هنوز به store محلی/mock وصل است، نه سرور. همچنین بررسی دسترسی guard-service برای مدل جدید `residency.memberships` اصلاح شد.

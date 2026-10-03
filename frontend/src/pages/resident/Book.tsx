@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Clapperboard, Dumbbell, Info, Trees, Users, Waves, type LucideIcon } from 'lucide-react'
+import { Clapperboard, Dumbbell, Info, Lock, Trees, Users, Waves, type LucideIcon } from 'lucide-react'
 import { ApiError } from '../../lib/api/client'
+import { usePermissions } from '../../context/PermissionsContext'
+import { DebtorLock } from '../../components/DebtorLock'
 import { residentsApi, errText, fa, type Amenity, type ReservationRow, type Slot } from '../../lib/api/residents'
 import { formatJalali } from '../../lib/jalali'
 import { Badge, Cta, ErrorBlock, Loading, Seg, StickyCta, SuccessSheet, useLoad, useToast } from '../../components/hm'
@@ -35,7 +37,7 @@ const STATUS: Record<ReservationRow['status'], { t: string; tone: 'ok' | 'warn' 
  */
 export function BookAmenity({ child = false }: { child?: boolean }) {
   const navigate = useNavigate()
-  const { data: amenities, error, loading } = useLoad<Amenity[]>(() => residentsApi.amenities(), [])
+  const { data: amenities, error, loading, reload: reloadAmenities } = useLoad<Amenity[]>(() => residentsApi.amenities(), [])
   const { data: mine, reload: reloadMine } = useLoad<ReservationRow[]>(() => residentsApi.myReservations().catch(() => []), [])
   const [am, setAm] = useState<string>('')
   const [day, setDay] = useState(0)
@@ -44,8 +46,10 @@ export function BookAmenity({ child = false }: { child?: boolean }) {
   const [busy, setBusy] = useState(false)
   const [success, setSuccess] = useState<{ title: string; sub: string; rows: { k: string; v: string }[] } | null>(null)
   const { toast, toastNode } = useToast()
+  const { perms } = usePermissions()
   const days = useMemo(() => [0, 1, 2, 3].map((i) => ({ i, iso: tehranDate(i) })), [])
   const a = amenities?.find((x) => x.id === am) ?? amenities?.[0]
+  const locked = !!a?.locked || (!!a && !!perms?.locked_amenities?.includes(a.id))
 
   useEffect(() => {
     if (!a) return
@@ -82,6 +86,7 @@ export function BookAmenity({ child = false }: { child?: boolean }) {
     } catch (e) {
       if (e instanceof ApiError && e.status === 423) return navigate('/child/quiet')
       toast(errText(e))
+      if (e instanceof ApiError && e.status === 403) void reloadAmenities(true)
       if (e instanceof ApiError && e.status === 409) {
         const fresh = await residentsApi.slots(a.id, days[day].iso).catch(() => null)
         if (fresh) setSlots(fresh.slots)
@@ -94,7 +99,7 @@ export function BookAmenity({ child = false }: { child?: boolean }) {
 
   if (loading) return <Loading />
   if (error || !amenities) return <ErrorBlock message={error ?? ''} />
-  const cta = slot ? (a?.needs_approval ? `ارسال درخواست رزرو · ${fa(slot.label)}` : `رزرو قطعی · ${fa(slot.label)}`) : 'یک ساعت انتخاب کنید'
+  const cta = locked ? 'بسته برای واحد بدهکار' : slot ? (a?.needs_approval ? `ارسال درخواست رزرو · ${fa(slot.label)}` : `رزرو قطعی · ${fa(slot.label)}`) : 'یک ساعت انتخاب کنید'
 
   return (
     <div className="flex flex-col gap-4 hm-fade-in">
@@ -104,7 +109,7 @@ export function BookAmenity({ child = false }: { child?: boolean }) {
           const Icon = ICONS[x.icon ?? ''] ?? Waves
           return (
             <button key={x.id} className="hm-chip !min-h-[44px] inline-flex items-center justify-center gap-2" data-on={x.id === a?.id} onClick={() => setAm(x.id)}>
-              <Icon size={18} />
+              {x.locked ? <Lock size={18} /> : <Icon size={18} />}
               {x.name}
             </button>
           )
@@ -118,6 +123,7 @@ export function BookAmenity({ child = false }: { child?: boolean }) {
           </p>
         </div>
       )}
+      {locked && <DebtorLock debtor={perms?.debtor} child={child} />}
       <Seg<string> options={days.map((d) => [String(d.i), dayLabel(d.i, d.iso)])} value={String(day)} onChange={(v) => setDay(Number(v))} />
       <div className="hm-card p-4">
         <p className="mb-3 text-sm font-bold">ساعت‌های آزاد</p>
@@ -174,7 +180,7 @@ export function BookAmenity({ child = false }: { child?: boolean }) {
       )}
 
       <StickyCta>
-        <Cta onClick={submit} busy={busy} disabled={!slot}>
+        <Cta onClick={submit} busy={busy} disabled={!slot || locked}>
           {cta}
         </Cta>
       </StickyCta>

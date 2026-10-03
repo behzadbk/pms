@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common'
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common'
 import { DatabaseService } from '../database/database.service'
 import { EventsService } from '../events/events.service'
 import { FnbGateway } from '../realtime/fnb.gateway'
@@ -28,7 +28,7 @@ export class OrdersService {
    *    می‌شود تا دو سفارش هم‌زمان نتوانند آخرین موجودی را با هم بردارند.
    *  ۳ نام و قیمت هر آیتم snapshot می‌شود تا تغییر بعدی منو فاکتور گذشته را عوض نکند.
    */
-  async place(tenantId: string, userId: string, dto: PlaceOrderDto) {
+  async place(tenantId: string, userId: string, dto: PlaceOrderDto, role?: string) {
     if (!dto.items?.length) throw new BadRequestException('سبد سفارش خالی است')
     // بدون این چک، تعداد منفی مبلغ سفارش را منفی و موجودی را افزایش می‌داد
     for (const line of dto.items) {
@@ -41,6 +41,13 @@ export class OrdersService {
     }
 
     return this.db.withTenant(tenantId, async (c) => {
+      // قوانین برج: سفارش غذا برای واحد بدهکار بسته است (فقط سفارش خودِ ساکن/کودک؛ ثبت دستی کارکنان مستثناست)
+      if ((role === 'resident' || role === 'child') && dto.unitId) {
+        const lock = await c.query<{ r: boolean }>(`SELECT residency.unit_restricted($1, 'module:food') AS r`, [dto.unitId])
+        if (lock.rows[0]?.r) {
+          throw new ForbiddenException({ statusCode: 403, code: 'debtor_restricted', message: 'سفارش غذا برای واحد شما به‌علت معوقه‌ی شارژ بسته است؛ پس از تسویه باز می‌شود.' })
+        }
+      }
       const ids = dto.items.map((i) => i.itemId)
       const itemsRes = await c.query(
         `SELECT id, name, price, availability, stock_count, reserved_count

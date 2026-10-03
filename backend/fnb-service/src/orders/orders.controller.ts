@@ -12,7 +12,7 @@ export class OrdersController {
   place(@CurrentUser() user: JwtPayload, @Body() dto: PlaceOrderDto) {
     // نکته Production: هدر Idempotency-Key باید اینجا بررسی شود تا دابل‌تپ موبایل
     // دو سفارش نسازد (همان الگوی استفاده‌شده در finance-svc برای پرداخت).
-    return this.orders.place(user.tenant_id!, user.sub, dto)
+    return this.orders.place(user.tenant_id!, user.sub, dto, user.role)
   }
 
   @Get('orders/:id')
