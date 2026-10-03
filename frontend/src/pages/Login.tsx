@@ -156,7 +156,7 @@ export function Login() {
 
           <div className="space-y-1.5">
             <label htmlFor="email" className="text-sm font-medium text-ink-text">
-              ایمیل یا نام کاربری
+              ایمیل، شماره موبایل یا نام کاربری
             </label>
             <input
               id="email"
@@ -165,7 +165,7 @@ export function Login() {
               autoCapitalize="none"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@example.com یا reza.lobby"
+              placeholder="09121234567 یا you@example.com"
               required
               dir="ltr"
               className="w-full rounded-2xl border border-[var(--lg-border-hairline)] bg-[var(--lg-bg-elevated)] px-3 py-2.5 text-sm outline-none focus:ring-2"
