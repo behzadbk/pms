@@ -12,6 +12,7 @@ import { CurrentUser, JwtPayload } from '../auth/decorators/current-user.decorat
 import { Roles } from '../auth/decorators/roles.decorator'
 import { buildSlots, tehranToday } from './slots'
 import { amenityLock, unitOfResident } from './debtor-lock'
+import { BookingValidationService } from './booking-validation.service'
 
 /** شناسه‌ی UUID‌شکل (داده‌ی نمونه UUIDهای غیر-v4 دارد؛ IsUUID نسخه را هم چک می‌کند) */
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -46,6 +47,7 @@ export class BookingsController {
   constructor(
     private readonly db: DatabaseService,
     private readonly events: EventsService,
+    private readonly validator: BookingValidationService,
   ) {}
 
   @Get('amenities/:id/slots')
@@ -99,6 +101,13 @@ export class BookingsController {
         // قوانین برج: مشاعِ بسته برای واحد بدهکار (مدیر و مسئول مشاعات با ثبت دستی از این قفل مستثنی‌اند)
         const lock = await amenityLock(client, unitId, a.id, a.name)
         if (lock.locked) throw new ForbiddenException({ statusCode: 403, code: 'debtor_restricted', message: lock.message, overdue_days: lock.overdue_days })
+        // قانون رزرو مشاع (سقف در بازه، حداقل/حداکثر پیش‌رزرو): پیش‌تر فقط مسیر قدیمی آن را اعمال می‌کرد
+        // و این مسیر (که اپ استفاده می‌کند) نادیده‌اش می‌گرفت. ثبت دستی مدیر/مسئول مشاعات مستثنی است.
+        const rule = (await client.query(`SELECT * FROM facility.booking_rules WHERE amenity_id = $1 AND is_active = true LIMIT 1`, [a.id])).rows[0]
+        if (rule) {
+          const chk = await this.validator.check(client, rule, unitId, start, end, { skipOverlap: true })
+          if (!chk.ok) throw new BadRequestException({ statusCode: 400, code: 'booking_rule_violation', message: chk.violations.join(' '), violations: chk.violations })
+        }
         if (m.role === 'child') {
           // حالت والدین: پنهان → ممنوع · ساعت سکوت → ۴۲۳ · با تأیید → درخواست برای والد
           const lv = (await client.query<{ lv: number }>(`SELECT residency.child_module_level($1, 'amenity') AS lv`, [m.id])).rows[0].lv

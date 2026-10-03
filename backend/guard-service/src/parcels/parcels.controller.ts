@@ -42,7 +42,11 @@ export class ParcelsController {
   async register(@Body() body: RegisterParcelBody, @CurrentUser() user: JwtPayload) {
     const tenantId = user.tenant_id!
     if (!body?.unitId) throw new BadRequestException('واحد مقصد الزامی است')
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(body.unitId)) throw new BadRequestException('شناسه‌ی واحد نامعتبر است')
     const parcel = await this.db.withTenant(tenantId, async (client) => {
+      // واحد باید در همین ساختمان باشد (RLS روی property.units فقط واحدهای همین tenant را نشان می‌دهد)
+      const unit = await client.query(`SELECT 1 FROM property.units WHERE id = $1`, [body.unitId])
+      if (!unit.rowCount) throw new NotFoundException('واحد یافت نشد')
       const res = await client.query(
         `INSERT INTO guard.parcels (tenant_id, unit_id, courier_company, tracking_code, received_by, photo_url, status)
          VALUES ($1, $2, $3, $4, $5, $6, 'pending_pickup') RETURNING *`,

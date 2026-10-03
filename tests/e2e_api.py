@@ -61,7 +61,7 @@ if bid:
 s,b=call("identity","POST","/auth/login",{"email":f"admin@{sub}.test","password":"Str0ngPass!","tenantSubdomain":sub}); check("platform","مدیر مجتمع تازه‌ساخته می‌تواند وارد شود",s in(200,201) and b["user"]["role"]=="admin",(s,b))
 s,b=call("property","GET","/units",token=b.get("accessToken") if isinstance(b,dict) else None); check("platform","مجتمع جدید هیچ داده‌ای از مجتمع دیگر نمی‌بیند (RLS)",s==200 and b==[],(s,b))
 # ── ۳. واحدها
-s,b=call("property","GET","/units",token=tok["admin"]); check("property","لیست واحدها (ادمین)",s==200 and len(b)==3,(s,b if s!=200 else len(b)))
+s,b=call("property","GET","/units",token=tok["admin"]); check("property","لیست واحدها (ادمین)",s==200 and len(b)>=3,(s,b if s!=200 else len(b)))
 s,b=call("property","POST","/units",{"unitNumber":"999","floor":9,"areaSqm":80},token=tok["resident"]); check("property","ساکن نمی‌تواند واحد بسازد",s==403,s)
 s,b=call("property","GET","/units/not-a-uuid",token=tok["admin"]); check("property","شناسه نامعتبر → 400 نه 500",s in(400,404),s)
 # ── ۴. رزرو

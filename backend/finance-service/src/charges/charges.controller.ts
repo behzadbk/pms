@@ -4,6 +4,7 @@ import { CurrentUser, JwtPayload } from '../auth/decorators/current-user.decorat
 import { Roles } from '../auth/decorators/roles.decorator'
 import { PropertyClientService } from '../property-client/property-client.service'
 import { EventsService } from '../events/events.service'
+import { UNIT_ID_RE, assertUnitAccess } from '../common/unit-access'
 
 interface GenerateMonthlyBody {
   period: string // 'YYYY-MM'
@@ -18,9 +19,12 @@ export class ChargesController {
     private readonly events: EventsService,
   ) {}
 
+  @Roles('resident', 'admin', 'accountant')
   @Get('units/:unitId/charges')
   async listForUnit(@Param('unitId') unitId: string, @CurrentUser() user: JwtPayload) {
+    if (!UNIT_ID_RE.test(unitId)) throw new BadRequestException('شناسه‌ی واحد نامعتبر است')
     return this.db.withTenant(user.tenant_id!, async (client) => {
+      await assertUnitAccess(client, user, unitId)
       const res = await client.query(
         `SELECT * FROM finance.monthly_charges WHERE unit_id = $1 ORDER BY period DESC`,
         [unitId],
@@ -42,6 +46,7 @@ export class ChargesController {
     if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(body?.period ?? '')) {
       throw new BadRequestException('دوره باید به شکل YYYY-MM باشد')
     }
+    if (!UNIT_ID_RE.test(body?.formulaId ?? '')) throw new BadRequestException('شناسه‌ی فرمول نامعتبر است')
 
     return this.db.withTenant(tenantId, async (client) => {
       const formulaRes = await client.query(`SELECT * FROM finance.charge_formulas WHERE id = $1`, [body.formulaId])
