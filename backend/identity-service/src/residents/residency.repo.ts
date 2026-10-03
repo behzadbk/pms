@@ -3,6 +3,7 @@ import { randomBytes, randomInt } from 'crypto'
 import type { PoolClient } from 'pg'
 import type { JwtPayload } from '../auth/decorators/current-user.decorator'
 import { normalizeNationalId, normalizePhone } from './phone'
+import { restrictedAmenities, restrictedModules } from './residents.constants'
 
 /**
  * کوئری‌های مشترک ماژول ساکنین. همه با client داخل withTenant اجرا می‌شوند؛
@@ -215,4 +216,39 @@ export async function freshFamilyCode(client: PoolClient): Promise<string> {
     if (!taken.rowCount) return code
   }
   throw new ConflictException('ساخت کد ورود ممکن نشد؛ دوباره تلاش کنید')
+}
+
+export interface DebtorState {
+  is_debtor: boolean
+  overdue_days: number
+  amount: number
+  grace_days: number
+  modules: ('food' | 'guest' | 'amenity')[]
+  amenities: string[]
+}
+
+/** وضعیت بدهکاری واحد و آنچه برایش قفل است (تنها وقتی بدهکار حساب شود) */
+export async function debtorState(client: PoolClient, unitId: string): Promise<DebtorState> {
+  const r = (
+    await client.query<{ is_debtor: boolean; overdue_days: number; amount: string; grace_days: number | null; restrictions: Record<string, unknown> | null }>(
+      `SELECT residency.unit_is_debtor($1) AS is_debtor,
+              residency.unit_overdue_days($1) AS overdue_days,
+              (SELECT COALESCE(sum(c.total_amount), 0) FROM finance.monthly_charges c
+                WHERE c.unit_id = $1 AND c.status IN ('pending','overdue')
+                  AND c.due_date < (now() AT TIME ZONE 'Asia/Tehran')::date) AS amount,
+              rr.debtor_grace_days AS grace_days, rr.debtor_restrictions AS restrictions
+         FROM (SELECT 1) x
+         LEFT JOIN residency.building_rules rr ON rr.tenant_id = (SELECT tenant_id FROM property.units WHERE id = $1)`,
+      [unitId],
+    )
+  ).rows[0]
+  const restrictions = r?.restrictions ?? {}
+  return {
+    is_debtor: !!r?.is_debtor,
+    overdue_days: Number(r?.overdue_days ?? 0),
+    amount: Number(r?.amount ?? 0),
+    grace_days: r?.grace_days ?? 30,
+    modules: r?.is_debtor ? restrictedModules(restrictions) : [],
+    amenities: r?.is_debtor ? restrictedAmenities(restrictions) : [],
+  }
 }

@@ -6,11 +6,12 @@ import { DatabaseService } from '../database/database.service'
 import { EventsService } from '../events/events.service'
 import type { JwtPayload } from '../auth/decorators/current-user.decorator'
 import { RequestCtx, notify, writeAudit } from './context'
-import { MembershipRow, childCredit, getMembershipOr404, myMembership, personOf, unitGuardians } from './residency.repo'
+import { MembershipRow, childCredit, debtorState, getMembershipOr404, myMembership, personOf, unitGuardians } from './residency.repo'
 import {
   ModuleKey,
   ModuleLevel,
   ModuleMap,
+  applyDebtorLocks,
   childPermissionMap,
   decideChildPurchase,
   faMoney,
@@ -27,6 +28,14 @@ export class QuietHoursException extends HttpException {
       { statusCode: 423, code: 'quiet_hours', message: `سفارش و رزرو از ساعت ${q?.from ?? '۲۲'} تا ${q?.to ?? '۷'} بسته است`, quiet_hours: q },
       423,
     )
+  }
+}
+
+/** ۴۰۳ — بخش برای واحد بدهکار بسته است (قوانین برج)؛ فرانت با code صفحه‌ی «قفل بدهکاری» را نشان می‌دهد */
+export class DebtorRestrictedException extends HttpException {
+  constructor(section: string) {
+    const label = ({ food: 'سفارش غذا', guest: 'کارت مهمان', amenity: 'رزرو مشاعات' } as Record<string, string>)[section] ?? 'این بخش'
+    super({ statusCode: 403, code: 'debtor_restricted', message: `${label} برای واحد شما به‌علت معوقه‌ی شارژ بسته است؛ پس از تسویه باز می‌شود.` }, 403)
   }
 }
 
@@ -109,13 +118,16 @@ export class ChildService {
       }
       const unit = (await client.query<{ unit_number: string; floor: number | null }>(`SELECT unit_number, floor FROM property.units WHERE id = $1`, [m.unit_id])).rows[0]
       const kind = m.role === 'caregiver' ? 'caregiver' : m.role === 'owner_absent' ? 'owner_absent' : 'resident'
+      const debt = await debtorState(client, m.unit_id)
       return {
         kind,
         role: m.role,
         membership_id: m.id,
         unit: { id: m.unit_id, no: unit.unit_number, floor: unit.floor },
         units: memberships,
-        modules: roleMatrix(m.role, { financeAccess: (m.settings as { finance_access?: boolean }).finance_access }),
+        modules: applyDebtorLocks(roleMatrix(m.role, { financeAccess: (m.settings as { finance_access?: boolean }).finance_access }), debt.modules),
+        debtor: debt.is_debtor ? { overdue_days: debt.overdue_days, amount: debt.amount, grace_days: debt.grace_days } : null,
+        locked_amenities: debt.amenities,
         quiet: { active: false, hours: null },
         emergency: m.role !== 'owner_absent',
         easy_mode: m.role === 'senior' && (m.settings as { easy_mode?: boolean }).easy_mode !== false,
@@ -136,6 +148,7 @@ export class ChildService {
         WHERE hm.unit_id = $1 AND hm.role = 'head' AND hm.status = 'active'`, [m.unit_id])).rows[0]
     const pending = (await client.query<{ n: number }>(
       `SELECT count(*)::int AS n FROM residency.child_requests WHERE child_membership_id = $1 AND status = 'pending' AND expires_at > now()`, [m.id])).rows[0].n
+    const debt = await debtorState(client, m.unit_id)
     return {
       kind: 'child',
       role: 'child',
@@ -143,7 +156,9 @@ export class ChildService {
       membership_id: m.id,
       unit: { id: m.unit_id, no: unit.unit_number, floor: unit.floor },
       preset: pc?.preset ?? 'u7',
-      modules: childPermissionMap(pc?.modules ?? {}),
+      modules: applyDebtorLocks(childPermissionMap(pc?.modules ?? {}), debt.modules),
+      debtor: debt.is_debtor ? { overdue_days: debt.overdue_days, amount: debt.amount, grace_days: debt.grace_days } : null,
+      locked_amenities: debt.amenities,
       levels: pc?.modules ?? {},
       quiet: { active: quiet, hours: pc?.quiet_hours ?? null },
       credit: await childCredit(client, m.id),
@@ -165,6 +180,11 @@ export class ChildService {
         `SELECT modules, quiet_hours FROM residency.parent_controls WHERE membership_id = $1`, [m.id])).rows[0]
       const level = ((pc?.modules ?? {})[TYPE_MODULE[dto.type]] ?? 0) as ModuleLevel
       if (level === 0) throw new ForbiddenException('این بخش برای تو فعال نیست')
+      const lockedModule = TYPE_MODULE[dto.type]
+      if (['food', 'guest', 'amenity'].includes(lockedModule)) {
+        const lock = (await client.query<{ r: boolean }>(`SELECT residency.unit_restricted($1, $2) AS r`, [m.unit_id, `module:${lockedModule}`])).rows[0].r
+        if (lock) throw new DebtorRestrictedException(lockedModule)
+      }
       const quiet = (await client.query<{ q: boolean }>(`SELECT residency.in_quiet_hours($1) AS q`, [m.id])).rows[0].q
       if (quiet && (dto.type === 'order' || dto.type === 'amenity')) throw new QuietHoursException(pc?.quiet_hours ?? null)
 

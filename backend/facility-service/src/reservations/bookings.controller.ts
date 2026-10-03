@@ -11,6 +11,7 @@ import { EventsService } from '../events/events.service'
 import { CurrentUser, JwtPayload } from '../auth/decorators/current-user.decorator'
 import { Roles } from '../auth/decorators/roles.decorator'
 import { buildSlots, tehranToday } from './slots'
+import { amenityLock, unitOfResident } from './debtor-lock'
 
 /** شناسه‌ی UUID‌شکل (داده‌ی نمونه UUIDهای غیر-v4 دارد؛ IsUUID نسخه را هم چک می‌کند) */
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -59,9 +60,12 @@ export class BookingsController {
             AND start_at < ($2::date + 2)::timestamptz AND end_at > ($2::date - 1)::timestamptz`,
         [id, day],
       )
+      const unit = await unitOfResident(client, user)
+      const lock = unit ? await amenityLock(client, unit, a.id, a.name) : null
       return {
         amenity: a,
         date: day,
+        lock: lock?.locked ? { code: 'debtor_restricted', overdue_days: lock.overdue_days, message: lock.message } : null,
         slots: buildSlots(day, a.slot_hours, busy.rows.map((b) => ({ start: new Date(b.start_at), end: new Date(b.end_at), status: b.status }))),
       }
     })
@@ -92,6 +96,9 @@ export class BookingsController {
         unitId = m.unit_id
         personId = m.user_id
         if (m.role === 'caregiver' || m.role === 'owner_absent') throw new ForbiddenException('رزرو مشاعات برای این نوع عضویت فعال نیست')
+        // قوانین برج: مشاعِ بسته برای واحد بدهکار (مدیر و مسئول مشاعات با ثبت دستی از این قفل مستثنی‌اند)
+        const lock = await amenityLock(client, unitId, a.id, a.name)
+        if (lock.locked) throw new ForbiddenException({ statusCode: 403, code: 'debtor_restricted', message: lock.message, overdue_days: lock.overdue_days })
         if (m.role === 'child') {
           // حالت والدین: پنهان → ممنوع · ساعت سکوت → ۴۲۳ · با تأیید → درخواست برای والد
           const lv = (await client.query<{ lv: number }>(`SELECT residency.child_module_level($1, 'amenity') AS lv`, [m.id])).rows[0].lv

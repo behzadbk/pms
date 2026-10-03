@@ -6,6 +6,7 @@ import { HouseholdService } from './household.service'
 import { ChildService } from './child.service'
 import { AdminResidentsService } from './admin-residents.service'
 import { HousekeepingService } from './housekeeping.service'
+import { TowerService } from './tower.service'
 import {
   AdminResidentsController,
   HouseholdController,
@@ -18,6 +19,6 @@ import {
 @Module({
   imports: [AuthModule],
   controllers: [ManagerResidentsController, AdminResidentsController, HouseholdController, MeController, PublicResidentsController],
-  providers: [ManagerService, JoinService, HouseholdService, ChildService, AdminResidentsService, HousekeepingService],
+  providers: [ManagerService, JoinService, HouseholdService, ChildService, AdminResidentsService, HousekeepingService, TowerService],
 })
 export class ResidentsModule {}

@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
-import { useLocation, useNavigate, useParams } from 'react-router-dom'
-import { Car, History, KeyRound, LogOut, Pencil, UserPlus, CalendarClock } from 'lucide-react'
+import { useLocation, useNavigate } from 'react-router-dom'
+import { Building, Car, History, KeyRound, LogOut, Pencil, Trash2, UserPlus, CalendarClock } from 'lucide-react'
 import { residentsApi, errText, fa, type Tone, type UnitFile as UnitFileT, type UnitMember } from '../../../lib/api/residents'
 import { formatJalali } from '../../../lib/jalali'
-import { Avatar, Badge, ErrorBlock, Loading, Note, PageHeader, Sheet, useLoad, useToast } from '../../../components/hm'
+import { Avatar, Badge, Cta, ErrorBlock, Field, FieldCard, Loading, Note, PageHeader, Sheet, useLoad, useToast } from '../../../components/hm'
+import { useResidentsScope, useUnitParam } from '../../../lib/residentsScope'
 
 const RES_LABEL = { owner: 'مالک ساکن', tenant: 'مستأجر', owner_absent: 'مالک غیرساکن' } as const
 
@@ -18,13 +19,16 @@ function accessOf(m: UnitMember): { t: string; tone: Tone } {
 
 /** A4 — پرونده‌ی واحد: کارت قهرمان، مالک، اعضا و چهار اقدام */
 export function AdminUnitFile() {
-  const { id = '' } = useParams()
+  const id = useUnitParam()
+  const sc = useResidentsScope()
   const navigate = useNavigate()
   const location = useLocation()
   const { data: u, setData, error, loading, reload } = useLoad<UnitFileT>(() => residentsApi.unit(id), [id])
   const [member, setMember] = useState<UnitMember | null>(null)
   const [cars, setCars] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [specsOpen, setSpecsOpen] = useState(false)
+  const [confirmDel, setConfirmDel] = useState(false)
   const { toast, toastNode } = useToast()
 
   useEffect(() => {
@@ -60,23 +64,28 @@ export function AdminUnitFile() {
   }
 
   const actions = [
-    { icon: UserPlus, t: 'افزودن عضو', c: 'var(--hm-pri)', on: () => navigate(`/admin/residents/new?unit=${u.id}`) },
+    { icon: UserPlus, t: 'افزودن عضو', c: 'var(--hm-pri)', on: () => navigate(`${sc.newResident}?unit=${u.id}`) },
     { icon: Car, t: 'خودروها', c: 'var(--hm-pri)', on: () => setCars(true) },
-    { icon: History, t: 'تاریخچه', c: 'var(--hm-pri)', on: () => navigate('/admin/logs') },
-    { icon: LogOut, t: 'تخلیه', c: 'var(--hm-bad)', on: () => navigate(`/admin/units/${u.id}/move-out`) },
+    { icon: History, t: 'تاریخچه', c: 'var(--hm-pri)', on: () => navigate(sc.superAdmin ? '/super-admin' : '/admin/logs') },
+    { icon: LogOut, t: 'تخلیه', c: 'var(--hm-bad)', on: () => navigate(sc.moveOut(u.id)) },
   ]
 
   return (
     <div className="flex flex-col gap-4 hm-fade-in">
       <PageHeader
         title={`واحد ${fa(u.no)}`}
-        back="/admin/residents"
+        back={sc.list}
         action={
-          head && (
-            <button className="hm-back" aria-label="ویرایش" onClick={() => navigate(`/admin/units/${u.id}/edit?member=${head.membership_id}`)}>
-              <Pencil size={20} />
+          <span className="flex items-center gap-1">
+            <button className="hm-back" aria-label="مشخصات واحد" onClick={() => setSpecsOpen(true)}>
+              <Building size={20} />
             </button>
-          )
+            {head && (
+              <button className="hm-back" aria-label="ویرایش" onClick={() => navigate(`${sc.edit(u.id)}?member=${head.membership_id}`)}>
+                <Pencil size={20} />
+              </button>
+            )}
+          </span>
         }
       />
 
@@ -153,7 +162,7 @@ export function AdminUnitFile() {
                 </p>
               </div>
             </div>
-            <button className="hm-row" onClick={() => navigate(`/admin/units/${u.id}/edit?member=${member.id}`)}>
+            <button className="hm-row" onClick={() => navigate(`${sc.edit(u.id)}?member=${member.id}`)}>
               <span className="text-sm font-bold">ویرایش اطلاعات</span>
             </button>
             {member.status === 'invited' && member.phone && (
@@ -173,14 +182,51 @@ export function AdminUnitFile() {
             <button
               className="hm-row"
               disabled={busy}
-              onClick={() => act(() => residentsApi.updateMembership(member.id, { status: 'ended' }), `عضویت ${member.name} پایان یافت`)}
+              onClick={() => {
+                if (!window.confirm(`«${member.name}» از واحد ${fa(u.no)} حذف شود؟ دسترسی و نشست‌های او قطع می‌شود و سابقه در پرونده می‌ماند.`)) return
+                void act(() => residentsApi.removeResident(member.id), `${member.name} حذف شد`)
+              }}
             >
-              <span className="text-sm font-bold text-[var(--hm-bad)]">{member.role === 'head' ? 'پایان عضویت (ابتدا سرپرستی را واگذار کنید)' : 'پایان عضویت'}</span>
+              <Trash2 size={18} className="text-[var(--hm-bad)]" />
+              <span className="flex-1 text-right">
+                <span className="block text-sm font-bold text-[var(--hm-bad)]">حذف ساکن</span>
+                {member.role === 'head' && residents.length > 1 && <span className="block text-xs text-[var(--hm-t2)]">سرپرست با وجود اعضای دیگر حذف نمی‌شود؛ ابتدا سرپرستی را واگذار کنید.</span>}
+              </span>
             </button>
           </div>
         )}
       </Sheet>
 
+      <UnitSpecsSheet
+        open={specsOpen}
+        unit={u}
+        busy={busy}
+        onClose={() => setSpecsOpen(false)}
+        onSave={(body) => act(() => residentsApi.updateUnit(u.id, body), 'مشخصات واحد ذخیره شد').then(() => setSpecsOpen(false))}
+        onDelete={() => setConfirmDel(true)}
+      />
+      <Sheet open={confirmDel} onClose={() => setConfirmDel(false)} label="حذف واحد">
+        <p className="mx-2 text-base font-bold">حذف واحد {fa(u.no)}؟</p>
+        <p className="mx-2 mt-2 mb-4 text-xs leading-6 text-[var(--hm-t2)]">فقط واحدی که هیچ سابقه‌ی ساکن، شارژ یا رزرو ندارد حذف می‌شود؛ در غیر این صورت ابتدا ساکنین را حذف/تخلیه کنید.</p>
+        <button
+          className="hm-cta-danger w-full"
+          disabled={busy}
+          onClick={async () => {
+            setBusy(true)
+            try {
+              await residentsApi.deleteUnit(u.id)
+              navigate(sc.list, { replace: true, state: { toast: `واحد ${fa(u.no)} حذف شد` } })
+            } catch (e) {
+              toast(errText(e))
+              setConfirmDel(false)
+            } finally {
+              setBusy(false)
+            }
+          }}
+        >
+          حذف واحد
+        </button>
+      </Sheet>
       <Sheet open={cars} onClose={() => setCars(false)} label="خودروها">
         <p className="mx-2 mb-3 text-base font-bold">خودروهای واحد {fa(u.no)}</p>
         {u.vehicles.length === 0 ? (
@@ -196,5 +242,68 @@ export function AdminUnitFile() {
       </Sheet>
       {toastNode}
     </div>
+  )
+}
+
+/** ویرایش مشخصات واحد (شماره، طبقه، متراژ، پارکینگ، انباری) + حذف واحد */
+function UnitSpecsSheet({
+  open,
+  unit,
+  busy,
+  onClose,
+  onSave,
+  onDelete,
+}: {
+  open: boolean
+  unit: UnitFileT
+  busy: boolean
+  onClose: () => void
+  onSave: (b: { unit_number?: string; floor?: number; area?: number; parking_count?: number; storage_no?: string }) => void
+  onDelete: () => void
+}) {
+  const [no, setNo] = useState('')
+  const [floor, setFloor] = useState('')
+  const [area, setArea] = useState('')
+  const [parking, setParking] = useState('')
+  const [storage, setStorage] = useState('')
+  useEffect(() => {
+    if (!open) return
+    setNo(unit.no)
+    setFloor(unit.floor != null ? String(unit.floor) : '')
+    setArea(unit.area ? String(unit.area) : '')
+    setParking(String(unit.parking_count ?? 0))
+    setStorage(unit.storage_no ?? '')
+  }, [open, unit])
+  const n = (v: string) => Number(v.replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d))))
+  return (
+    <Sheet open={open} onClose={onClose} label="مشخصات واحد">
+      <p className="mx-2 mb-3 text-xl font-bold">مشخصات واحد {fa(unit.no)}</p>
+      <div className="flex flex-col gap-3">
+        <FieldCard>
+          <Field label="شماره واحد" value={no} onChange={setNo} inputMode="numeric" />
+          <Field label="طبقه" value={floor} onChange={setFloor} inputMode="numeric" />
+          <Field label="متراژ" value={area} onChange={setArea} inputMode="numeric" />
+          <Field label="تعداد پارکینگ" value={parking} onChange={setParking} inputMode="numeric" />
+          <Field label="شماره انباری" value={storage} onChange={setStorage} />
+        </FieldCard>
+        <Cta
+          busy={busy}
+          onClick={() =>
+            onSave({
+              unit_number: no.trim() || undefined,
+              floor: floor ? n(floor) : undefined,
+              area: area ? n(area) : undefined,
+              parking_count: parking ? n(parking) : 0,
+              storage_no: storage.trim() || undefined,
+            })
+          }
+        >
+          ذخیره
+        </Cta>
+        <button className="hm-cta-danger" onClick={onDelete}>
+          حذف واحد
+        </button>
+      </div>
+    </Sheet>
   )
 }

@@ -11,6 +11,7 @@ import { MoreScreen } from './components/Layout'
 import { PermissionsProvider, usePermissions } from './context/PermissionsContext'
 import type { AppModule } from './lib/api/residents'
 import { AdminResidents } from './pages/admin/residents/Residents'
+import { SuperAdminBuildingScope } from './lib/residentsScope'
 import { AdminResidentForm } from './pages/admin/residents/ResidentForm'
 import { AdminUnitFile } from './pages/admin/residents/UnitFile'
 import { AdminJoinRequests } from './pages/admin/residents/JoinRequests'
@@ -29,7 +30,8 @@ import { AdminFinance } from './pages/admin/Finance'
 import { AdminTickets } from './pages/admin/Tickets'
 import { AdminAnnouncements } from './pages/admin/Announcements'
 import { AdminReservations } from './pages/admin/Reservations'
-import { AdminAmenityRules } from './pages/admin/AmenityRules'
+import { DebtorLock } from './components/DebtorLock'
+import { AdminRules } from './pages/admin/Rules'
 import { AdminAuditLog } from './pages/admin/AuditLog'
 import { AnnouncementsFeed } from './pages/shared/AnnouncementsFeed'
 import { AccountantDashboard } from './pages/accountant/Dashboard'
@@ -137,6 +139,8 @@ function RequireModule({ module, children }: { module: AppModule; children: Reac
   const { visible, perms } = usePermissions()
   const { role } = useRole()
   if (perms && !visible(module)) return <Navigate to={`/${role}`} replace />
+  // قوانین برج: واحد بدهکار — بخش دیده می‌شود ولی بسته است
+  if (perms && perms.modules[module] === 'locked') return <DebtorLock debtor={perms.debtor} child={role === 'child'} />
   return children
 }
 
@@ -170,7 +174,8 @@ function AppRoutes() {
         <Route path="/admin/tickets" element={<RequireRole role="admin"><AdminTickets /></RequireRole>} />
         <Route path="/admin/announcements" element={<RequireRole role="admin"><AdminAnnouncements /></RequireRole>} />
         <Route path="/admin/reservations" element={<RequireRole role="admin"><AdminReservations /></RequireRole>} />
-        <Route path="/admin/amenity-rules" element={<RequireRole role="admin"><AdminAmenityRules /></RequireRole>} />
+        <Route path="/admin/rules" element={<RequireRole role="admin"><AdminRules /></RequireRole>} />
+        <Route path="/admin/amenity-rules" element={<Navigate to="/admin/rules?tab=amenities" replace />} />
         {/* ساکنین (RESIDENTS.md §3) — صفحه‌ی قدیمی «واحدها» با پرونده‌ی واحد جایگزین شد */}
         <Route path="/admin/units" element={<Navigate to="/admin/residents" replace />} />
         <Route path="/admin/residents" element={<RequireRole role="admin"><AdminResidents /></RequireRole>} />
@@ -231,7 +236,14 @@ function AppRoutes() {
         <Route path="/super-admin" element={<RequireSuperAdmin><SuperAdminDashboard /></RequireSuperAdmin>} />
         <Route path="/super-admin/buildings" element={<RequireSuperAdmin><SuperAdminBuildings /></RequireSuperAdmin>} />
         <Route path="/super-admin/residents" element={<RequireSuperAdmin><SuperAdminResidents /></RequireSuperAdmin>} />
-        <Route path="/super-admin/residents/:id" element={<RequireSuperAdmin><SuperAdminBuildingResidents /></RequireSuperAdmin>} />
+        <Route path="/super-admin/residents/:id" element={<RequireSuperAdmin><SuperAdminBuildingScope /></RequireSuperAdmin>}>
+          <Route index element={<SuperAdminBuildingResidents />} />
+          <Route path="new" element={<AdminResidentForm />} />
+          <Route path="requests" element={<AdminJoinRequests />} />
+          <Route path="units/:unitId" element={<AdminUnitFile />} />
+          <Route path="units/:unitId/edit" element={<AdminResidentForm />} />
+          <Route path="units/:unitId/move-out" element={<AdminMoveOut />} />
+        </Route>
         <Route path="/super-admin/users/:id" element={<RequireSuperAdmin><SuperAdminUserFile /></RequireSuperAdmin>} />
         <Route path="/super-admin/tenants" element={<RequireSuperAdmin><SuperAdminTenants /></RequireSuperAdmin>} />
         <Route path="/super-admin/plans" element={<RequireSuperAdmin><SuperAdminPlans /></RequireSuperAdmin>} />
