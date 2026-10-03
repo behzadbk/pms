@@ -158,7 +158,7 @@ export function Layout() {
           <div className="bg-[var(--hdr-acc)] rounded-lg p-1.5 shrink-0">
             <Building2 size={16} />
           </div>
-          <p className="font-semibold text-sm truncate">برج آفتاب</p>
+          <p className="font-semibold text-sm truncate">{user?.tenantName ?? 'همین'}</p>
           {isChild && (
             <span className="flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full bg-white/15">
               <ShieldCheck size={13} /> حالت والدین
@@ -202,7 +202,7 @@ export function Layout() {
               <Building2 size={20} />
             </div>
             <div className="min-w-0">
-              <p className="font-bold leading-none truncate">برج آفتاب</p>
+              <p className="font-bold leading-none truncate">{user?.tenantName ?? 'همین'}</p>
               <p className="text-xs text-white/50 mt-1 truncate">همین — سامانه مدیریت ساختمان</p>
             </div>
           </div>
@@ -312,7 +312,7 @@ export function Layout() {
         <header className="hidden lg:flex h-16 border-b border-line bg-card items-center justify-between px-6 shrink-0">
           <div>
             <p className="text-sm text-muted">خوش آمدید،</p>
-            <p className="font-semibold">{user?.fullName ?? info.personaName} — {user?.role === 'staff' ? departmentLabel(user.department) : info.personaSub}</p>
+            <p className="font-semibold">{user?.fullName ?? info.personaName} — {user?.role === 'staff' ? departmentLabel(user.department) : user ? info.label : info.personaSub}</p>
           </div>
           <div className="flex items-center gap-2">
             <NotificationBell variant="light" />

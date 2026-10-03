@@ -7,7 +7,10 @@ import {
 import { GlassCard, GlassPill, GlassSheet, GlassToast } from '../../components/ui/Glass'
 import { fnbVenues, deliveryZones, toman } from '../../lib/mockData'
 import { foodIcon, zoneIcon } from '../../lib/foodIcons'
-import { useStore, placeFnbOrder, DEMO_RESIDENT_UNIT } from '../../lib/store'
+import { useStore, placeFnbOrder } from '../../lib/store'
+import { useMyUnit } from '../../lib/myUnit'
+import { DEMO_DATA } from '../../lib/demoMode'
+import { residentsApi } from '../../lib/api/residents'
 import type { FnbOrder, MenuItem, OrderStatus } from '../../lib/types'
 
 type Dest = 'unit' | 'zone'
@@ -33,13 +36,27 @@ const STAGE_OF: Partial<Record<OrderStatus, number>> = {
 const priceText = (p: number) => (p ? toman(p) : '')
 
 export function ResidentFoodOrder() {
-  const [venueId, setVenueId] = useState(fnbVenues[0].id)
+  const [venueId, setVenueId] = useState(fnbVenues[0]?.id ?? '')
   const venue = fnbVenues.find((v) => v.id === venueId) ?? fnbVenues[0]
   const [category, setCategory] = useState('همه')
   const [cart, setCart] = useState<Record<string, number>>({})
   const [sheetOpen, setSheetOpen] = useState(false)
   const [dest, setDest] = useState<Dest>('unit')
-  const [zone, setZone] = useState(deliveryZones[0].name)
+  const my = useMyUnit()
+  const MY_UNIT = my.label ?? 'واحد من'
+  // مقصدهای «مشاعات» = مشاع‌های واقعی همین ساختمان (در حالت دمو فهرست نمونه)
+  const [zones, setZones] = useState(deliveryZones)
+  useEffect(() => {
+    if (DEMO_DATA) return
+    residentsApi
+      .amenities()
+      .then((a) => setZones(a.map((x) => ({ id: x.id, name: x.name }))))
+      .catch(() => setZones([]))
+  }, [])
+  const [zone, setZone] = useState(deliveryZones[0]?.name ?? '')
+  useEffect(() => {
+    if (!zone && zones[0]) setZone(zones[0].name)
+  }, [zone, zones])
   const [zoneNote, setZoneNote] = useState('')
   const [toast, setToast] = useState('')
   const [orderId, setOrderId] = useState<string | null>(null)
@@ -91,7 +108,7 @@ export function ResidentFoodOrder() {
   const cartCount = cartRows.reduce((a, r) => a + r.qty, 0)
   const cartTotal = cartRows.reduce((a, r) => a + r.qty * r.item.price, 0)
   function placeOrder() {
-    const destinationLabel = dest === 'unit' ? DEMO_RESIDENT_UNIT : zone + (zoneNote ? ' — ' + zoneNote : '')
+    const destinationLabel = dest === 'unit' ? MY_UNIT : zone + (zoneNote ? ' — ' + zoneNote : '')
     const id = placeFnbOrder({
       venueId: venue.id,
       venueName: venue.name,
@@ -109,13 +126,23 @@ export function ResidentFoodOrder() {
       subtotal: cartTotal,
       total: cartTotal,
       prepTimeMinutes: venue.prepTimeMinutes,
-      ownerUnit: DEMO_RESIDENT_UNIT,
+      ownerUnit: MY_UNIT,
     })
     setOrderId(id)
     setCart({})
     setSheetOpen(false)
     setZoneNote('')
     showToast('سفارش شما ثبت شد')
+  }
+
+  // ساختمان تازه: هنوز رستوران/کافه‌ای تعریف نشده
+  if (!venue) {
+    return (
+      <GlassCard className="p-6 text-center">
+        <p className="font-extrabold text-[15px]">سفارش غذا هنوز راه‌اندازی نشده است</p>
+        <p className="text-xs text-[var(--hm-t2)] mt-2 leading-6">وقتی مدیر ساختمان رستوران یا کافه‌ی ساختمان و منوی آن را ثبت کند، اینجا نمایش داده می‌شود.</p>
+      </GlassCard>
+    )
   }
 
   if (order) {
@@ -185,6 +212,12 @@ export function ResidentFoodOrder() {
       </div>
 
       <div className="space-y-2.5">
+        {venueMenu.length === 0 && (
+          <GlassCard className="p-6 text-center">
+            <p className="font-extrabold text-[15px]">منوی {venue.name} هنوز ثبت نشده است</p>
+            <p className="text-xs text-[var(--hm-t2)] mt-2 leading-6">وقتی آشپزخانه یا کافی‌شاپ آیتم‌های منو را ثبت کند، اینجا نمایش داده می‌شود.</p>
+          </GlassCard>
+        )}
         {menuList.map((m) => {
           const Icon = foodIcon[m.icon] ?? ShoppingBag
           const qty = cart[m.id] ?? 0
@@ -274,7 +307,7 @@ export function ResidentFoodOrder() {
           {([
             { key: 'unit' as const, label: 'واحد من', icon: Building2 },
             { key: 'zone' as const, label: 'مشاعات', icon: ShoppingBag },
-          ]).map((d) => {
+          ]).filter((d) => d.key === 'unit' || zones.length > 0).map((d) => {
             const active = dest === d.key
             const Icon = d.icon
             return (
@@ -295,7 +328,7 @@ export function ResidentFoodOrder() {
         {dest === 'zone' && (
           <>
             <div className="flex gap-2 flex-wrap mt-3">
-              {deliveryZones.map((z) => {
+              {zones.map((z) => {
                 const active = zone === z.name
                 const Icon = zoneIcon[z.name] ?? ShoppingBag
                 return (

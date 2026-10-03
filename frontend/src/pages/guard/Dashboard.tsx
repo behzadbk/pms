@@ -19,7 +19,7 @@ export function GuardDashboard() {
     <div className="space-y-6">
       <div>
         <h1 className="text-xl font-bold">داشبورد نگهبانی</h1>
-        <p className="text-muted text-sm mt-1">شیفت صبح — درب اصلی برج آفتاب</p>
+        <p className="text-muted text-sm mt-1">نمای کلی شیفت و درب اصلی</p>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -47,6 +47,7 @@ export function GuardDashboard() {
         <Card>
           <CardHeader title="مرسولات در انتظار تحویل" />
           <div className="px-5 pb-5 space-y-3">
+            {pendingParcels.length === 0 && <p className="text-sm text-muted">مرسوله‌ای در انتظار تحویل نیست</p>}
             {pendingParcels.map((p) => (
               <div key={p.id} className="flex items-center justify-between p-3 rounded-xl border border-line">
                 <div>
@@ -62,6 +63,7 @@ export function GuardDashboard() {
         <Card>
           <CardHeader title="رویدادهای اخیر" />
           <div className="px-5 pb-5 space-y-3">
+            {guardLiveFeed.length === 0 && <p className="text-sm text-muted">هنوز رویدادی ثبت نشده است</p>}
             {guardLiveFeed.map((g) => {
               const Icon = feedIcon[g.type]
               return (

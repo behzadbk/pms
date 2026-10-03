@@ -1,7 +1,7 @@
 import {
   LayoutDashboard, Wallet, Landmark, Ticket, Megaphone, CalendarRange,
   Building2, QrCode, PackageCheck, CarFront, SlidersHorizontal, PieChart,
-  Layers, Receipt, CreditCard, UtensilsCrossed, ScrollText, FileText, Users, Home, UsersRound, Contact,
+  Receipt, CreditCard, UtensilsCrossed, ScrollText, FileText, Users, Home, UsersRound, Contact,
 } from 'lucide-react'
 import type { Role } from './types'
 import type { AppModule } from './api/residents'
@@ -74,7 +74,6 @@ export const navByRole: Record<Role, NavItem[]> = {
     { to: '/super-admin/buildings', label: 'ساختمان‌ها و برج‌ها', icon: Building2 },
     { to: '/super-admin/residents', label: 'ساکنین', icon: Users, sub: 'ساختمان‌ها با درصد پر بودن، پرونده‌ی شخص' },
     { to: '/super-admin/plans', label: 'سطوح سرویس', icon: CreditCard },
-    { to: '/super-admin/tenants', label: 'مجتمع‌ها (Tenants)', icon: Layers },
     { to: '/super-admin/billing', label: 'تراکنش‌های پلتفرم', icon: Receipt },
   ],
 }

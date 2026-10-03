@@ -1,4 +1,4 @@
-import type { ReactElement } from 'react'
+import { useEffect, type ReactElement } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { RoleProvider, useRole } from './context/RoleContext'
@@ -9,6 +9,7 @@ import { Onboarding, ONBOARDING_SEEN_KEY } from './pages/Onboarding'
 import { Settings } from './pages/shared/Settings'
 import { MoreScreen } from './components/Layout'
 import { PermissionsProvider, usePermissions } from './context/PermissionsContext'
+import { refreshStore, setStoreScope } from './lib/store'
 import type { AppModule } from './lib/api/residents'
 import { AdminResidents } from './pages/admin/residents/Residents'
 import { SuperAdminBuildingScope } from './lib/residentsScope'
@@ -60,7 +61,6 @@ import { useHasPermission } from './lib/access'
 import type { StaffPermission } from './lib/staff'
 
 import { SuperAdminDashboard } from './pages/superadmin/Dashboard'
-import { SuperAdminTenants } from './pages/superadmin/Tenants'
 import { SuperAdminPlans } from './pages/superadmin/Plans'
 import { SuperAdminBilling } from './pages/superadmin/Billing'
 import { SuperAdminBuildings } from './pages/superadmin/Buildings'
@@ -245,12 +245,23 @@ function AppRoutes() {
           <Route path="units/:unitId/move-out" element={<AdminMoveOut />} />
         </Route>
         <Route path="/super-admin/users/:id" element={<RequireSuperAdmin><SuperAdminUserFile /></RequireSuperAdmin>} />
-        <Route path="/super-admin/tenants" element={<RequireSuperAdmin><SuperAdminTenants /></RequireSuperAdmin>} />
+        <Route path="/super-admin/tenants" element={<Navigate to="/super-admin/buildings" replace />} />
         <Route path="/super-admin/plans" element={<RequireSuperAdmin><SuperAdminPlans /></RequireSuperAdmin>} />
         <Route path="/super-admin/billing" element={<RequireSuperAdmin><SuperAdminBilling /></RequireSuperAdmin>} />
       </Route>
     </Routes>
   )
+}
+
+/** استور داده‌ی پنل‌ها را به ساختمان واردشده وصل می‌کند (هر ساختمان جدا و تازه‌ساخته خام است) */
+function StoreScope({ children }: { children: ReactElement }) {
+  const { user } = useAuth()
+  const tenant = user?.tenantId ?? null
+  setStoreScope(tenant, false) // هم‌زمان با رندر، تا فرزندان از همان ساختمان بخوانند
+  useEffect(() => {
+    refreshStore()
+  }, [tenant])
+  return children
 }
 
 export default function App() {
@@ -260,7 +271,9 @@ export default function App() {
         <RoleProvider>
           <PermissionsProvider>
             <BrowserRouter>
-              <AppRoutes />
+              <StoreScope>
+                <AppRoutes />
+              </StoreScope>
             </BrowserRouter>
           </PermissionsProvider>
         </RoleProvider>

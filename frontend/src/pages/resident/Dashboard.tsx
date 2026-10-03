@@ -2,15 +2,35 @@ import { Wallet, QrCode, CalendarRange, PackageCheck } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { Card, CardHeader } from '../../components/ui/Card'
 import { StatusPill } from '../../components/ui/StatusPill'
-import { myCharges, guestPasses, reservations, toman } from '../../lib/mockData'
+import { guestPasses, toman } from '../../lib/mockData'
+import { useMyCharges, useMyUnit } from '../../lib/myUnit'
+import { residentsApi, type ReservationRow } from '../../lib/api/residents'
+import { DEMO_DATA } from '../../lib/demoMode'
+import { reservations as demoReservations } from '../../lib/mockData'
+import { useEffect, useState } from 'react'
 
 export function ResidentDashboard() {
+  const { charges: myCharges } = useMyCharges()
+  const my = useMyUnit()
   const pending = myCharges.find((c) => c.status !== 'paid')
+  // رزروهای واقعی ساکن (در حالت دمو نمونه)
+  const [res, setRes] = useState<{ id: string; amenity: string; when: string; status: string }[]>(
+    DEMO_DATA ? demoReservations.map((r) => ({ id: r.id, amenity: r.amenity, when: `${r.date} · ${r.time}`, status: r.status })) : [],
+  )
+  useEffect(() => {
+    if (DEMO_DATA) return
+    residentsApi
+      .myReservations()
+      .then((rows: ReservationRow[]) =>
+        setRes(rows.map((r) => ({ id: r.id, amenity: r.amenity, when: new Date(r.start_at).toLocaleString('fa-IR', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Tehran' }), status: r.status }))),
+      )
+      .catch(() => setRes([]))
+  }, [])
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-bold">داشبورد واحد ۱۲</h1>
+        <h1 className="text-xl font-bold">داشبورد {my.label ?? 'واحد من'}</h1>
         <p className="text-muted text-sm mt-1">خلاصه وضعیت شارژ، مهمان‌ها و رزروهای شما</p>
       </div>
 
@@ -38,6 +58,7 @@ export function ResidentDashboard() {
         <Card>
           <CardHeader title="کدهای مهمان اخیر" />
           <div className="px-5 pb-5 space-y-3">
+            {guestPasses.length === 0 && <p className="text-sm text-muted">کد مهمانی صادر نشده است</p>}
             {guestPasses.map((g) => (
               <div key={g.id} className="flex items-center justify-between p-3 rounded-xl border border-line">
                 <div>
@@ -53,13 +74,14 @@ export function ResidentDashboard() {
         <Card>
           <CardHeader title="رزروهای من" />
           <div className="px-5 pb-5 space-y-3">
-            {reservations.slice(0, 2).map((r) => (
+            {res.length === 0 && <p className="text-sm text-muted">رزروی ثبت نشده است</p>}
+            {res.slice(0, 2).map((r) => (
               <div key={r.id} className="flex items-center justify-between p-3 rounded-xl border border-line">
                 <div>
                   <p className="text-sm font-medium">{r.amenity}</p>
-                  <p className="text-xs text-muted mt-0.5">{r.date} · {r.time}</p>
+                  <p className="text-xs text-muted mt-0.5">{r.when}</p>
                 </div>
-                <StatusPill status={r.status} />
+                <StatusPill status={r.status as 'confirmed'} />
               </div>
             ))}
           </div>

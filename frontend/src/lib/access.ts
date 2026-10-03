@@ -2,6 +2,7 @@ import { useAuth } from '../context/AuthContext'
 import { useRole } from '../context/RoleContext'
 import { ALL_PERMISSIONS, departmentDefaults, staffNavItems, type StaffPermission } from './staff'
 import { viewerAudiences } from './store'
+import { useMyUnit } from './myUnit'
 
 /**
  * دسترسی‌های مؤثر کارمند فعلی.
@@ -24,7 +25,8 @@ export function useHasPermission(p: StaffPermission | null) {
 export function useViewerAudiences() {
   const { role } = useRole()
   const perms = useStaffPermissions()
-  return viewerAudiences(role, role === 'staff' ? perms : [])
+  const my = useMyUnit()
+  return viewerAudiences(role, role === 'staff' ? perms : [], my.label)
 }
 
 /**

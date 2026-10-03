@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { DEMO_DATA } from '../../lib/demoMode'
 import { ArrowDownLeft, ArrowUpRight } from 'lucide-react'
 import { Card, CardHeader } from '../../components/ui/Card'
 
@@ -10,13 +11,13 @@ interface Log {
   time: string
 }
 
-const initial: Log[] = [
+const initial_DEMO: Log[] = [
   { id: '1', plate: '۱۲ ایران ۴۴۵ ب ۷۷', unit: 'واحد ۴', direction: 'in', time: '۰۸:۱۲' },
   { id: '2', plate: '۳۳ ایران ۹۰۱ الف ۲۲', unit: 'واحد ۱۵', direction: 'out', time: '۰۷:۵۰' },
 ]
 
 export function GuardTraffic() {
-  const [logs, setLogs] = useState<Log[]>(initial)
+  const [logs, setLogs] = useState<Log[]>(DEMO_DATA ? initial_DEMO : [])
   const [plate, setPlate] = useState('')
   const [unit, setUnit] = useState('')
 
@@ -53,6 +54,7 @@ export function GuardTraffic() {
       <Card>
         <CardHeader title="گزارش تردد امروز" />
         <div className="px-5 pb-5 space-y-3">
+          {logs.length === 0 && <p className="text-sm text-muted">هنوز ترددی ثبت نشده است</p>}
           {logs.map((l) => (
             <div key={l.id} className="flex items-center justify-between p-3 rounded-xl border border-line">
               <div className="flex items-center gap-3">

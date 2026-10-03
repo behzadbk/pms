@@ -40,6 +40,7 @@ export function ResidentFinance() {
               </ResponsiveContainer>
             </div>
             <div className="space-y-2.5">
+              {expenseBreakdown.length === 0 && <p className="text-sm text-muted">هزینه‌ای برای این ماه ثبت نشده است</p>}
               {expenseBreakdown.map((e) => (
                 <div key={e.category} className="flex items-center justify-between text-sm">
                   <span className="flex items-center gap-2">
@@ -47,7 +48,7 @@ export function ResidentFinance() {
                     {e.category}
                   </span>
                   <span className="text-muted text-xs">
-                    {toman(e.amount)} · {Math.round((e.amount / totalExpense) * 100)}٪
+                    {toman(e.amount)} · {totalExpense ? Math.round((e.amount / totalExpense) * 100) : 0}٪
                   </span>
                 </div>
               ))}
@@ -75,7 +76,7 @@ export function ResidentFinance() {
               <span>جمع کل شارژ</span>
               <span>{toman(myChargeSplit.total)}</span>
             </div>
-            <p className="text-xs text-muted leading-6">{myChargeSplit.note}</p>
+            <p className="text-xs text-muted leading-6">{myChargeSplit.total ? myChargeSplit.note : 'هنوز شارژی برای واحد شما صادر نشده است.'}</p>
           </div>
         </Card>
       </div>
@@ -83,6 +84,7 @@ export function ResidentFinance() {
       <Card>
         <CardHeader title="فاکتورها و رسیدهای من" />
         <div className="px-5 pb-5 space-y-2.5">
+          {myInvoices.length === 0 && <p className="text-sm text-muted">هنوز فاکتور یا رسیدی ندارید</p>}
           {myInvoices.map((inv) => (
             <div key={inv.id} className="flex items-center justify-between p-3.5 rounded-xl border border-line">
               <div className="flex items-center gap-3">

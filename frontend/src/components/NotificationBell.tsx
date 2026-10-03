@@ -37,7 +37,7 @@ export function NotificationBell({ variant }: { variant: 'dark' | 'light' }) {
     loadInbox.current = () =>
       residentsApi
         .inbox()
-        .then((r) => alive && setInbox(r.items))
+        .then((r) => alive && setInbox(r.items ?? []))
         .catch(() => undefined)
     loadInbox.current()
     const t = window.setInterval(() => loadInbox.current(), 30_000)

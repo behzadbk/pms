@@ -1,10 +1,13 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Pencil, Plus, Trash2, Users } from 'lucide-react'
 import { Card, CardHeader } from '../../components/ui/Card'
 import { LiveCalendar } from '../../components/LiveCalendar'
 import { Modal, TextField, SelectField, PrimaryButton, GhostButton } from '../../components/ui/Modal'
 import { toman } from '../../lib/mockData'
-import { useStore, saveAmenity, deleteAmenity, defaultRule, uid } from '../../lib/store'
+import { useStore, saveAmenity, deleteAmenity, defaultRule, uid, syncAmenities } from '../../lib/store'
+import { DEMO_DATA } from '../../lib/demoMode'
+import * as facility from '../../lib/api/facility'
+import { ApiError } from '../../lib/api/client'
 import type { Amenity, AmenitySession, BookingRule, SessionType, DepositRefundPolicy } from '../../lib/types'
 
 const palette = ['#0E9594', '#C08A3E', '#1D9A6C', '#16324F', '#7A5C3E', '#4C6EF5', '#C4442E']
@@ -21,6 +24,17 @@ export function AdminAmenityRules() {
   const [activeId, setActiveId] = useState(amenities[0]?.id ?? '')
   const [editing, setEditing] = useState<{ amenity: Amenity; rule: BookingRule; sessions: AmenitySession[]; isNew: boolean } | null>(null)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [err, setErr] = useState('')
+
+  // مشاعات واقعی ساختمان از سرور (ساختمان تازه هیچ مشاعی ندارد)؛ قوانین تکمیلی و سانس‌ها کنار آن‌ها
+  useEffect(() => {
+    if (DEMO_DATA) return
+    facility
+      .listAmenities()
+      .then((rows) => syncAmenities(rows.map((r, i) => facility.toLocal(r, palette[i % palette.length]))))
+      .catch((e) => setErr(e instanceof ApiError ? e.message : 'دریافت مشاعات از سرور ممکن نشد'))
+  }, [])
 
   const amenity = amenities.find((a) => a.id === activeId) ?? amenities[0]
   const rule = amenity ? rules[amenity.id] ?? defaultRule(amenity.id) : null
@@ -41,15 +55,40 @@ export function AdminAmenityRules() {
     setEditing({ amenity: { ...amenity }, rule: { ...rule }, sessions: sessions.map((s) => ({ ...s })), isNew: false })
   }
 
-  function handleSave() {
+  async function handleSave() {
     if (!editing || !editing.amenity.name.trim()) return
-    saveAmenity(editing.amenity, editing.rule, editing.sessions)
-    setActiveId(editing.amenity.id)
+    let a = editing.amenity
+    setErr('')
+    if (!DEMO_DATA) {
+      setSaving(true)
+      try {
+        const row = editing.isNew ? await facility.createAmenity(a) : await facility.updateAmenity(a)
+        a = facility.toLocal(row, a.color)
+        await facility.saveBookingRule(a.id, editing.rule)
+      } catch (e) {
+        setErr(e instanceof ApiError ? e.message : 'ذخیره روی سرور ممکن نشد')
+        setSaving(false)
+        return
+      }
+      setSaving(false)
+    }
+    saveAmenity(a, { ...editing.rule, amenityId: a.id }, editing.sessions)
+    setActiveId(a.id)
     setEditing(null)
   }
 
-  function handleDelete() {
+  async function handleDelete() {
     if (!amenity) return
+    setErr('')
+    if (!DEMO_DATA) {
+      try {
+        await facility.deleteAmenity(amenity.id)
+      } catch (e) {
+        setErr(e instanceof ApiError ? e.message : 'حذف روی سرور ممکن نشد')
+        setConfirmDelete(false)
+        return
+      }
+    }
     deleteAmenity(amenity.id)
     setActiveId(amenities.find((a) => a.id !== amenity.id)?.id ?? '')
     setConfirmDelete(false)
@@ -68,6 +107,7 @@ export function AdminAmenityRules() {
         </PrimaryButton>
       </div>
 
+      {err && <p className="text-sm text-bad">{err}</p>}
       <div className="flex gap-2 flex-wrap">
         {amenities.map((a) => (
           <button
@@ -156,7 +196,8 @@ export function AdminAmenityRules() {
           value={editing}
           onChange={setEditing}
           onClose={() => setEditing(null)}
-          onSave={handleSave}
+          onSave={() => void handleSave()}
+          saving={saving}
         />
       )}
 
@@ -167,7 +208,7 @@ export function AdminAmenityRules() {
         footer={
           <>
             <GhostButton onClick={() => setConfirmDelete(false)}>انصراف</GhostButton>
-            <PrimaryButton className="!bg-bad" onClick={handleDelete}>حذف</PrimaryButton>
+            <PrimaryButton className="!bg-bad" onClick={() => void handleDelete()}>حذف</PrimaryButton>
           </>
         }
       >
@@ -186,11 +227,13 @@ function AmenityEditor({
   onChange,
   onClose,
   onSave,
+  saving,
 }: {
   value: EditState
   onChange: (v: EditState) => void
   onClose: () => void
   onSave: () => void
+  saving?: boolean
 }) {
   const { amenity, rule, sessions } = value
   const setA = (p: Partial<Amenity>) => onChange({ ...value, amenity: { ...amenity, ...p } })
@@ -211,7 +254,7 @@ function AmenityEditor({
       footer={
         <>
           <GhostButton onClick={onClose}>انصراف</GhostButton>
-          <PrimaryButton onClick={onSave} disabled={invalid}>ذخیره قوانین</PrimaryButton>
+          <PrimaryButton onClick={onSave} disabled={invalid || saving}>{saving ? 'در حال ذخیره…' : 'ذخیره قوانین'}</PrimaryButton>
         </>
       }
     >

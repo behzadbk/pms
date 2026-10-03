@@ -67,6 +67,7 @@ export function GuardParcels() {
       <Card>
         <CardHeader title="لیست مرسولات" />
         <div className="px-5 pb-5 space-y-3">
+          {parcels.length === 0 && <p className="text-sm text-muted">مرسوله‌ای ثبت نشده است</p>}
           {parcels.map((p) => (
             <div key={p.id} className="flex items-center justify-between p-3 rounded-xl border border-line">
               <div className="flex items-center gap-3">
