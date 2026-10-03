@@ -29,16 +29,25 @@ export class BookingValidationService {
     unitId: string,
     startAt: Date,
     endAt: Date,
+    opts: { skipOverlap?: boolean } = {},
   ): Promise<BookingCheckResult> {
     const violations: string[] = []
 
-    // ۱) سقف تعداد رزرو واحد در بازه جاری
-    const periodStart = this.startOfPeriod(rule.period_type, startAt)
+    // ۱) سقف تعداد رزرو واحد در بازه‌ی جاری — بازه به وقت تهران و هفته از شنبه است و از هر دو طرف بسته؛
+    //    (نسخه‌ی قبل فقط «شروع بازه» را می‌گرفت و رزروهای هفته‌های بعد را هم می‌شمرد)
     const countRes = await client.query(
-      `SELECT COUNT(*) FROM facility.reservations
-       WHERE amenity_id = $1 AND unit_id = $2 AND status IN ('confirmed', 'pending')
-         AND start_at >= $3`,
-      [rule.amenity_id, unitId, periodStart],
+      `WITH p AS (
+         SELECT CASE $4::text
+                  WHEN 'day'  THEN date_trunc('day', t)
+                  WHEN 'week' THEN date_trunc('week', t + interval '2 days') - interval '2 days'
+                  ELSE date_trunc('month', t) END AS s,
+                CASE $4::text WHEN 'day' THEN interval '1 day' WHEN 'week' THEN interval '7 days' ELSE interval '1 month' END AS len
+           FROM (SELECT ($3::timestamptz AT TIME ZONE 'Asia/Tehran') AS t) x)
+       SELECT COUNT(*) FROM facility.reservations r, p
+        WHERE r.amenity_id = $1 AND r.unit_id = $2 AND r.status IN ('confirmed', 'pending')
+          AND (r.start_at AT TIME ZONE 'Asia/Tehran') >= p.s
+          AND (r.start_at AT TIME ZONE 'Asia/Tehran') <  p.s + p.len`,
+      [rule.amenity_id, unitId, startAt, rule.period_type],
     )
     if (Number(countRes.rows[0].count) >= rule.max_bookings_per_unit_per_period) {
       violations.push(
@@ -55,6 +64,8 @@ export class BookingValidationService {
       violations.push(`رزرو این مشاع حداکثر تا ${rule.max_advance_days} روز آینده امکان‌پذیر است.`)
     }
 
+    if (opts.skipOverlap) return { ok: violations.length === 0, violations }
+
     // ۴) بررسی همپوشانی (پیش‌بررسی UX-پسند — تضمین نهایی همچنان EXCLUDE Constraint دیتابیس است)
     const overlapRes = await client.query(
       `SELECT 1 FROM facility.reservations
@@ -67,21 +78,6 @@ export class BookingValidationService {
     }
 
     return { ok: violations.length === 0, violations }
-  }
-
-  private startOfPeriod(type: 'day' | 'week' | 'month', ref: Date): Date {
-    const d = new Date(ref)
-    if (type === 'day') {
-      d.setHours(0, 0, 0, 0)
-    } else if (type === 'week') {
-      const day = d.getDay()
-      d.setDate(d.getDate() - day)
-      d.setHours(0, 0, 0, 0)
-    } else {
-      d.setDate(1)
-      d.setHours(0, 0, 0, 0)
-    }
-    return d
   }
 
   private periodFa(p: string) {

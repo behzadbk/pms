@@ -15,6 +15,8 @@ import { DatabaseService } from '../database/database.service'
 import { CurrentUser, JwtPayload } from '../auth/decorators/current-user.decorator'
 import { Public } from '../auth/decorators/public.decorator'
 import { EventsService } from '../events/events.service'
+import { Roles } from '../auth/decorators/roles.decorator'
+import { UNIT_ID_RE, assertUnitAccess } from '../common/unit-access'
 
 interface InitiateBody {
   chargeId: string
@@ -32,6 +34,7 @@ export class PaymentsController {
     private readonly events: EventsService,
   ) {}
 
+  @Roles('resident', 'admin', 'accountant')
   @Post('initiate')
   async initiate(
     @Body() body: InitiateBody,
@@ -40,6 +43,7 @@ export class PaymentsController {
   ) {
     const tenantId = user.tenant_id!
     const key = idempotencyKey ?? randomUUID()
+    if (!UNIT_ID_RE.test(body?.chargeId ?? '')) throw new NotFoundException('شارژ یافت نشد')
 
     return this.db.withTenant(tenantId, async (client) => {
       // idempotency: اگر این کلید قبلاً استفاده شده، همان رکورد قبلی برگردانده می‌شود
@@ -50,6 +54,7 @@ export class PaymentsController {
       const chargeRes = await client.query(`SELECT * FROM finance.monthly_charges WHERE id = $1`, [body.chargeId])
       const charge = chargeRes.rows[0]
       if (!charge) throw new NotFoundException('شارژ یافت نشد')
+      await assertUnitAccess(client, user, charge.unit_id)
       if (charge.status === 'paid') throw new ConflictException('این شارژ قبلاً پرداخت شده است')
 
       const res = await client.query(
