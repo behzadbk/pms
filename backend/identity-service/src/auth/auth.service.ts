@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common'
+import { BadRequestException, ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/common'
 import { JwtService } from '@nestjs/jwt'
 import * as bcrypt from 'bcrypt'
 import { DatabaseService } from '../database/database.service'
@@ -7,11 +7,13 @@ import { LoginDto } from './dto/login.dto'
 import { PlatformLoginDto } from './dto/platform-login.dto'
 import { JwtPayload } from './decorators/current-user.decorator'
 import { effectivePermissions } from '../users/staff.constants'
+import { toLatinDigits } from '../residents/phone'
 
 interface UserRow {
   person_id: string | null
   person_status: string | null
   tenant_name?: string | null
+  must_change_password?: boolean
   sessions_valid_after: Date | null
   id: string
   full_name: string
@@ -27,6 +29,7 @@ interface UserRow {
 const USER_COLUMNS = `id, full_name, email, username, role, department, permissions, is_active, person_id,
   (SELECT p.status FROM residency.users p WHERE p.id = identity.users.person_id) AS person_status,
   (SELECT t.name FROM identity.tenants t WHERE t.id = identity.users.tenant_id) AS tenant_name,
+  must_change_password,
   GREATEST(sessions_valid_after,
            COALESCE((SELECT p.sessions_valid_after FROM residency.users p WHERE p.id = identity.users.person_id), '-infinity')) AS sessions_valid_after`
 
@@ -44,6 +47,7 @@ function publicUser(u: UserRow, tenantId: string) {
     role: u.role,
     tenantId,
     ...(u.tenant_name ? { tenantName: u.tenant_name } : {}),
+    ...(u.must_change_password ? { mustChangePassword: true } : {}),
     ...(u.role === 'staff'
       ? { department: u.department, permissions: effectivePermissions(u.department, u.permissions) }
       : {}),
@@ -111,7 +115,8 @@ export class AuthService {
 
     // ۲) اکنون که tenant مشخص شد، جستجوی کاربر در محدوده همان tenant (از طریق RLS).
     //    فیلد email هم ایمیل را می‌پذیرد و هم نام کاربری (کارکنانی که مدیر برایشان حساب ساخته).
-    const identifier = dto.email.trim().toLowerCase()
+    // ساکن با کیبورد فارسی هم می‌تواند وارد شود: ارقام فارسی/عربی نام کاربری (موبایل) به لاتین برمی‌گردد
+    const identifier = toLatinDigits(dto.email.trim().toLowerCase())
     const user = await this.db.withTenant(tenant.id, async (client) => {
       const res = await client.query(
         `SELECT ${USER_COLUMNS}, password_hash FROM identity.users
@@ -120,7 +125,9 @@ export class AuthService {
       )
       return res.rows[0] as (UserRow & { password_hash: string }) | undefined
     })
-    if (!user || !user.is_active || !(await bcrypt.compare(dto.password, user.password_hash))) {
+    // رمز اولیه‌ی ساکن = شماره واحد (ارقام لاتین)؛ اگر با ارقام فارسی تایپ شد هم پذیرفته می‌شود
+    const passOk = !!user && ((await bcrypt.compare(dto.password, user.password_hash)) || (toLatinDigits(dto.password) !== dto.password && (await bcrypt.compare(toLatinDigits(dto.password), user.password_hash))))
+    if (!user || !user.is_active || !passOk) {
       throw new UnauthorizedException('نام کاربری/ایمیل یا رمز عبور نادرست است')
     }
     if (user.person_status === 'blocked') {
@@ -236,6 +243,38 @@ export class AuthService {
       refreshToken: newRefreshToken,
       user: publicUser(user, payload.tenant_id),
     }
+  }
+
+  /** تغییر رمز توسط خود کاربر (تنظیمات) — رمز فعلی لازم است و نشست‌های دیگرش قطع می‌شود */
+  async changePassword(current: JwtPayload, currentPassword: string, newPassword: string) {
+    if (current.role === 'super_admin' || !current.tenant_id || current.kind === 'family') {
+      throw new ForbiddenException('تغییر رمز برای این نوع حساب از اینجا ممکن نیست')
+    }
+    const tenantId = current.tenant_id
+    const row = await this.db.withTenant(tenantId, async (client) => {
+      const res = await client.query<{ password_hash: string; username: string | null }>(
+        `SELECT password_hash, username FROM identity.users WHERE id = $1`,
+        [current.sub],
+      )
+      return res.rows[0]
+    })
+    if (!row || !((await bcrypt.compare(currentPassword, row.password_hash)) || (await bcrypt.compare(toLatinDigits(currentPassword), row.password_hash)))) {
+      throw new UnauthorizedException('رمز فعلی نادرست است')
+    }
+    if (newPassword === currentPassword) throw new BadRequestException('رمز جدید باید با رمز فعلی فرق کند')
+    if (/^\d+$/.test(newPassword) && newPassword.length < 8) {
+      throw new BadRequestException('رمز فقط‌عددی باید حداقل ۸ رقم باشد (یا ترکیبی از حرف و عدد)')
+    }
+    const hash = await bcrypt.hash(newPassword, 10)
+    // نشست‌های قبلی (دستگاه‌های دیگر) باطل می‌شود؛ توکن تازه همین‌جا صادر می‌شود تا کاربر بیرون نیفتد
+    await this.db.withTenant(tenantId, async (client) => {
+      await client.query(
+        `UPDATE identity.users SET password_hash = $2, must_change_password = false, sessions_valid_after = now(), updated_at = now() WHERE id = $1`,
+        [current.sub, hash],
+      )
+    })
+    const { accessToken, refreshToken } = this.issueTokens({ sub: current.sub, tenant_id: tenantId, role: current.role, email: current.email, ...(current.pid ? { pid: current.pid } : {}), ...(current.perms ? { perms: current.perms } : {}) })
+    return { ok: true, accessToken, refreshToken }
   }
 
   /** پروفایل کاربر جاری — برای بازیابی نشست فرانت‌اند بعد از رفرش صفحه (GET /auth/me) */

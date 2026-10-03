@@ -1,4 +1,5 @@
-import { Body, Controller, Get, Post } from '@nestjs/common'
+import { Body, Controller, Get, HttpCode, Post } from '@nestjs/common'
+import { ChangePasswordDto } from './dto/change-password.dto'
 import { AuthService } from './auth.service'
 import { LoginDto } from './dto/login.dto'
 import { PlatformLoginDto } from './dto/platform-login.dto'
@@ -29,6 +30,13 @@ export class AuthController {
   @Post('refresh')
   refresh(@Body() dto: RefreshDto) {
     return this.authService.refresh(dto.refreshToken)
+  }
+
+  /** تغییر رمز توسط خود کاربر (ساکن/مدیر/کارمند) */
+  @Post('change-password')
+  @HttpCode(200)
+  changePassword(@CurrentUser() user: JwtPayload, @Body() dto: ChangePasswordDto) {
+    return this.authService.changePassword(user, dto.currentPassword, dto.newPassword)
   }
 
   // پشت JwtAuthGuard (پیش‌فرض) — فرانت‌اند بعد از رفرش صفحه با accessToken ذخیره‌شده

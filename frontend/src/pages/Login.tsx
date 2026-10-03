@@ -183,7 +183,6 @@ export function Login() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              minLength={6}
               dir="ltr"
               className="w-full rounded-2xl border border-[var(--lg-border-hairline)] bg-[var(--lg-bg-elevated)] px-3 py-2.5 text-sm outline-none focus:ring-2"
               style={{ ['--tw-ring-color' as string]: 'color-mix(in srgb, var(--lg4-pri) 40%, transparent)' }}

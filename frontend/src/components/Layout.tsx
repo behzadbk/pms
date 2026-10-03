@@ -320,6 +320,14 @@ export function Layout() {
         </header>
 
         <NotificationPrompt />
+        {user?.mustChangePassword && location.pathname !== '/settings' && (
+          <button
+            onClick={() => navigate('/settings#password')}
+            className="mx-4 mt-3 sm:mx-6 rounded-2xl px-4 py-3 text-right text-sm font-bold bg-[var(--hm-warn-bg,#fff4d6)] text-[var(--hm-warn,#8a5a00)]"
+          >
+            رمز شما هنوز همان رمز اولیه (شماره واحد) است — برای امنیت حساب، رمز جدید بگذارید ←
+          </button>
+        )}
 
         <main className="flex-1 p-4 sm:p-6 pb-24 lg:pb-6">
           <AnimatePresence mode="wait">

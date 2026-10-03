@@ -101,3 +101,10 @@ BASE=http://localhost:5173 node tests/ui_residents.mjs   # پیش از اجرا 
 - **ادغام پنل:** «قوانین رزرو هوشمند» به تب دوم «قوانین و برج» رفت (`/admin/amenity-rules` ریدایرکت می‌شود).
 - **تست:** `tests/e2e_tower_rules.py` (۴۶ سناریو).
 - **توجه:** ویرایشگر سانس/سقف رزرو (تب دوم) هنوز به store محلی/mock وصل است، نه سرور. همچنین بررسی دسترسی guard-service برای مدل جدید `residency.memberships` اصلاح شد.
+
+
+## نام کاربری و رمز اولیه‌ی ساکن
+- هنگام ثبت ساکن، `ensureLogin` (`backend/identity-service/src/residents/credentials.ts`) حساب می‌سازد: نام کاربری = موبایل (قالب ۰۹۱۲…)، رمز = شماره واحد (bcrypt) و `must_change_password = true`.
+- مدیر در پاسخ ثبت، `credentials` را می‌گیرد و برگه‌ی ورود را نشان می‌دهد؛ بازنشانی: `POST /residents/memberships/:id/reset-password`.
+- تغییر رمز: `POST /auth/change-password` از «تنظیمات».
+- محدودیت: رمز اولیه ضعیف است و فقط با بنر یادآوری می‌شود؛ ساکن بدون موبایل حساب ورود ندارد.
