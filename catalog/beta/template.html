@@ -101,10 +101,35 @@ pre{direction:ltr;text-align:left;background:var(--code);border-radius:10px;padd
 </section>
 
 <section id="p-imp" hidden>
-  <div class="note">این صفحه نمایشی است. بخش «استخراج» اینجا با الگوهای ساده‌ی متنی کار می‌کند و جای هوش مصنوعی را می‌گیرد؛ در نسخه‌ی واقعی مدل فقط همین سه خروجی را برمی‌گرداند و سرور هر شناسه و مقدار را با کاتالوگ اعتبارسنجی می‌کند. هیچ چیزی در ساختمان واقعی اعمال نمی‌شود.</div>
-  <label for="bylaw" class="title">متن آیین‌نامه (نمونه، قابل ویرایش)</label>
-  <textarea id="bylaw"></textarea>
-  <div class="row" style="margin-top:8px"><button class="btn" id="run" type="button">استخراج از کاتالوگ</button><span class="muted">هر بند در یک خط یا جمله‌ی جدا بنویسید.</span></div>
+  <div class="note">سه راه برای رسیدن به یک پروفایل؛ هر سه به <b>یک اعتبارسنج و یک صفحه‌ی بازبینی</b> می‌رسند. فقط منبع پیشنهاد فرق می‌کند. اینجا چیزی در ساختمان واقعی اعمال نمی‌شود.</div>
+  <div class="row" id="modes" style="margin-bottom:12px">
+    <button class="btn ghost" data-mode="json" type="button">۱. JSON از چت</button>
+    <button class="btn ghost" data-mode="wiz" type="button">۲. ویزارد (بدون هوش مصنوعی)</button>
+    <button class="btn ghost" data-mode="demo" type="button">۳. استخراج نمایشی از متن</button>
+  </div>
+
+  <div id="m-json">
+    <div class="card"><div class="title">مرحله‌ی ۱: پرامپت را کپی کنید</div>
+      <div class="muted">پرامپت شامل کاتالوگ سطح انتخابی است. آن را همراه متن آیین‌نامه در چت (مثل claude.ai) بگذارید.</div>
+      <textarea id="prompt" readonly style="min-height:120px;font-size:12px;direction:rtl"></textarea>
+      <div class="row" style="margin-top:6px"><button class="btn ghost" id="copy-prompt" type="button">کپی پرامپت</button><span id="cp-msg" class="muted"></span></div></div>
+    <div class="card"><div class="title">مرحله‌ی ۲: JSON برگشتی را اینجا بچسبانید</div>
+      <textarea id="jin" style="min-height:200px;direction:ltr;text-align:left;font-family:ui-monospace,Menlo,monospace;font-size:12.5px" placeholder='{"selected":[{"id":"...","value":...,"quote":"..."}],"out_of_catalog":[{"quote":"...","reason":"..."}]}'></textarea>
+      <div class="row" style="margin-top:6px"><button class="btn" id="jrun" type="button">اعتبارسنجی با کاتالوگ</button><button class="btn ghost" id="jsample" type="button">پر کردن با نمونه‌ی خروجی چت</button><span id="jerr" class="err"></span></div></div>
+  </div>
+
+  <div id="m-wiz" hidden>
+    <div class="muted">فقط مواردی که در سطح انتخابی وجود دارند و در نرم‌افزار کار می‌کنند نمایش داده می‌شود. هر مورد را فعال و مقدارش را تنظیم کنید.</div>
+    <div id="wiz-list"></div>
+    <div class="row" style="margin-top:12px"><button class="btn" id="wrun" type="button">ساخت پروفایل از ویزارد</button></div>
+  </div>
+
+  <div id="m-demo" hidden>
+    <label for="bylaw" class="title">متن آیین‌نامه (نمونه، قابل ویرایش)</label>
+    <div class="muted">این‌جا الگوهای ساده‌ی متنی جای هوش مصنوعی هستند و فقط برای نمایش‌اند.</div>
+    <textarea id="bylaw"></textarea>
+    <div class="row" style="margin-top:8px"><button class="btn" id="run" type="button">استخراج از کاتالوگ</button></div>
+  </div>
   <div id="result"></div>
 </section>
 
@@ -193,7 +218,8 @@ function renderCat(){
       ${it.note?`<dt>محدودیت</dt><dd>${esc(it.note)}</dd>`:''}</dl></details>`;
   }).join('')||'<div class="muted">موردی پیدا نشد.</div>';
 }
-['#f-dom','#f-st','#tier'].forEach(s=>$(s).onchange=()=>{renderCat();if(R)analyze(false)});
+['#f-dom','#f-st'].forEach(s=>$(s).onchange=renderCat);
+$('#tier').onchange=()=>{renderCat();if(mode==='wiz')renderWiz();if(mode==='json')$('#prompt').value=buildPrompt();if(R&&R.rebuild)R.rebuild()};
 $('#f-q').oninput=renderCat;
 
 /* ---------- demo extractor (جایگزین نمایشی هوش مصنوعی) ---------- */
@@ -268,7 +294,7 @@ function analyze(fresh=true){
   if(!fresh)sel.forEach(r=>{const o=R.selected.find(x=>x.key===r.key);if(o){r.value=o.value;r.accepted=o.accepted}});
   // حذف تکرار یک id (آخرین بند برنده)
   const seen={};sel.forEach(r=>{(seen[r.id]=seen[r.id]||[]).push(r)});
-  R={text,selected:sel,out,seen};
+  R={text,selected:sel,out,seen,rebuild:()=>analyze(false)};
   renderResult();
 }
 function acceptedMap(){
@@ -322,6 +348,85 @@ function renderResult(){
 $('#run').onclick=()=>analyze(true);
 $('#bylaw').value=SAMPLE;
 
+
+/* ---------- مسیر پیشنهادی: ورود JSON + ویزارد ---------- */
+let mode='json';
+function setMode(m){mode=m;
+  document.querySelectorAll('[data-mode]').forEach(b=>{const on=b.dataset.mode===m;b.style.background=on?'var(--accent)':'transparent';b.style.color=on?'var(--accent-ink)':'var(--ink)'});
+  ['wiz','json','demo'].forEach(k=>$('#m-'+k).hidden=k!==m);
+  if(m==='wiz')renderWiz();if(m==='json')$('#prompt').value=buildPrompt();}
+document.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>setMode(b.dataset.mode));
+function buildPrompt(){
+  const t=tier();
+  const cat=ITEMS.filter(i=>i.type!=='fixed'&&i.scope!=='user'&&i.domain!=='feature').map(i=>{const o={id:i.id,title:i.title,type:i.type,status:i.status};
+    ['values','min','max','unit','needs'].forEach(k=>{if(i[k]!==undefined)o[k]=i[k]});if(!availIn(i,t))o.not_in_tier=true;return o});
+  return `تو فقط یک «انتخاب‌کننده» هستی، نه سازنده. متن آیین‌نامه‌ی ساختمان را می‌خوانی و بندها را فقط با موارد «کاتالوگ» زیر تطبیق می‌دهی.
+قواعد: هیچ شناسه‌ای نساز. مقدار را فقط از متن بردار و حدس نزن. مبلغ را به تومان بنویس. هر بندی که با کاتالوگ نمی‌خواند را در out_of_catalog بگذار. فقط JSON برگردان، بدون توضیح.
+قالب خروجی:
+{"selected":[{"id":"شناسه‌ی کاتالوگ","value":مقدار,"quote":"عین بند آیین‌نامه"}],"out_of_catalog":[{"quote":"بند","reason":"چرا نمی‌خواند"}]}
+سطح ساختمان: ${TIER_FA[t]}
+کاتالوگ:
+${JSON.stringify(cat)}
+متن آیین‌نامه:
+(اینجا بچسبانید)`;
+}
+$('#copy-prompt').onclick=()=>{const m=$('#cp-msg');const v=$('#prompt').value;
+  (navigator.clipboard?navigator.clipboard.writeText(v):Promise.reject()).then(()=>m.textContent='کپی شد').catch(()=>{$('#prompt').select();m.textContent='متن انتخاب شد؛ با Ctrl+C کپی کنید'})};
+$('#jsample').onclick=()=>{
+  $('#jin').value=JSON.stringify({selected:[
+   {id:'debtor.grace_days',value:45,quote:'واحدی که بیش از ۴۵ روز از سررسید گذشته باشد بدهکار است'},
+   {id:'debtor.restrict.amenity',value:true,quote:'واحد بدهکار از رزرو مشاعات محروم است'},
+   {id:'amenity.booking.max_per_period',value:2,quote:'هر واحد حداکثر ۲ بار در هفته'},
+   {id:'amenity.booking.period_type',value:'week',quote:'هر واحد حداکثر ۲ بار در هفته'},
+   {id:'amenity.booking.deposit_amount',value:500000,quote:'بیعانه ۵۰۰ هزار تومان'},
+   {id:'debtor.restrict.food',value:true,quote:'بدهکار نمی‌تواند غذا سفارش دهد'},
+   {id:'service.guest.max_uses',value:80,quote:'هر کارت مهمان تا ۸۰ بار'},
+   {id:'finance.charge.fancy_bonus',value:true,quote:'تخفیف وفاداری'},
+   {id:'building.pets_policy',value:'forbidden',quote:'نگهداری سگ ممنوع است'}],
+   out_of_catalog:[{quote:'جلسه‌ی مجمع سالی یک بار برگزار می‌شود',reason:'موردی برای زمان‌بندی مجمع نیست'}]},null,2);
+  $('#jerr').textContent='';};
+function ingest(rawSel,rawOut,rebuild){
+  const t=tier(),sel=[],out=[];
+  (rawOut||[]).forEach(o=>out.push({quote:o.quote||'',id:null,reasons:[o.reason||'خارج از کاتالوگ (اعلام‌شده توسط منبع)']}));
+  rawSel.forEach(r=>{
+    const it=BY[r.id];
+    if(!it){out.push({quote:r.quote||'',id:null,title:'شناسه‌ی نامعتبر',reasons:[`شناسه‌ی «${r.id}» در کاتالوگ نیست؛ سرور آن را رد کرد`]});return}
+    const reasons=[];
+    if(!availIn(it,t))reasons.push(`در سطح ${TIER_FA[t]} وجود ندارد`);
+    (it.needs||[]).forEach(n=>{const d=BY[n];if(d&&!availIn(d,t))reasons.push(`وابسته به «${d.title}» که در این سطح نیست`)});
+    if(it.status==='planned')reasons.push('هنوز در نرم‌افزار اجرا نمی‌شود؛ فقط ثبت می‌شود برای آینده');
+    if(reasons.length){out.push({quote:r.quote||'',id:it.id,title:it.title,reasons});return}
+    sel.push({key:it.id+'|'+(r.quote||''),id:it.id,value:r.value,quote:r.quote||'—',accepted:!validate(it,r.value)});
+  });
+  R={text:'',selected:sel,out,rebuild};renderResult();$('#result').scrollIntoView({behavior:'smooth'});
+}
+function runJson(){
+  let d;$('#jerr').textContent='';
+  try{d=JSON.parse($('#jin').value)}catch(e){$('#jerr').textContent='JSON معتبر نیست: '+e.message;return}
+  if(!d||!Array.isArray(d.selected)){$('#jerr').textContent='کلید selected (آرایه) لازم است';return}
+  ingest(d.selected,d.out_of_catalog,runJson);
+}
+$('#jrun').onclick=runJson;
+const wiz={};
+function wizItems(){
+  const t=tier();
+  return ITEMS.filter(i=>i.type!=='fixed'&&i.type!=='multi_enum'&&i.scope!=='user'&&i.domain!=='feature'&&i.status!=='planned'&&availIn(i,t)&&(i.needs||[]).every(n=>!BY[n]||availIn(BY[n],t)));
+}
+function renderWiz(){
+  const its=wizItems(),doms=[...new Set(its.map(i=>i.domain))];
+  $('#wiz-list').innerHTML=doms.map(d=>`<h2>${DOM_FA[d]||d}</h2>`+its.filter(i=>i.domain===d).map(it=>{
+    const w=wiz[it.id]||(wiz[it.id]={on:false,value:it.default===undefined?null:it.default});
+    return `<div class="card"><div class="row"><label class="row"><input type="checkbox" data-w="${it.id}" ${w.on?'checked':''}><span class="title">${esc(it.title)}</span></label>${pill(it.status)}${it.scope==='amenity'?'<span class="muted">(برای هر مشاع)</span>':''}</div>
+    ${it.description?`<div class="muted">${esc(it.description)}</div>`:''}
+    <div class="row" style="margin-top:4px" data-wv="${it.id}"></div></div>`}).join('')).join('')||'<div class="muted">موردی نیست.</div>';
+  its.forEach(it=>{const box=document.querySelector(`[data-wv="${it.id}"]`);const w=wiz[it.id];
+    box.innerHTML=inputFor(it,w.value,x=>{w.value=x;w.on=true;const c=document.querySelector(`[data-w="${it.id}"]`);if(c)c.checked=true})});
+  document.querySelectorAll('[data-w]').forEach(c=>c.onchange=()=>{wiz[c.dataset.w].on=c.checked});
+}
+$('#wrun').onclick=()=>{
+  const go=()=>{const rows=wizItems().filter(i=>wiz[i.id]&&wiz[i.id].on).map(i=>({id:i.id,value:wiz[i.id].value,quote:'ورود دستی در ویزارد'}));ingest(rows,[],go)};go();
+};
+
 /* ---------- final profile ---------- */
 let activated=false;
 function renderOut(){
@@ -342,7 +447,7 @@ function renderOut(){
   $('#copy').onclick=()=>{navigator.clipboard&&navigator.clipboard.writeText(JSON.stringify(prof,null,2)).then(()=>$('#act-msg').textContent='کپی شد').catch(()=>{})};
   $('#act').onclick=()=>{activated=true;$('#act-msg').textContent='✓ نسخه‌ی ۱ ثبت شد (نمایشی؛ چیزی ذخیره نشد)'};
 }
-renderCat();
+renderCat();setMode('json');
 </script>
 </body>
 </html>
