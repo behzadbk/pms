@@ -1,0 +1,151 @@
+# مشاعات و قوانین رزرو. API: backend/facility-service/src/reservations/amenities.controller.ts
+domain: amenity
+items:
+  - id: amenity.name
+    title: نام مشاع
+    type: string
+    max: 80
+    required: true
+    scope: amenity
+    tiers: [economic, professional]
+    status: implemented
+    engine: backend/facility-service/src/reservations/amenities.controller.ts
+  - id: amenity.type
+    title: نوع مشاع
+    type: enum
+    values: [pool, hall, roof_garden, gym, cinema, other]
+    value_labels: {pool: استخر, hall: سالن, roof_garden: روف‌گاردن, gym: باشگاه, cinema: سینما, other: سایر}
+    required: true
+    scope: amenity
+    tiers: [economic, professional]
+    status: implemented
+    engine: backend/facility-service/src/reservations/amenities.controller.ts
+    note: هنگام ساخت مشاع در پنل انتخاب می‌شود، از متن آیین‌نامه استخراج نمی‌شود
+  - id: amenity.capacity
+    title: ظرفیت
+    type: integer
+    min: 1
+    max: 10000
+    scope: amenity
+    tiers: [economic, professional]
+    status: implemented
+    engine: backend/facility-service/src/reservations/amenities.controller.ts
+    detect: ["(ظرفیت)"]
+    extract: "(\\d+)\\s*(نفر)"
+  - id: amenity.requires_approval
+    title: نیاز به تأیید مسئول مشاعات
+    type: boolean
+    default: false
+    scope: amenity
+    tiers: [economic, professional]
+    status: implemented
+    engine: backend/facility-service/src/reservations/bookings.controller.ts
+    detect: ["(تأیید|تایید)", "(رزرو)", "(مسئول|مدیر)"]
+  - id: amenity.rule_text
+    title: متن قوانین مشاع
+    type: string
+    max: 300
+    scope: amenity
+    tiers: [economic, professional]
+    status: implemented
+    engine: backend/facility-service/src/reservations/amenities.controller.ts
+  - id: amenity.max_hours
+    title: حداکثر ساعت هر رزرو
+    type: integer
+    min: 1
+    max: 12
+    default: 1
+    scope: amenity
+    tiers: [economic, professional]
+    status: partial
+    engine: backend/facility-service/src/reservations/bookings.controller.ts
+    note: ستون در دیتابیس هست؛ API ساخت/ویرایش مشاع آن را نمی‌پذیرد و همه‌ی مشاعات یک‌ساعته می‌مانند
+    detect: ["(حداکثر)", "(هر رزرو|مدت|ساعت)", "(استفاده|رزرو)"]
+    extract: "(\\d+)\\s*ساعت"
+  - id: amenity.slot_hours
+    title: ساعت‌های قابل رزرو در روز
+    description: ساعت شروع‌های مجاز (به وقت تهران)
+    type: list
+    min: 0
+    max: 23
+    default: [8, 9, 10, 11, 16, 17, 18, 19, 20]
+    scope: amenity
+    tiers: [economic, professional]
+    status: partial
+    engine: backend/facility-service/src/reservations/slots.ts
+    note: مثل max_hours فقط در دیتابیس تنظیم می‌شود
+    detect: ["(از ساعت|ساعات)", "تا", "(رزرو|استفاده)"]
+    extract_hours_range: true
+  - id: amenity.booking.max_per_period
+    title: سقف رزرو هر واحد در بازه
+    type: integer
+    min: 1
+    max: 100
+    scope: amenity
+    needs: [feature.amenity_rules]
+    tiers: [economic, professional]
+    status: implemented
+    engine: backend/facility-service/src/reservations/booking-validation.service.ts
+    detect: ["(رزرو|استفاده)", "(حداکثر|سقف|بیش از)", "(بار|نوبت)"]
+    extract: "(\\d+)\\s*(بار|نوبت|رزرو)"
+  - id: amenity.booking.period_type
+    title: واحد بازه‌ی سقف رزرو
+    type: enum
+    values: [day, week, month]
+    value_labels: {day: روز, week: هفته, month: ماه}
+    default: week
+    scope: amenity
+    needs: [amenity.booking.max_per_period]
+    tiers: [economic, professional]
+    status: implemented
+    engine: backend/facility-service/src/reservations/booking-validation.service.ts
+    detect: ["(رزرو|استفاده)", "(حداکثر|سقف)", "(بار|نوبت)"]
+    enum_detect: {day: "(در روز|در هر روز|روزانه|هر روز)", week: "(در هفته|در هر هفته|هفتگی|هر هفته)", month: "(در ماه|در هر ماه|ماهانه|هر ماه)"}
+  - id: amenity.booking.min_advance_hours
+    title: حداقل ساعت پیش از رزرو
+    type: integer
+    min: 0
+    max: 720
+    default: 1
+    scope: amenity
+    needs: [feature.amenity_rules]
+    tiers: [economic, professional]
+    status: implemented
+    engine: backend/facility-service/src/reservations/booking-validation.service.ts
+    detect: ["(رزرو)", "(حداقل)", "ساعت"]
+    extract: "(\\d+)\\s*ساعت"
+  - id: amenity.booking.max_advance_days
+    title: حداکثر روز پیش‌رزرو
+    type: integer
+    min: 1
+    max: 365
+    default: 30
+    scope: amenity
+    needs: [feature.amenity_rules]
+    tiers: [economic, professional]
+    status: implemented
+    engine: backend/facility-service/src/reservations/booking-validation.service.ts
+    detect: ["(رزرو)", "(حداکثر|تا)", "(روز)", "(قبل|جلو|آینده|پیش)"]
+    extract: "(\\d+)\\s*روز"
+  - id: amenity.booking.deposit_amount
+    title: بیعانه‌ی رزرو
+    type: money
+    min: 0
+    default: 0
+    scope: amenity
+    unit: تومان
+    needs: [feature.amenity_rules]
+    tiers: [economic, professional]
+    status: partial
+    engine: backend/facility-service/src/reservations/amenities.controller.ts
+    note: مبلغ ثبت می‌شود ولی هیچ پرداختی از آن ساخته نمی‌شود
+    detect: ["(بیعانه|ودیعه|تضمین)"]
+    extract_money: true
+  - id: amenity.booking.gender_slots
+    title: ساعت‌های جداگانه بانوان و آقایان
+    type: boolean
+    default: false
+    scope: amenity
+    tiers: [economic, professional]
+    status: planned
+    detect: ["(بانوان|آقایان|خانم|مردان)"]

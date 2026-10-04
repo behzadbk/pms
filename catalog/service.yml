@@ -1,0 +1,76 @@
+# خدمات: کارت مهمان، مرسوله، غذا، اعلان‌ها
+domain: service
+items:
+  - id: service.guest.max_uses
+    title: حداکثر دفعات استفاده از یک کارت مهمان
+    type: integer
+    min: 1
+    max: 50
+    default: 1
+    scope: building
+    needs: [feature.guest_pass]
+    tiers: [professional]
+    status: implemented
+    engine: backend/guard-service/src/guest-passes/guest-passes.controller.ts
+    note: «۵۰» سقف سیستم است؛ سقف دلخواه هر ساختمان هنوز تنظیم‌پذیر نیست
+    detect: ["مهمان", "(بار|دفعه)"]
+    extract: "(\\d+)\\s*(بار|دفعه)"
+  - id: service.guest.default_validity_hours
+    title: مدت اعتبار پیش‌فرض کارت مهمان
+    type: integer
+    min: 1
+    max: 168
+    scope: building
+    needs: [feature.guest_pass]
+    tiers: [professional]
+    status: planned
+    note: فعلاً ساکن مدت اعتبار را برای هر کارت وارد می‌کند
+    detect: ["مهمان", "(اعتبار|مدت)", "ساعت"]
+    extract: "(\\d+)\\s*ساعت"
+  - id: service.parcel.pickup_confirmation
+    title: تأیید تحویل مرسوله با نگهبان
+    type: fixed
+    scope: building
+    needs: [feature.parcels]
+    tiers: [professional]
+    status: implemented
+    engine: backend/guard-service/src/parcels/parcels.controller.ts
+    description: نگهبان ثبت و تحویل را انجام می‌دهد؛ تحویل دوباره ممکن نیست
+  - id: service.fnb.delivery_zone_type
+    title: نوع مقصد تحویل غذا
+    type: enum
+    values: [in_unit, amenity_zone]
+    value_labels: {in_unit: داخل واحد, amenity_zone: محدوده‌ی مشاعات}
+    scope: building
+    needs: [feature.fnb_ordering]
+    tiers: [professional]
+    status: partial
+    engine: backend/fnb-service/src/orders/orders.service.ts
+    note: مقصدها فقط خوانده می‌شوند؛ API ساخت و ویرایش آن‌ها (و ساخت رستوران) وجود ندارد
+  - id: service.fnb.order_flow
+    title: چرخه‌ی وضعیت سفارش غذا
+    description: پیش‌نویس ← ثبت ← تأیید ← آماده‌سازی ← آماده ← ارسال ← تحویل؛ گذار غیرمجاز رد می‌شود
+    type: fixed
+    scope: building
+    needs: [feature.fnb_ordering]
+    tiers: [professional]
+    status: implemented
+    engine: backend/fnb-service/src/orders/order-status.ts
+  - id: service.notification.channels
+    title: کانال اعلان برای هر رویداد
+    type: multi_enum
+    values: [sms, push, inbox]
+    value_labels: {sms: پیامک, push: اعلان فشاری, inbox: صندوق داخل برنامه}
+    scope: building
+    status: planned
+    note: کانال هر رویداد فعلاً در کد ثابت است
+    detect: ["(پیامک|اعلان)"]
+  - id: service.notification.overdue_reminder
+    title: یادآوری شارژ معوق
+    type: boolean
+    default: false
+    scope: building
+    needs: [feature.charge_issue]
+    status: planned
+    note: گیرنده‌ی رویداد charge.overdue نوشته شده ولی هیچ سرویسی آن را منتشر نمی‌کند
+    detect: ["(یادآوری|اطلاع)", "(معوق|سررسید)"]

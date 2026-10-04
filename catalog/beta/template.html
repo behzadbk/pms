@@ -1,0 +1,348 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>کاتالوگ برج</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f6f3ec;--card:#fffdf8;--ink:#17233a;--muted:#5d6a80;--line:#e3ddcf;
+  --accent:#0f766e;--accent-ink:#fff;--accent-soft:#d9efec;
+  --ok:#1b7a43;--ok-bg:#dff2e5;--warn:#9a5b00;--warn-bg:#fbeccd;--bad:#a52a2a;--bad-bg:#f9dede;--plan:#4b4f9a;--plan-bg:#e4e5f7;--unv:#5d6a80;--unv-bg:#e8e9ec;
+  --code:#efeadd;
+}
+:root[data-theme="dark"]{
+  --bg:#0f1624;--card:#17213a;--ink:#e8ecf5;--muted:#9aa6bd;--line:#2b3753;
+  --accent:#2dd4bf;--accent-ink:#06211e;--accent-soft:#12363a;
+  --ok:#6fdc9a;--ok-bg:#16382a;--warn:#f2c26b;--warn-bg:#40300f;--bad:#ff9b9b;--bad-bg:#472020;--plan:#a9acff;--plan-bg:#262a5a;--unv:#9aa6bd;--unv-bg:#252e45;
+  --code:#0d1424;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+  --bg:#0f1624;--card:#17213a;--ink:#e8ecf5;--muted:#9aa6bd;--line:#2b3753;
+  --accent:#2dd4bf;--accent-ink:#06211e;--accent-soft:#12363a;
+  --ok:#6fdc9a;--ok-bg:#16382a;--warn:#f2c26b;--warn-bg:#40300f;--bad:#ff9b9b;--bad-bg:#472020;--plan:#a9acff;--plan-bg:#262a5a;--unv:#9aa6bd;--unv-bg:#252e45;
+  --code:#0d1424;}
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:Vazirmatn,Tahoma,sans-serif;line-height:1.8;font-size:15px}
+.wrap{max-width:980px;margin:0 auto;padding:20px 16px 60px}
+header h1{font-size:24px;margin:0 0 4px}
+header p{margin:0;color:var(--muted)}
+.beta{display:inline-block;background:var(--warn-bg);color:var(--warn);border-radius:6px;padding:0 8px;font-size:12px;margin-inline-start:8px;vertical-align:middle}
+.stats{display:flex;flex-wrap:wrap;gap:8px;margin:16px 0}
+.pill{border-radius:999px;padding:1px 10px;font-size:12px;white-space:nowrap}
+.s-implemented{background:var(--ok-bg);color:var(--ok)}
+.s-partial{background:var(--warn-bg);color:var(--warn)}
+.s-planned{background:var(--plan-bg);color:var(--plan)}
+.s-unverified{background:var(--unv-bg);color:var(--unv)}
+.bar{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;margin:12px 0}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:16px}
+.tab{background:none;border:0;border-bottom:3px solid transparent;color:var(--muted);font:inherit;padding:8px 14px;cursor:pointer}
+.tab[aria-selected=true]{color:var(--ink);border-color:var(--accent);font-weight:700}
+select,input,textarea,button{font:inherit;color:var(--ink)}
+select,input[type=text],input[type=number],textarea{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:6px 10px}
+textarea{width:100%;min-height:260px;line-height:1.9;resize:vertical}
+button.btn{background:var(--accent);color:var(--accent-ink);border:0;border-radius:8px;padding:8px 16px;cursor:pointer;font-weight:500}
+button.btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
+button.btn:disabled{opacity:.45;cursor:not-allowed}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 16px;margin:8px 0}
+.row{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center}
+.grow{flex:1;min-width:200px}
+.title{font-weight:700}
+.muted{color:var(--muted);font-size:13px}
+code,.code{direction:ltr;unicode-bidi:embed;background:var(--code);border-radius:5px;padding:0 6px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px}
+.dim{opacity:.45}
+.quote{border-inline-start:3px solid var(--accent);padding:2px 10px;color:var(--muted);font-size:13px;margin:6px 0}
+.err{color:var(--bad);font-size:13px}
+h2{font-size:17px;margin:22px 0 4px}
+h2 .n{background:var(--accent-soft);color:var(--accent);border-radius:999px;padding:0 9px;font-size:13px;margin-inline-start:6px}
+details summary{cursor:pointer}
+dl{display:grid;grid-template-columns:auto 1fr;gap:2px 14px;margin:8px 0 0;font-size:13px}
+dt{color:var(--muted)}dd{margin:0}
+pre{direction:ltr;text-align:left;background:var(--code);border-radius:10px;padding:14px;overflow:auto;font-size:12.5px;line-height:1.6}
+.note{background:var(--accent-soft);border-radius:10px;padding:10px 14px;font-size:13.5px;margin:10px 0}
+.flow{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;font-size:13px;margin:10px 0 0}
+.flow span.st{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:2px 10px}
+@media(max-width:560px){.tab{padding:8px 8px;font-size:14px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <h1>کاتالوگ برج <span class="beta">نسخه‌ی بتا</span></h1>
+  <p>هر چیزی که نرم‌افزار می‌تواند برای یک ساختمان تنظیم کند، یک‌جا و با وضعیت واقعی‌اش. هوش مصنوعی فقط از همین فهرست انتخاب می‌کند و چیزی اختراع نمی‌کند.</p>
+</header>
+
+<div class="stats" id="stats"></div>
+
+<div class="bar">
+  <div class="row"><label for="tier">سطح ساختمان:</label>
+    <select id="tier"><option value="simple">ساده</option><option value="economic">اقتصادی</option><option value="professional" selected>حرفه‌ای</option></select></div>
+  <button class="btn ghost" id="theme" type="button">تغییر پوسته</button>
+</div>
+
+<div class="tabs" role="tablist">
+  <button class="tab" role="tab" data-tab="cat" aria-selected="true">کاتالوگ</button>
+  <button class="tab" role="tab" data-tab="imp" aria-selected="false">ورود آیین‌نامه و بازبینی</button>
+  <button class="tab" role="tab" data-tab="out" aria-selected="false">پروفایل نهایی</button>
+</div>
+
+<section id="p-cat">
+  <div class="row" style="margin-bottom:8px">
+    <select id="f-dom"></select>
+    <select id="f-st"><option value="">همه‌ی وضعیت‌ها</option><option value="implemented">پیاده‌شده</option><option value="partial">ناقص</option><option value="unverified">تأییدنشده</option><option value="planned">برنامه‌ریزی‌شده</option></select>
+    <input type="text" id="f-q" placeholder="جستجو در عنوان یا شناسه" class="grow">
+  </div>
+  <div class="muted" id="cat-count"></div>
+  <div id="cat-list"></div>
+</section>
+
+<section id="p-imp" hidden>
+  <div class="note">این صفحه نمایشی است. بخش «استخراج» اینجا با الگوهای ساده‌ی متنی کار می‌کند و جای هوش مصنوعی را می‌گیرد؛ در نسخه‌ی واقعی مدل فقط همین سه خروجی را برمی‌گرداند و سرور هر شناسه و مقدار را با کاتالوگ اعتبارسنجی می‌کند. هیچ چیزی در ساختمان واقعی اعمال نمی‌شود.</div>
+  <label for="bylaw" class="title">متن آیین‌نامه (نمونه، قابل ویرایش)</label>
+  <textarea id="bylaw"></textarea>
+  <div class="row" style="margin-top:8px"><button class="btn" id="run" type="button">استخراج از کاتالوگ</button><span class="muted">هر بند در یک خط یا جمله‌ی جدا بنویسید.</span></div>
+  <div id="result"></div>
+</section>
+
+<section id="p-out" hidden>
+  <div id="out-box"></div>
+</section>
+</div>
+
+<script id="cat" type="application/json">__CATALOG__</script>
+<script>
+const CAT = JSON.parse(document.getElementById('cat').textContent);
+const ITEMS = CAT.items, BY = Object.fromEntries(ITEMS.map(i=>[i.id,i]));
+const TIER_FA={simple:'ساده',economic:'اقتصادی',professional:'حرفه‌ای'};
+const DOM_FA={feature:'قابلیت‌ها',finance:'مالی و شارژ',debtor:'بدهکاری',amenity:'مشاعات',service:'خدمات',people:'افراد و نقش‌ها',building:'قوانین ساختمان'};
+const ST_FA={implemented:'پیاده‌شده',partial:'ناقص',unverified:'تأییدنشده',planned:'برنامه‌ریزی‌شده'};
+const SAMPLE=`مهلت پرداخت شارژ تا روز ۵ هر ماه است.
+واحدی که بیش از ۴۵ روز از سررسید شارژش گذشته باشد بدهکار محسوب می‌شود.
+واحد بدهکار از رزرو مشاعات محروم است.
+واحد بدهکار نمی‌تواند برای مهمان کارت ورود بگیرد.
+هر واحد حداکثر ۲ بار در هفته می‌تواند استخر را رزرو کند.
+رزرو استخر حداقل ۲ ساعت قبل از استفاده انجام شود.
+ظرفیت استخر ۱۲ نفر است.
+برای رزرو سالن اجتماعات پرداخت ۵۰۰ هزار تومان بیعانه الزامی است.
+هر مهمان حداکثر ۳ بار می‌تواند با یک کارت وارد شود.
+ساعت سکوت از ساعت ۲۲ تا ۷ صبح است.
+نگهداری سگ در ساختمان ممنوع است.
+استخر در ساعات جداگانه برای بانوان و آقایان برگزار می‌شود.
+برای خرج‌های اضطراری مانند تعمیر ژنراتور، مدیر تا سقف ۳۰ میلیون تومان مجاز به هزینه است.
+جلسه‌ی مجمع سالی یک بار برگزار می‌شود.`;
+
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const fa=n=>String(n).replace(/\d/g,d=>'۰۱۲۳۴۵۶۷۸۹'[d]);
+const tier=()=>$('#tier').value;
+const pill=st=>`<span class="pill s-${st}">${ST_FA[st]}</span>`;
+function availIn(it,t){return !it.tiers||it.tiers.includes(t)}
+function label(it,v){return it.value_labels&&it.value_labels[v]?it.value_labels[v]:v}
+function showVal(it,v){
+  if(v===null||v===undefined||v==='')return '—';
+  if(typeof v==='boolean')return v?'بله':'خیر';
+  if(Array.isArray(v))return v.map(x=>label(it,x)).join('، ');
+  if(it.type==='money')return fa(Number(v).toLocaleString('en-US'))+' تومان';
+  if(it.type==='percent')return fa(v)+'٪';
+  return fa(label(it,v));
+}
+
+/* ---------- stats & tabs ---------- */
+(function(){
+  const c={};ITEMS.forEach(i=>c[i.status]=(c[i.status]||0)+1);
+  $('#stats').innerHTML=`<span class="pill" style="background:var(--accent-soft);color:var(--accent)">${fa(ITEMS.length)} مورد در کاتالوگ</span>`+
+   Object.keys(ST_FA).map(s=>`<span class="pill s-${s}">${ST_FA[s]}: ${fa(c[s]||0)}</span>`).join('');
+  const dm=[...new Set(ITEMS.map(i=>i.domain))];
+  $('#f-dom').innerHTML='<option value="">همه‌ی حوزه‌ها</option>'+dm.map(d=>`<option value="${d}">${DOM_FA[d]||d}</option>`).join('');
+})();
+document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('.tab').forEach(x=>x.setAttribute('aria-selected',x===b));
+  ['cat','imp','out'].forEach(k=>$('#p-'+k).hidden=k!==b.dataset.tab);
+  if(b.dataset.tab==='out')renderOut();
+});
+$('#theme').onclick=()=>{const r=document.documentElement;const dark=getComputedStyle(r).getPropertyValue('--bg').trim()==='#0f1624';r.dataset.theme=dark?'light':'dark'};
+
+/* ---------- catalog browser ---------- */
+function typeLine(it){
+  const p=[it.type];
+  if(it.values)p.push(it.values.map(v=>label(it,v)).join(' / '));
+  if(it.min!==undefined||it.max!==undefined)p.push(`بازه ${it.min??''}–${it.max??''}`);
+  if(it.unit)p.push(it.unit);
+  return p.join(' · ');
+}
+function renderCat(){
+  const d=$('#f-dom').value,s=$('#f-st').value,q=$('#f-q').value.trim().toLowerCase(),t=tier();
+  const list=ITEMS.filter(i=>(!d||i.domain===d)&&(!s||i.status===s)&&(!q||i.title.toLowerCase().includes(q)||i.id.toLowerCase().includes(q)));
+  $('#cat-count').textContent=`${fa(list.length)} مورد نمایش داده می‌شود`;
+  $('#cat-list').innerHTML=list.map(it=>{
+    const av=availIn(it,t);
+    return `<details class="card ${av?'':'dim'}"><summary><span class="title">${esc(it.title)}</span> ${pill(it.status)}
+      ${av?'':`<span class="pill s-unverified">در سطح ${TIER_FA[t]} نیست</span>`}
+      <span class="muted"> · ${DOM_FA[it.domain]||it.domain}</span></summary>
+      ${it.description?`<div class="muted" style="margin-top:6px">${esc(it.description)}</div>`:''}
+      <dl><dt>شناسه</dt><dd><code>${esc(it.id)}</code></dd>
+      <dt>نوع</dt><dd>${esc(typeLine(it))}</dd>
+      ${it.default!==undefined?`<dt>پیش‌فرض</dt><dd>${esc(showVal(it,it.default))}</dd>`:''}
+      <dt>سطح‌ها</dt><dd>${(it.tiers||['simple','economic','professional']).map(x=>TIER_FA[x]).join('، ')}</dd>
+      ${it.needs?`<dt>وابسته به</dt><dd>${it.needs.map(n=>`<code>${esc(n)}</code>`).join(' ')}</dd>`:''}
+      ${it.engine?`<dt>کد</dt><dd><code>${esc(it.engine)}</code></dd>`:''}
+      ${it.note?`<dt>محدودیت</dt><dd>${esc(it.note)}</dd>`:''}</dl></details>`;
+  }).join('')||'<div class="muted">موردی پیدا نشد.</div>';
+}
+['#f-dom','#f-st','#tier'].forEach(s=>$(s).onchange=()=>{renderCat();if(R)analyze(false)});
+$('#f-q').oninput=renderCat;
+
+/* ---------- demo extractor (جایگزین نمایشی هوش مصنوعی) ---------- */
+function norm(s){return s.replace(/[۰-۹]/g,d=>'۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).replace(/ي/g,'ی').replace(/ك/g,'ک').replace(/٬/g,',')}
+function parseMoney(c){
+  const m=c.match(/(\d[\d,]*(?:\.\d+)?)\s*(هزار|میلیون|میلیارد)?\s*(تومان|ریال)/);
+  if(!m)return null;
+  let v=parseFloat(m[1].replace(/,/g,''));
+  v*={'هزار':1e3,'میلیون':1e6,'میلیارد':1e9}[m[2]]||1;
+  if(m[3]==='ریال')v/=10;
+  return Math.round(v);
+}
+function extractValue(it,c){
+  if(it.extract_money||(it.type==='money'&&!it.extract))return parseMoney(c);
+  if(it.extract_hours_range){
+    const m=c.match(/(\d+)\s*(?:صبح|شب|بعدازظهر)?\s*تا\s*(\d+)/);
+    if(!m)return null;
+    const a=+m[1],b=+m[2];
+    if(it.type==='list'){const o=[];for(let h=a;h<b;h++)o.push(h);return o}
+    return String(a).padStart(2,'0')+':00 تا '+String(b).padStart(2,'0')+':00';
+  }
+  if(it.type==='enum'&&it.enum_detect){
+    for(const k of Object.keys(it.enum_detect))if(new RegExp(it.enum_detect[k]).test(c))return k;
+    return null;
+  }
+  if(it.extract){const m=c.match(new RegExp(it.extract));return m?Number(m[1]):null}
+  if(it.type==='boolean')return true;
+  if(it.type==='string')return c.trim();
+  return null;
+}
+function validate(it,v){
+  if(v===null||v===undefined||v==='')return 'مقدار لازم است';
+  const t=it.type;
+  if(['integer','number','money','percent'].includes(t)){
+    const n=Number(v);
+    if(!Number.isFinite(n))return 'عدد معتبر نیست';
+    if(t==='integer'&&!Number.isInteger(n))return 'باید عدد صحیح باشد';
+    if(it.min!==undefined&&n<it.min)return `کمتر از حداقل (${fa(it.min)})`;
+    if(it.max!==undefined&&n>it.max)return `بیشتر از حداکثر (${fa(it.max)})`;
+  }else if(t==='enum'){if(!it.values.includes(v))return 'خارج از مقادیر مجاز'}
+  else if(t==='multi_enum'){if(!Array.isArray(v)||v.some(x=>!it.values.includes(x)))return 'خارج از مقادیر مجاز'}
+  else if(t==='list'){
+    if(!Array.isArray(v)||v.some(x=>typeof x!=='number'||(it.min!==undefined&&x<it.min)||(it.max!==undefined&&x>it.max)))return 'فهرست معتبر نیست'
+  }else if(t==='string'){if(it.max&&String(v).length>it.max)return `بیش از ${fa(it.max)} نویسه`}
+  return '';
+}
+let R=null; // {selected:[], out:[], missing:[]}
+const manual={};
+function analyze(fresh=true){
+  const t=tier(), text=fresh?norm($('#bylaw').value):R.text, old=R?Object.fromEntries(R.selected.map(r=>[r.id,r])):{};
+  const clauses=text.split(/[\n.؛]+/).map(s=>s.trim()).filter(Boolean);
+  const sel=[],out=[],used=new Set();
+  const cands=ITEMS.filter(i=>i.detect);
+  clauses.forEach(c=>{
+    let hit=false;
+    cands.forEach(it=>{
+      if(!it.detect.every(p=>new RegExp(p).test(c)))return;
+      const reasons=[];
+      if(!availIn(it,t))reasons.push(`در سطح ${TIER_FA[t]} وجود ندارد`);
+      (it.needs||[]).forEach(n=>{const d=BY[n];if(d&&!availIn(d,t))reasons.push(`وابسته به «${d.title}» که در این سطح نیست`)});
+      if(it.status==='planned')reasons.push('هنوز در نرم‌افزار اجرا نمی‌شود؛ فقط ثبت می‌شود برای آینده');
+      const val=extractValue(it,c);
+      if(val===null&&it.type!=='boolean'&&it.type!=='string')return; // مقدار قابل استخراج نیست: این بند مربوط به این مورد نیست
+      hit=true;
+      if(reasons.length){out.push({quote:c,id:it.id,title:it.title,reasons});return}
+      sel.push({key:it.id+'|'+c,id:it.id,value:val,quote:c,accepted:val!==null&&!validate(it,val)});
+      used.add(c);
+    });
+    if(!hit)out.push({quote:c,reasons:['هیچ مورد مطابقی در کاتالوگ نیست — برای افزودن باید تیم محصول بررسی کند'],id:null});
+  });
+  // حفظ ویرایش‌های قبلی هنگام تغییر سطح
+  if(!fresh)sel.forEach(r=>{const o=R.selected.find(x=>x.key===r.key);if(o){r.value=o.value;r.accepted=o.accepted}});
+  // حذف تکرار یک id (آخرین بند برنده)
+  const seen={};sel.forEach(r=>{(seen[r.id]=seen[r.id]||[]).push(r)});
+  R={text,selected:sel,out,seen};
+  renderResult();
+}
+function acceptedMap(){
+  const m={};
+  R&&R.selected.forEach(r=>{if(r.accepted&&!validate(BY[r.id],r.value))m[r.id]=r.value});
+  Object.assign(m,Object.fromEntries(Object.entries(manual).filter(([k,v])=>!validate(BY[k],v))));
+  return m;
+}
+function missingRequired(){
+  const m=acceptedMap();
+  return ITEMS.filter(i=>i.required&&i.scope==='building'&&availIn(i,tier())&&!(i.id in m));
+}
+function inputFor(it,v,cb){
+  const id='in'+Math.random().toString(36).slice(2,8);
+  let h='';
+  if(it.type==='boolean')h=`<select id="${id}"><option value="true" ${v===true?'selected':''}>بله</option><option value="false" ${v===false?'selected':''}>خیر</option></select>`;
+  else if(it.type==='enum')h=`<select id="${id}"><option value="">انتخاب کنید</option>${it.values.map(x=>`<option value="${x}" ${v===x?'selected':''}>${esc(label(it,x))}</option>`).join('')}</select>`;
+  else if(['integer','number','money','percent'].includes(it.type))h=`<input id="${id}" type="number" value="${v??''}" style="width:150px">${it.unit?` <span class="muted">${esc(it.unit)}</span>`:''}`;
+  else if(it.type==='list')h=`<input id="${id}" type="text" value="${esc(Array.isArray(v)?v.join(','):'')}" placeholder="مثلاً 8,9,10">`;
+  else h=`<input id="${id}" type="text" value="${esc(v??'')}" style="min-width:220px">`;
+  setTimeout(()=>{const e=document.getElementById(id);if(!e)return;
+    e.onchange=()=>{let x=e.value;
+      if(it.type==='boolean')x=x==='true';
+      else if(['integer','number','money','percent'].includes(it.type))x=x===''?null:Number(x);
+      else if(it.type==='list')x=x.split(',').map(s=>s.trim()).filter(Boolean).map(Number);
+      cb(x)}},0);
+  return h;
+}
+function renderResult(){
+  const mr=missingRequired();
+  let h=`<h2>انتخاب‌شده از کاتالوگ <span class="n">${fa(R.selected.length)}</span></h2>`;
+  if(!R.selected.length)h+='<div class="muted">موردی انتخاب نشد.</div>';
+  R.selected.forEach((r,i)=>{
+    const it=BY[r.id],e=validate(it,r.value);
+    h+=`<div class="card"><div class="row"><label class="row"><input type="checkbox" data-i="${i}" ${r.accepted?'checked':''} ${e?'disabled':''}><span class="title">${esc(it.title)}</span></label>${pill(it.status)}<code>${esc(it.id)}</code></div>
+      <div class="quote">«${esc(r.quote)}»</div>
+      <div class="row"><span class="muted">مقدار:</span>${inputFor(it,r.value,x=>{r.value=x;const er=validate(it,x);r.accepted=!er;renderResult()})}${e?`<span class="err">${e}</span>`:''}</div>
+      ${it.status==='partial'?`<div class="muted" style="margin-top:4px">⚠ ${esc(it.note)}</div>`:''}</div>`;
+  });
+  h+=`<h2>اطلاعات لازمی که در متن نبود <span class="n">${fa(mr.length)}</span></h2>`;
+  if(!mr.length)h+='<div class="muted">همه‌ی موارد الزامی پر شده‌اند.</div>';
+  mr.forEach(it=>{h+=`<div class="card"><div class="title">${esc(it.title)}</div><div class="muted">${esc(it.description||'')}</div>
+    <div class="row" style="margin-top:6px">${inputFor(it,manual[it.id],x=>{manual[it.id]=x;renderResult()})}${it.default!==undefined?`<span class="muted">پیش‌فرض: ${esc(showVal(it,it.default))}</span>`:''}</div></div>`});
+  h+=`<h2>خارج از کاتالوگ فعلی <span class="n">${fa(R.out.length)}</span></h2><div class="muted">این‌ها اعمال نمی‌شوند و برای تصمیم تیم محصول ثبت می‌شوند.</div>`;
+  R.out.forEach(o=>{h+=`<div class="card"><div class="quote">«${esc(o.quote)}»</div>${o.title?`<div class="title">${esc(o.title)} <code>${esc(o.id)}</code></div>`:''}${o.reasons.map(x=>`<div class="muted">• ${esc(x)}</div>`).join('')}</div>`});
+  h+=`<div class="row" style="margin-top:16px"><button class="btn" id="to-out" type="button">ادامه: ساخت پروفایل</button></div>`;
+  $('#result').innerHTML=h;
+  $('#result').querySelectorAll('input[type=checkbox]').forEach(cb=>cb.onchange=()=>{R.selected[+cb.dataset.i].accepted=cb.checked;renderResult()});
+  $('#to-out').onclick=()=>document.querySelector('[data-tab=out]').click();
+}
+$('#run').onclick=()=>analyze(true);
+$('#bylaw').value=SAMPLE;
+
+/* ---------- final profile ---------- */
+let activated=false;
+function renderOut(){
+  const box=$('#out-box');
+  if(!R){box.innerHTML='<div class="card muted">ابتدا در تب «ورود آیین‌نامه» استخراج را اجرا کنید.</div>';return}
+  const m=acceptedMap(),mr=missingRequired();
+  const prof={profile_version:1,catalog_version:CAT.meta.version||'beta',tier:tier(),settings:m,
+    not_applied:R.out.map(o=>({quote:o.quote,catalog_id:o.id,reason:o.reasons[0]}))};
+  const names=Object.keys(m);
+  box.innerHTML=`<div class="note">این همان چیزی است که پس از تأیید مدیر در پایگاه داده‌ی برج ذخیره می‌شود: فقط شناسه‌های کاتالوگ و مقدارهای اعتبارسنجی‌شده. هیچ کد یا تنظیم دیگری ساخته نمی‌شود.</div>
+   <div class="card"><span class="title">${fa(names.length)} تنظیم تأییدشده</span> · ${fa(prof.not_applied.length)} مورد اعمال‌نشده
+     ${mr.length?`<div class="err">${fa(mr.length)} مقدار الزامی هنوز وارد نشده: ${mr.map(i=>esc(i.title)).join('، ')}</div>`:''}</div>
+   ${names.map(k=>`<div class="card row"><span class="grow">${esc(BY[k].title)}</span><b>${esc(showVal(BY[k],m[k]))}</b></div>`).join('')}
+   <h2>JSON پروفایل</h2><pre id="json">${esc(JSON.stringify(prof,null,2))}</pre>
+   <div class="row"><button class="btn ghost" id="copy" type="button">کپی JSON</button>
+   <button class="btn" id="act" type="button" ${mr.length||!names.length?'disabled':''}>ثبت نسخه‌ی ۱ (نمایشی)</button>
+   <span id="act-msg" class="muted">${activated?'✓ نسخه‌ی ۱ ثبت شد (نمایشی؛ چیزی ذخیره نشد)':''}</span></div>`;
+  $('#copy').onclick=()=>{navigator.clipboard&&navigator.clipboard.writeText(JSON.stringify(prof,null,2)).then(()=>$('#act-msg').textContent='کپی شد').catch(()=>{})};
+  $('#act').onclick=()=>{activated=true;$('#act-msg').textContent='✓ نسخه‌ی ۱ ثبت شد (نمایشی؛ چیزی ذخیره نشد)'};
+}
+renderCat();
+</script>
+</body>
+</html>

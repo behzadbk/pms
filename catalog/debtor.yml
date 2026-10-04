@@ -1,0 +1,71 @@
+# قوانین بدهکاری (مدیر در «قوانین برج» تنظیم می‌کند).
+# منطق: backend/identity-service/prisma/migrations/006_building_rules.sql و
+# backend/facility-service/src/reservations/debtor-lock.ts
+domain: debtor
+items:
+  - id: debtor.grace_days
+    title: مهلت بدهکاری (روز)
+    description: واحدی که قدیمی‌ترین شارژ پرداخت‌نشده‌اش حداقل این‌قدر از سررسید گذشته باشد «بدهکار» است
+    type: integer
+    min: 0
+    max: 365
+    default: 30
+    required: true
+    scope: building
+    status: implemented
+    engine: backend/identity-service/src/residents/tower.service.ts
+    detect: ["(مهلت|تأخیر|تاخیر|گذشت)", "(شارژ|بدهی|معوق|بدهکار)", "روز"]
+    extract: "(\\d+)\\s*روز"
+  - id: debtor.restrict.amenity
+    title: بستن مشاعات برای واحد بدهکار
+    type: boolean
+    default: false
+    scope: building
+    needs: [feature.amenity_booking]
+    tiers: [economic, professional]
+    status: implemented
+    engine: backend/facility-service/src/reservations/debtor-lock.ts
+    detect: ["(معوق|بدهکار|بدهی)", "(مشاعات|مشاع|استخر|باشگاه|سالن)"]
+  - id: debtor.restrict.food
+    title: بستن سفارش غذا برای واحد بدهکار
+    type: boolean
+    default: false
+    scope: building
+    needs: [feature.fnb_ordering]
+    tiers: [professional]
+    status: implemented
+    engine: backend/fnb-service/src/orders/orders.service.ts
+    detect: ["(معوق|بدهکار|بدهی)", "(غذا|رستوران|کافه)"]
+  - id: debtor.restrict.guest
+    title: بستن کارت مهمان برای واحد بدهکار
+    type: boolean
+    default: false
+    scope: building
+    needs: [feature.guest_pass]
+    tiers: [professional]
+    status: implemented
+    engine: backend/guard-service/src/guest-passes/guest-passes.controller.ts
+    detect: ["(معوق|بدهکار|بدهی)", "مهمان"]
+  - id: debtor.restrict.amenity_item
+    title: بستن یک مشاعِ مشخص برای واحد بدهکار
+    description: مثلاً فقط استخر؛ کلید amenity:<شناسه‌ی مشاع>
+    type: list
+    scope: amenity
+    needs: [feature.amenity_booking]
+    tiers: [economic, professional]
+    status: implemented
+    engine: backend/facility-service/src/reservations/debtor-lock.ts
+  - id: debtor.never_restricted
+    title: بخش‌هایی که هرگز قفل نمی‌شوند
+    description: مالی (تا بتواند بپردازد)، اعلان‌ها، تیکت، مرسوله و تماس اضطراری
+    type: fixed
+    scope: building
+    status: implemented
+    engine: backend/identity-service/src/residents/residents.constants.ts
+  - id: debtor.lock_scope
+    title: قفل برای کل واحد است
+    description: مالک، مستأجر و فرزندان همه‌ی یک واحد با هم قفل می‌شوند و با پرداخت فوراً باز می‌شوند
+    type: fixed
+    scope: building
+    status: implemented
+    engine: backend/facility-service/src/reservations/debtor-lock.ts

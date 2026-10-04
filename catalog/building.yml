@@ -1,0 +1,41 @@
+# قوانین کلی ساختمان. هنوز هیچ‌کدام در نرم‌افزار اجرا نمی‌شوند؛
+# ثبت‌شان در کاتالوگ باعث می‌شود وقتی در آیین‌نامه‌ی یک برج دیدیم، «خارج از کاتالوگ فعلی» گزارش شود نه نادیده گرفته.
+domain: building
+items:
+  - id: building.quiet_hours
+    title: ساعت سکوت
+    description: بازه‌ی آرامش ساختمان
+    type: string
+    scope: building
+    status: planned
+    detect: ["(سکوت|آرامش)"]
+    extract_hours_range: true
+  - id: building.pets_policy
+    title: نگهداری حیوان خانگی
+    type: enum
+    values: [allowed, forbidden, with_approval]
+    value_labels: {allowed: آزاد, forbidden: ممنوع, with_approval: با تأیید مدیر}
+    scope: building
+    status: planned
+    detect: ["(حیوان|سگ|گربه)"]
+    enum_detect: {forbidden: "(ممنوع|مجاز نیست)", with_approval: "(تأیید|تایید|مجوز)", allowed: "(آزاد|مجاز)"}
+  - id: building.parking.rules
+    title: قوانین پارکینگ
+    type: string
+    scope: building
+    tiers: [professional]
+    status: planned
+    note: ماژول تردد خودرو در ماتریس سطح‌هاست ولی قانون پارکینگ ثبت نمی‌شود
+    detect: ["(پارکینگ|پارک)"]
+  - id: building.fines.policy
+    title: جریمه‌ی تخلفات
+    type: string
+    scope: building
+    status: planned
+    detect: ["(جریمه)", "(تخلف|ورود|خسارت)"]
+  - id: building.moving.rules
+    title: مقررات اسباب‌کشی و تعمیرات واحد
+    type: string
+    scope: building
+    status: planned
+    detect: ["(اسباب|تعمیرات واحد|بازسازی|نقاشی)"]

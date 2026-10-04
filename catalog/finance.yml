@@ -1,0 +1,170 @@
+# مالی و شارژ. «detect» و «extract» فقط برای استخراج‌گر نمایشی صفحه‌ی بتاست
+# (در نسخه‌ی واقعی، مدل از روی عنوان و توضیح آیتم‌ها تصمیم می‌گیرد، نه از روی این الگوها).
+domain: finance
+items:
+  - id: finance.charge.calc_type
+    title: روش محاسبه‌ی شارژ
+    description: شارژ هر واحد چطور حساب شود
+    type: enum
+    values: [fixed, per_area, per_person, hybrid]
+    value_labels: {fixed: مبلغ ثابت برای همه, per_area: به نسبت متراژ, per_person: به نسبت نفرات, hybrid: پایه + متراژ}
+    default: hybrid
+    required: true
+    scope: building
+    status: partial
+    engine: backend/finance-service/src/charges/charges.controller.ts
+    note: در جدول هست ولی موتور فقط «پایه + متراژ» را اجرا می‌کند؛ انواع دیگر هنوز اجرا نمی‌شوند
+    detect: ["شارژ", "(متراژ|مساحت|متر|ثابت|نفر)"]
+    enum_detect: {hybrid: "(ثابت|پایه).{0,40}(متراژ|مساحت|متر)|(متراژ|مساحت).{0,40}(ثابت|پایه)", per_person: "(نفر|سرانه|تعداد ساکن)", per_area: "(متراژ|مساحت)", fixed: "(مبلغ ثابت|یکسان)"}
+  - id: finance.charge.base_amount
+    title: مبلغ پایه‌ی شارژ
+    type: money
+    min: 0
+    required: true
+    scope: building
+    unit: تومان
+    status: partial
+    engine: backend/finance-service/src/charges/charges.controller.ts
+    note: فقط در دیتابیس (charge_formulas) تنظیم می‌شود؛ API ساخت فرمول وجود ندارد
+    detect: ["شارژ", "(پایه|ثابت|ماهانه)"]
+    extract_money: true
+  - id: finance.charge.amount_per_sqm
+    title: نرخ شارژ به ازای هر متر
+    type: money
+    min: 0
+    scope: building
+    unit: تومان
+    needs: [finance.charge.base_amount]
+    status: partial
+    engine: backend/finance-service/src/charges/charges.controller.ts
+    note: مثل مبلغ پایه فقط در دیتابیس تنظیم می‌شود
+    detect: ["هر متر"]
+    extract_money: true
+  - id: finance.charge.due_day
+    title: روز سررسید شارژ در ماه
+    type: integer
+    min: 1
+    max: 28
+    default: 10
+    scope: building
+    status: partial
+    engine: backend/finance-service/src/charges/charges.controller.ts
+    note: در کد ثابت روز ۱۰ است؛ تنظیم‌پذیر نشده
+    detect: ["(سررسید|مهلت پرداخت)", "روز"]
+    extract: "روز\\s*(\\d+)"
+  - id: finance.charge.payer_rule
+    title: چه کسی شارژ می‌دهد
+    type: enum
+    values: [owner, tenant, per_membership_flag]
+    value_labels: {owner: مالک, tenant: مستأجر, per_membership_flag: طبق علامت هر ساکن}
+    default: per_membership_flag
+    scope: building
+    status: partial
+    engine: backend/identity-service/src/residents/manager.service.ts
+    note: علامت «پرداخت‌کننده» برای هر ساکن ثبت می‌شود ولی در محاسبه و پرداخت نقشی ندارد
+    detect: ["(مستأجر|مستاجر|مالک)", "(هزینه|شارژ)"]
+    enum_detect: {owner: "(سرمایه|عمرانی|اساسی).{0,40}مالک|مالک.{0,40}(سرمایه|عمرانی|اساسی)", tenant: "(مستأجر|مستاجر|ساکن).{0,40}(جاری|شارژ)", per_membership_flag: "(طبق|مطابق).{0,20}(قرارداد|توافق)"}
+  - id: finance.charge.late_fee_rule
+    title: جریمه‌ی دیرکرد
+    description: درصد یا مبلغ جریمه بعد از سررسید
+    type: percent
+    min: 0
+    max: 100
+    scope: building
+    status: planned
+    note: ستون late_fee_amount در دیتابیس هست ولی هیچ کدی آن را پر نمی‌کند
+    detect: ["جریمه", "(دیرکرد|تأخیر|تاخیر)"]
+    extract: "(\\d+)\\s*(درصد|٪|%)"
+  - id: finance.payment.gateway
+    title: درگاه پرداخت
+    type: enum
+    values: [zarinpal]
+    default: zarinpal
+    scope: building
+    status: partial
+    engine: backend/finance-service/src/payments/payments.controller.ts
+    note: درگاه فعلاً آزمایشی (mock) است؛ تأیید نهایی با خود درگاه نوشته نشده
+  - id: finance.payment.partial_payment
+    title: پرداخت بخشی
+    type: boolean
+    default: false
+    scope: building
+    status: planned
+    note: فعلاً فقط کل مبلغ شارژ پرداخت می‌شود
+    detect: ["(بخشی|قسط|اقساط)"]
+  - id: finance.payment.installment_count
+    title: تعداد اقساط
+    type: integer
+    min: 1
+    max: 12
+    scope: building
+    needs: [finance.payment.partial_payment]
+    status: planned
+    detect: ["(قسط|اقساط)"]
+    extract: "(\\d+)\\s*(قسط|ماه)"
+  - id: finance.fund.enabled
+    title: صندوق ذخیره‌ی ساختمان
+    type: boolean
+    default: false
+    scope: building
+    status: planned
+    note: جدول صندوق و دفتر هزینه وجود ندارد
+    detect: ["(صندوق|ذخیره)"]
+  - id: finance.fund.reserve_percent
+    title: سهم صندوق ذخیره از شارژ
+    type: percent
+    min: 0
+    max: 50
+    scope: building
+    needs: [finance.fund.enabled]
+    status: planned
+    detect: ["(صندوق|ذخیره)", "(درصد|٪)"]
+    extract: "(\\d+)\\s*(درصد|٪|%)"
+  - id: finance.special_charge.enabled
+    title: شارژ ویژه (یک‌باره)
+    description: خرج غیرمنتظره مثل تعمیر یا تعویض جنراتور
+    type: boolean
+    default: false
+    scope: building
+    status: planned
+    detect: ["(شارژ ویژه|هزینه‌ی? (مازاد|اضطراری|غیرمنتظره)|هزینه‌های? (مازاد|اضطراری|غیرمنتظره))"]
+  - id: finance.special_charge.allocation
+    title: روش تقسیم شارژ ویژه
+    type: enum
+    values: [equal, by_area, per_person, custom]
+    value_labels: {equal: مساوی, by_area: به نسبت متراژ, per_person: به نسبت نفرات, custom: سفارشی با معافیت}
+    default: by_area
+    scope: building
+    needs: [finance.special_charge.enabled]
+    status: planned
+    detect: ["(شارژ ویژه|مازاد|اضطراری|غیرمنتظره)", "(تقسیم|سهم)"]
+    enum_detect: {by_area: "(متراژ|مساحت)", per_person: "(نفر)", equal: "(مساوی|یکسان)"}
+  - id: finance.special_charge.grace_days
+    title: مهلت پرداخت شارژ ویژه
+    type: integer
+    min: 0
+    max: 365
+    default: 60
+    scope: building
+    needs: [finance.special_charge.enabled]
+    status: planned
+  - id: finance.expense.emergency_cap
+    title: سقف خرج اضطراری مدیر
+    description: مبلغی که مدیر می‌تواند بدون تصمیم قبلی جمع خرج کند
+    type: money
+    min: 0
+    scope: building
+    unit: تومان
+    status: planned
+    detect: ["(اضطراری|فوری)", "مدیر"]
+    extract_money: true
+  - id: finance.expense.approval_body
+    title: مرجع تأیید خرج بزرگ
+    type: enum
+    values: [manager, board, assembly]
+    value_labels: {manager: مدیر ساختمان, board: هیئت مدیره, assembly: مجمع عمومی}
+    default: board
+    scope: building
+    status: planned
+    detect: ["(مجمع|هیئت)", "(تصویب|تأیید|تایید|رأی|راي)"]
+    enum_detect: {assembly: "مجمع", board: "هیئت", manager: "مدیر"}

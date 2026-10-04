@@ -1,0 +1,23 @@
+# ماژول‌های قابل‌روشن/خاموش. فهرست و سطح هر کدام باید با
+# backend/identity-service/src/platform/tiers.ts یکی باشد (validate.py بررسی می‌کند).
+domain: feature
+items:
+  - {id: feature.finance_transparency, title: شفافیت مالی, description: نمایش درآمد و هزینه‌ی ساختمان برای ساکنان, type: boolean, scope: building, status: unverified, engine: backend/identity-service/src/platform/tiers.ts}
+  - {id: feature.charge_issue, title: صدور شارژ, description: ساخت شارژ ماهانه برای همه‌ی واحدها (کار حسابدار), type: boolean, scope: building, status: implemented, engine: backend/finance-service/src/charges/charges.controller.ts}
+  - {id: feature.charge_payment, title: پرداخت آنلاین شارژ, description: شروع پرداخت و تأیید با درگاه, type: boolean, scope: building, status: partial, engine: backend/finance-service/src/payments/payments.controller.ts, note: درگاه فعلاً آزمایشی (mock) است}
+  - {id: feature.fault_report, title: گزارش خرابی, type: boolean, scope: building, status: unverified, engine: backend/identity-service/src/platform/tiers.ts}
+  - {id: feature.purchase_log, title: ثبت خریدها, type: boolean, scope: building, status: unverified, engine: backend/identity-service/src/platform/tiers.ts}
+  - {id: feature.periodic_service, title: سرویس دوره‌ای, description: یادآوری سرویس‌های دوره‌ای (آسانسور، پمپ، ...), type: boolean, scope: building, status: unverified, engine: backend/identity-service/src/platform/tiers.ts}
+  - {id: feature.housekeeping, title: نظافت, type: boolean, scope: building, status: unverified, engine: backend/identity-service/src/platform/tiers.ts}
+  - {id: feature.announcements, title: اطلاعیه‌ها, type: boolean, scope: building, status: unverified, engine: backend/identity-service/src/platform/tiers.ts}
+  - {id: feature.amenity_booking, title: رزرو مشاعات, type: boolean, scope: building, tiers: [economic, professional], status: implemented, engine: backend/facility-service/src/reservations/bookings.controller.ts}
+  - {id: feature.amenity_rules, title: قوانین رزرو مشاعات, description: سقف، پیش‌رزرو، بیعانه, type: boolean, scope: building, tiers: [economic, professional], status: implemented, engine: backend/facility-service/src/reservations/booking-validation.service.ts}
+  - {id: feature.live_calendar, title: تقویم زنده, type: boolean, scope: building, tiers: [economic, professional], status: implemented, engine: backend/facility-service/src/reservations/bookings.controller.ts}
+  - {id: feature.voting, title: رأی‌گیری, description: رأی‌گیری وزنی ساکنان, type: boolean, scope: building, tiers: [economic, professional], status: unverified, engine: backend/identity-service/src/platform/tiers.ts}
+  - {id: feature.guard_desk, title: میز نگهبانی, type: boolean, scope: building, tiers: [professional], status: implemented, engine: backend/guard-service/src/parcels/parcels.controller.ts, note: "نگهبان از طریق نقش guard یا کارمند دارای دسترسی security کار می‌کند"}
+  - {id: feature.guest_pass, title: کارت مهمان, type: boolean, scope: building, tiers: [professional], status: implemented, engine: backend/guard-service/src/guest-passes/guest-passes.controller.ts}
+  - {id: feature.parcels, title: مرسولات, type: boolean, scope: building, tiers: [professional], status: implemented, engine: backend/guard-service/src/parcels/parcels.controller.ts}
+  - {id: feature.vehicle_traffic, title: تردد خودرو, type: boolean, scope: building, tiers: [professional], status: unverified, engine: backend/identity-service/src/platform/tiers.ts}
+  - {id: feature.fnb_ordering, title: سفارش غذا و کافه, type: boolean, scope: building, tiers: [professional], status: partial, engine: backend/fnb-service/src/orders/orders.service.ts, note: ساخت رستوران/کافه برای ساختمان تازه از پنل ممکن نیست}
+  - {id: feature.facility_cmms, title: تأسیسات و نگهداری, type: boolean, scope: building, tiers: [professional], status: unverified, engine: backend/identity-service/src/platform/tiers.ts}
+  - {id: feature.audit_log, title: لاگ و ردیابی, type: boolean, scope: building, tiers: [professional], status: implemented, engine: backend/audit-service/src/logs/logs.controller.ts}

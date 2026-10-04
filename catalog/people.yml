@@ -1,0 +1,83 @@
+# نقش‌ها، کارکنان، ساکنان و کنترل والدین
+domain: people
+items:
+  - id: people.roles
+    title: نقش‌های سیستم
+    description: admin مدیر ساختمان، accountant حسابدار، guard نگهبان، staff کارمند، resident ساکن، child فرزند، super_admin سوپرادمین پلتفرم
+    type: fixed
+    values: [admin, resident, guard, staff, accountant, super_admin, child]
+    scope: building
+    status: implemented
+    engine: backend/identity-service/src/auth/decorators/roles.decorator.ts
+  - id: people.app_modules
+    title: بخش‌های برنامه‌ی ساکن
+    type: fixed
+    values: [finance, food, amenity, guest, ticket, parcel, notice, assembly, household, emergency]
+    scope: building
+    status: implemented
+    engine: backend/identity-service/src/residents/residents.constants.ts
+  - id: people.staff.department
+    title: بخش کارمند
+    description: مدیر کارمند را با یک بخش می‌سازد؛ هر بخش دسترسی پیش‌فرض خودش را دارد
+    type: enum
+    values: [lobby, amenity_desk, kitchen, cafe, security, maintenance, cleaning]
+    value_labels: {lobby: لابی, amenity_desk: مسئول مشاعات, kitchen: آشپزخانه, cafe: کافه, security: امنیت, maintenance: تأسیسات, cleaning: نظافت}
+    scope: user
+    status: implemented
+    engine: backend/identity-service/src/users/staff.constants.ts
+  - id: people.staff.extra_permissions
+    title: دسترسی اضافه‌ی کارمند
+    description: برای جابجایی شیفت (مثلاً آشپزخانه به‌طور موقت کافه را هم ببیند)
+    type: multi_enum
+    values: [lobby, amenity_desk, kitchen, cafe, security, maintenance]
+    scope: user
+    status: implemented
+    engine: backend/identity-service/src/users/staff.constants.ts
+  - id: people.residency.type
+    title: نوع سکونت
+    type: enum
+    values: [owner, tenant, owner_absent]
+    value_labels: {owner: مالک ساکن, tenant: مستأجر, owner_absent: مالک غیرساکن}
+    scope: user
+    status: implemented
+    engine: backend/identity-service/src/residents/dto/residents.dto.ts
+  - id: people.household.member_type
+    title: نوع عضو خانوار
+    type: enum
+    values: [adult, child, caregiver, senior]
+    value_labels: {adult: بزرگسال, child: فرزند, caregiver: مراقب, senior: سالمند}
+    scope: user
+    status: implemented
+    engine: backend/identity-service/src/residents/dto/residents.dto.ts
+  - id: people.child.preset
+    title: الگوی کنترل والدین
+    type: enum
+    values: [u7, c12, t17, custom]
+    value_labels: {u7: زیر ۷ سال, c12: کودک تا ۱۲, t17: نوجوان تا ۱۷, custom: سفارشی}
+    scope: user
+    status: implemented
+    engine: backend/identity-service/src/residents/dto/residents.dto.ts
+  - id: people.child.monthly_cap
+    title: سقف خرج ماهانه‌ی فرزند
+    type: money
+    min: 0
+    max: 100000000
+    scope: user
+    unit: تومان
+    status: implemented
+    engine: backend/identity-service/src/residents/dto/residents.dto.ts
+  - id: people.child.exit_lock
+    title: قفل خروج فرزند
+    type: boolean
+    default: false
+    scope: user
+    status: implemented
+    engine: backend/identity-service/src/residents/dto/residents.dto.ts
+  - id: people.initial_password.policy
+    title: رمز اولیه‌ی ساکن
+    description: رمز اولیه شماره‌ی واحد است و ساکن باید آن را عوض کند
+    type: fixed
+    scope: building
+    status: implemented
+    engine: backend/identity-service/src/residents/credentials.ts
+    note: حدس‌زدن آن ساده است؛ جایگزین (رمز تصادفی یا کد یک‌بارمصرف) هنوز نیست
