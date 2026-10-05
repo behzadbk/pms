@@ -8,7 +8,7 @@ import { DatabaseService } from '../database/database.service'
 import { CurrentUser, JwtPayload } from '../auth/decorators/current-user.decorator'
 import { Roles } from '../auth/decorators/roles.decorator'
 import { ASSET_CATEGORIES, CATEGORY_INFO } from './detect'
-import { PRIORITY_FA, UUID_RE, actorName, audit, canManage, isAdmin, isMaint, isUuid, notify, requireAdmin, requireManage } from './common'
+import { UUID_RE, actorName, audit, isAdmin, isMaint, isUuid, notify, requireManage } from './common'
 import { MaintenanceScheduler } from './scheduler.service'
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/

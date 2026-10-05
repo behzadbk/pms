@@ -2,14 +2,14 @@ import {
   BadRequestException, Body, ConflictException, Controller, ForbiddenException, Get, NotFoundException,
   Param, ParseUUIDPipe, Patch, Post, Query,
 } from '@nestjs/common'
-import { IsBoolean, IsIn, IsISO8601, IsNumber, IsOptional, IsString, Matches, Max, MaxLength, Min, MinLength, IsObject } from 'class-validator'
+import { IsBoolean, IsIn, IsNumber, IsOptional, IsString, Matches, Max, MaxLength, Min, MinLength, IsObject } from 'class-validator'
 import { Type } from 'class-transformer'
 import type { PoolClient } from 'pg'
 import { DatabaseService } from '../database/database.service'
 import { CurrentUser, JwtPayload } from '../auth/decorators/current-user.decorator'
 import { Roles } from '../auth/decorators/roles.decorator'
 import { ASSET_CATEGORIES, CATEGORY_INFO, matchAsset, type AssetCategory, type AssetLite } from './detect'
-import { PRIORITY_FA, TICKET_STATUS_FA, UUID_RE, actorName, audit, canManage, fa, isAdmin, isMaint, isUuid, notify, requireAdmin, requireManage, type Target } from './common'
+import { PRIORITY_FA, TICKET_STATUS_FA, UUID_RE, actorName, audit, canManage, fa, isAdmin, isMaint, isUuid, notify, requireManage, type Target } from './common'
 
 const KIND_INFO: Record<string, { label: string; category: string }> = {
   fault: { label: 'گزارش خرابی', category: 'گزارش خرابی' },
