@@ -10,7 +10,10 @@ import { DatabaseService } from '../database/database.service'
 import { EventsService } from '../events/events.service'
 import { CurrentUser, JwtPayload } from '../auth/decorators/current-user.decorator'
 import { Roles } from '../auth/decorators/roles.decorator'
-import { buildSlots, tehranToday } from './slots'
+import { buildSlots, tehranToday, tehranInstant } from './slots'
+import { dayPlan } from './schedule'
+import { tehranWhen } from './jalali'
+import { isDesk } from './amenities.controller'
 
 /** شناسه‌ی UUID‌شکل (داده‌ی نمونه UUIDهای غیر-v4 دارد؛ IsUUID نسخه را هم چک می‌کند) */
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -29,9 +32,14 @@ export class RejectBookingDto {
 
 class ListQuery {
   @IsOptional() @IsIn(['pending', 'confirmed', 'rejected', 'cancelled', 'all']) status?: string
+  @IsOptional() @Matches(UUID_RE) amenity_id?: string
+  @IsOptional() @Matches(/^\d{4}-\d{2}-\d{2}$/) from?: string
+  @IsOptional() @Matches(/^\d{4}-\d{2}-\d{2}$/) to?: string
 }
 
-const DESK_ROLES = ['admin']
+export class CancelBookingDto {
+  @IsOptional() @IsString() @MaxLength(200) reason?: string
+}
 
 /**
  * رزرو مشاعات (نسخه‌ی ۲ — RESIDENTS.md و طراحی «رزرو مشاعات»):
@@ -53,6 +61,7 @@ export class BookingsController {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) throw new BadRequestException('تاریخ باید به قالب YYYY-MM-DD باشد')
     return this.db.withTenant(user.tenant_id!, async (client) => {
       const a = await this.amenity(client, id)
+      const plan = await dayPlan(client, a, day)
       const busy = await client.query<{ start_at: Date; end_at: Date; status: string }>(
         `SELECT start_at, end_at, status FROM facility.reservations
           WHERE amenity_id = $1 AND status IN ('pending','confirmed')
@@ -62,7 +71,8 @@ export class BookingsController {
       return {
         amenity: a,
         date: day,
-        slots: buildSlots(day, a.slot_hours, busy.rows.map((b) => ({ start: new Date(b.start_at), end: new Date(b.end_at), status: b.status }))),
+        closed: plan.closed,
+        slots: buildSlots(day, plan.hours, busy.rows.map((b) => ({ start: new Date(b.start_at), end: new Date(b.end_at), status: b.status }))),
       }
     })
   }
@@ -79,9 +89,18 @@ export class BookingsController {
       const start = new Date(dto.start)
       const end = new Date(start.getTime() + hours * 3_600_000)
       if (start.getTime() <= Date.now()) throw new BadRequestException('این ساعت گذشته است')
+      if (start.getTime() > Date.now() + a.max_advance_days * 86_400_000) throw new BadRequestException(`رزرو این مشاع حداکثر ${a.max_advance_days} روز زودتر ممکن است`)
+      // هر ساعت از بازه باید داخل تایم‌تیبل مشاع و خارج از تعطیلی باشد
+      const day = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Tehran' }).format(start)
+      const startHour = Number(new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Tehran', hour: '2-digit', hourCycle: 'h23' }).format(start))
+      const plan = await dayPlan(client, a, day)
+      if (plan.closed) throw new ConflictException(`مشاع در این روز بسته است (${plan.closed})`)
+      for (let h = 0; h < hours; h++) {
+        if (!plan.hours.includes(startHour + h) || start.getTime() !== tehranInstant(day, startHour).getTime()) throw new BadRequestException('این ساعت در برنامه‌ی مشاع نیست')
+      }
 
       const manual = user.role === 'admin' || user.role === 'staff'
-      if (manual && !this.isDesk(user)) throw new ForbiddenException('ثبت دستی رزرو فقط برای مسئول مشاعات و مدیر است')
+      if (manual && !isDesk(user)) throw new ForbiddenException('ثبت دستی رزرو فقط برای مسئول مشاعات و مدیر است')
       let unitId: string
       let personId: string | null = null
       if (manual) {
@@ -118,17 +137,14 @@ export class BookingsController {
       const r = res.rows[0]
       const unitNo = (await client.query<{ unit_number: string }>(`SELECT unit_number FROM property.units WHERE id = $1`, [unitId])).rows[0]?.unit_number
       if (status === 'pending') {
-        await this.notify(client, tenantId, [{ role: 'perm:amenity_desk' }, { role: 'admin' }], {
-          kind: 'reservation_pending',
-          title: `درخواست رزرو جدید — ${a.name}، واحد ${fa(unitNo ?? '')}`,
-          link: '/staff/amenity-desk',
-          ref: r.id,
-        })
+        const n = { kind: 'reservation_pending', title: `درخواست رزرو جدید — ${a.name}، واحد ${fa(unitNo ?? '')}`, body: tehranWhen(start), ref: r.id }
+        await this.notify(client, tenantId, [{ role: 'perm:amenity_desk' }], { ...n, link: '/staff/amenity-desk' })
+        await this.notify(client, tenantId, [{ role: 'admin' }], { ...n, link: '/admin/reservations' })
       } else if (manual && personId === null) {
         const residents = await client.query<{ user_id: string }>(
           `SELECT user_id FROM residency.memberships WHERE unit_id = $1 AND status = 'active' AND role IN ('head','adult','senior')`, [unitId])
         await this.notify(client, tenantId, residents.rows.map((x) => ({ person: x.user_id })), {
-          kind: 'reservation_confirmed', title: `رزرو ${a.name} برای واحد شما ثبت شد`, ref: r.id,
+          kind: 'reservation_confirmed', title: `رزرو ${a.name} برای واحد شما ثبت شد`, body: tehranWhen(start), link: '/resident/reservations', ref: r.id,
         })
       }
       await this.audit(client, tenantId, user, 'reservation.created', {
@@ -153,8 +169,95 @@ export class BookingsController {
   @Roles('admin', 'staff')
   @Get('reservations')
   async queue(@CurrentUser() user: JwtPayload, @Query() q: ListQuery) {
-    if (!this.isDesk(user)) throw new ForbiddenException('فقط مسئول مشاعات و مدیر')
-    return this.db.withTenant(user.tenant_id!, (client) => this.list(client, q.status ?? 'pending'))
+    if (!isDesk(user)) throw new ForbiddenException('فقط مسئول مشاعات و مدیر')
+    return this.db.withTenant(user.tenant_id!, (client) => this.list(client, q.status ?? 'pending', undefined, q))
+  }
+
+  /** برنامه‌ی یک روز برای میز مشاعات: همه‌ی مشاعات + رزروهای آن روز (شبکه‌ی ساعتی) */
+  @Roles('admin', 'staff')
+  @Get('reservations/board')
+  async board(@CurrentUser() user: JwtPayload, @Query('date') date?: string) {
+    if (!isDesk(user)) throw new ForbiddenException('فقط مسئول مشاعات و مدیر')
+    const day = date ?? tehranToday()
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) throw new BadRequestException('تاریخ باید به قالب YYYY-MM-DD باشد')
+    return this.db.withTenant(user.tenant_id!, async (client) => {
+      const amenities = (await client.query<{ id: string; name: string; icon: string | null; slot_hours: number[]; requires_approval: boolean; max_hours: number }>(
+        `SELECT id, name, icon, slot_hours, requires_approval, max_hours FROM facility.amenities WHERE is_active ORDER BY name`)).rows
+      const res = await client.query(
+        `SELECT r.id, r.amenity_id, r.status, r.start_at, r.end_at, r.source, u.unit_number AS unit_no, p.name AS requester
+           FROM facility.reservations r
+           LEFT JOIN property.units u ON u.id = r.unit_id
+           LEFT JOIN residency.users p ON p.id = r.user_id
+          WHERE r.status IN ('pending','confirmed') AND r.start_at < $2 AND r.end_at > $1`,
+        [tehranInstant(day, 0), new Date(tehranInstant(day, 0).getTime() + 86_400_000)])
+      const out = []
+      for (const a of amenities) {
+        const plan = await dayPlan(client, a, day)
+        out.push({ id: a.id, name: a.name, icon: a.icon, requires_approval: a.requires_approval, max_hours: a.max_hours, closed: plan.closed, hours: plan.hours, reservations: res.rows.filter((r) => r.amenity_id === a.id) })
+      }
+      return { date: day, amenities: out }
+    })
+  }
+
+  /** جست‌وجوی واحد برای ثبت دستی رزرو */
+  @Roles('admin', 'staff')
+  @Get('reservations/units')
+  async units(@CurrentUser() user: JwtPayload, @Query('q') q?: string) {
+    if (!isDesk(user)) throw new ForbiddenException('فقط مسئول مشاعات و مدیر')
+    return this.db.withTenant(user.tenant_id!, async (client) => {
+      const res = await client.query(
+        `SELECT id, unit_number AS no FROM property.units WHERE ($1::text IS NULL OR unit_number ILIKE '%' || $1 || '%') ORDER BY unit_number LIMIT 40`,
+        [q?.trim() || null])
+      return res.rows
+    })
+  }
+
+  /** لغو رزرو توسط ساکن (فقط رزرو واحد خودش، قبل از شروع) */
+  @Roles('resident', 'child')
+  @Post('me/reservations/:id/cancel')
+  @HttpCode(200)
+  async cancelMine(@CurrentUser() user: JwtPayload, @Param('id', ParseUUIDPipe) id: string) {
+    const tenantId = user.tenant_id!
+    return this.db.withTenant(tenantId, async (client) => {
+      const m = await this.myMembership(client, user)
+      const r = (await client.query<{ id: string; status: string; start_at: string; name: string }>(
+        `SELECT r.id, r.status, r.start_at, a.name FROM facility.reservations r JOIN facility.amenities a ON a.id = r.amenity_id
+          WHERE r.id = $1 AND r.unit_id = $2 FOR UPDATE OF r`, [id, m.unit_id])).rows[0]
+      if (!r) throw new NotFoundException('رزرو یافت نشد')
+      if (!['pending', 'confirmed'].includes(r.status)) throw new ConflictException('این رزرو قابل لغو نیست')
+      if (new Date(r.start_at).getTime() <= Date.now()) throw new ConflictException('زمان این رزرو گذشته است')
+      await client.query(`UPDATE facility.reservations SET status = 'cancelled', decided_by = $2, decided_at = now() WHERE id = $1`, [id, user.sub])
+      await this.audit(client, tenantId, user, 'reservation.cancelled', { summary: `رزرو ${r.name} توسط ساکن لغو شد`, reservation_id: id })
+      return { id, status: 'cancelled' }
+    })
+  }
+
+  /** لغو رزرو توسط مسئول مشاعات (مثلاً تعمیرات) — اعلان به رزروکننده */
+  @Roles('admin', 'staff')
+  @Post('reservations/:id/cancel')
+  @HttpCode(200)
+  async cancelByDesk(@CurrentUser() user: JwtPayload, @Param('id', ParseUUIDPipe) id: string, @Body() dto: CancelBookingDto) {
+    if (!isDesk(user)) throw new ForbiddenException('فقط مسئول مشاعات و مدیر')
+    const tenantId = user.tenant_id!
+    const out = await this.db.withTenant(tenantId, async (client) => {
+      const r = (await client.query<{ id: string; status: string; unit_id: string; user_id: string | null; requested_by: string; start_at: string; name: string }>(
+        `SELECT r.id, r.status, r.unit_id, r.user_id, r.requested_by, r.start_at, a.name
+           FROM facility.reservations r JOIN facility.amenities a ON a.id = r.amenity_id WHERE r.id = $1 FOR UPDATE OF r`, [id])).rows[0]
+      if (!r) throw new NotFoundException('رزرو یافت نشد')
+      if (!['pending', 'confirmed'].includes(r.status)) throw new ConflictException('این رزرو قابل لغو نیست')
+      await client.query(`UPDATE facility.reservations SET status = 'cancelled', reject_reason = $2, decided_by = $3, decided_at = now() WHERE id = $1`, [id, dto.reason ?? null, user.sub])
+      await this.notify(client, tenantId, this.requesterTargets(r), {
+        kind: 'reservation_cancelled',
+        title: `رزرو ${r.name} لغو شد`,
+        body: [tehranWhen(new Date(r.start_at)), dto.reason].filter(Boolean).join(' — '),
+        link: '/resident/reservations',
+        ref: id,
+      })
+      await this.audit(client, tenantId, user, 'reservation.cancelled', { summary: `رزرو ${r.name} توسط مسئول لغو شد`, reservation_id: id, reason: dto.reason ?? null })
+      return { id, status: 'cancelled', unit_id: r.unit_id }
+    })
+    this.events.publish('reservation.cancelled', { reservationId: id, unitId: out.unit_id }, tenantId)
+    return out
   }
 
   @Roles('admin', 'staff')
@@ -174,7 +277,7 @@ export class BookingsController {
   /* ───────────── داخلی ───────────── */
 
   private async decide(user: JwtPayload, id: string, approve: boolean, reason?: string) {
-    if (!this.isDesk(user)) throw new ForbiddenException('فقط مسئول مشاعات و مدیر')
+    if (!isDesk(user)) throw new ForbiddenException('فقط مسئول مشاعات و مدیر')
     const tenantId = user.tenant_id!
     const out = await this.db.withTenant(tenantId, async (client) => {
       const r = (await client.query<{ id: string; status: string; unit_id: string; user_id: string | null; requested_by: string; amenity_id: string; name: string; start_at: string }>(
@@ -186,11 +289,10 @@ export class BookingsController {
         `UPDATE facility.reservations SET status = $2, reject_reason = $3, decided_by = $4, decided_at = now() WHERE id = $1`,
         [id, approve ? 'confirmed' : 'rejected', approve ? null : reason, user.sub],
       )
-      const to = [{ login: r.requested_by }, ...(r.user_id ? [{ person: r.user_id }] : [])]
-      await this.notify(client, tenantId, to, {
+      await this.notify(client, tenantId, this.requesterTargets(r), {
         kind: approve ? 'reservation_approved' : 'reservation_rejected',
-        title: approve ? `رزرو ${r.name} تأیید شد` : `رزرو ${r.name} تأیید نشد`,
-        body: approve ? null : reason ?? null,
+        title: approve ? `رزرو ${r.name} تأیید شد ✅` : `رزرو ${r.name} تأیید نشد`,
+        body: approve ? tehranWhen(new Date(r.start_at)) : `${tehranWhen(new Date(r.start_at))} — دلیل: ${reason}`,
         link: '/resident/reservations',
         ref: id,
       })
@@ -204,24 +306,32 @@ export class BookingsController {
     return out
   }
 
-  private async list(client: PoolClient, status: string, unitId?: string) {
+  private async list(client: PoolClient, status: string, unitId?: string, f: { amenity_id?: string; from?: string; to?: string } = {}) {
     const res = await client.query(
-      `SELECT r.id, r.status, r.start_at, r.end_at, r.reject_reason, r.source, r.created_at,
+      `SELECT r.id, r.status, r.start_at, r.end_at, r.reject_reason, r.source, r.created_at, r.decided_at,
               a.id AS amenity_id, a.name AS amenity, a.icon, u.unit_number AS unit_no, p.name AS requester
          FROM facility.reservations r
          JOIN facility.amenities a ON a.id = r.amenity_id
          LEFT JOIN property.units u ON u.id = r.unit_id
          LEFT JOIN residency.users p ON p.id = r.user_id
         WHERE ($1 = 'all' OR r.status = $1) AND ($2::uuid IS NULL OR r.unit_id = $2)
-        ORDER BY r.start_at ${status === 'pending' ? 'ASC' : 'DESC'} LIMIT 100`,
-      [status, unitId ?? null],
+          AND ($3::uuid IS NULL OR r.amenity_id = $3)
+          AND ($4::date IS NULL OR r.start_at >= ($4::date)::timestamp AT TIME ZONE 'Asia/Tehran')
+          AND ($5::date IS NULL OR r.start_at < (($5::date) + 1)::timestamp AT TIME ZONE 'Asia/Tehran')
+        ORDER BY r.start_at ${status === 'pending' ? 'ASC' : 'DESC'} LIMIT 200`,
+      [status, unitId ?? null, f.amenity_id ?? null, f.from ?? null, f.to ?? null],
     )
     return res.rows
   }
 
+  /** رزروکننده فقط یک‌بار اعلان بگیرد: اگر شخص (ساکن) شناخته‌شده است همان، وگرنه حساب ورود */
+  private requesterTargets(r: { user_id: string | null; requested_by: string }) {
+    return r.user_id ? [{ person: r.user_id }] : [{ login: r.requested_by }]
+  }
+
   private async amenity(client: PoolClient, id: string) {
-    const a = (await client.query<{ id: string; name: string; icon: string | null; requires_approval: boolean; max_hours: number; capacity: number | null; slot_hours: number[]; rule_text: string | null; is_active: boolean }>(
-      `SELECT id, name, icon, requires_approval, max_hours, capacity, slot_hours, rule_text, is_active FROM facility.amenities WHERE id = $1`, [id])).rows[0]
+    const a = (await client.query<{ id: string; name: string; icon: string | null; requires_approval: boolean; max_hours: number; max_advance_days: number; capacity: number | null; slot_hours: number[]; rule_text: string | null; description: string | null; is_active: boolean }>(
+      `SELECT id, name, icon, requires_approval, max_hours, max_advance_days, capacity, slot_hours, rule_text, description, is_active FROM facility.amenities WHERE id = $1`, [id])).rows[0]
     if (!a) throw new NotFoundException('مشاع یافت نشد')
     return { ...a, needs_approval: a.requires_approval }
   }
@@ -237,10 +347,6 @@ export class BookingsController {
           ORDER BY (m.role = 'head') DESC, m.created_at LIMIT 1`, [user.pid ?? null, user.sub])
     if (!q.rows[0]) throw new ForbiddenException('عضویت فعالی در این ساختمان ندارید')
     return q.rows[0]
-  }
-
-  private isDesk(user: JwtPayload) {
-    return DESK_ROLES.includes(user.role) || (user.role === 'staff' && (user.perms ?? []).includes('amenity_desk'))
   }
 
   /** حالت والدین «با تأیید»: به‌جای رزرو، درخواست ۳۰ دقیقه‌ای برای والدین */

@@ -5,7 +5,7 @@ import { Card } from '../../components/ui/Card'
 import { GuardGuestCheck } from '../guard/GuestCheck'
 import { GuardParcels } from '../guard/Parcels'
 import { GuardTraffic } from '../guard/Traffic'
-import { AdminReservations } from '../admin/Reservations'
+import { AmenityManager } from '../admin/AmenityManager'
 import { useStaffNav } from '../../lib/access'
 
 /** چند صفحه‌ی موجود را زیر یک پنل با تب کنار هم می‌گذارد (مثلاً میز لابی) */
@@ -67,7 +67,7 @@ export function StaffSecurityDesk() {
 
 /** پنل مسئول مشاعات — مسئول اصلی تایید رزروها */
 export function StaffAmenityDesk() {
-  return <AdminReservations mode="desk" />
+  return <AmenityManager />
 }
 
 /** /staff → اولین پنلی که کارمند به آن دسترسی دارد */

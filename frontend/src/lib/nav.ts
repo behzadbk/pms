@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, Wallet, Landmark, Ticket, Megaphone, CalendarRange,
-  Building2, QrCode, PackageCheck, CarFront, SlidersHorizontal, PieChart,
+  Building2, QrCode, PackageCheck, CarFront, PieChart,
   Layers, Receipt, CreditCard, UtensilsCrossed, ScrollText, FileText, Users, Home, UsersRound, Contact,
 } from 'lucide-react'
 import type { Role } from './types'
@@ -32,9 +32,8 @@ export const navByRole: Record<Role, NavItem[]> = {
     { to: '/admin/announcements', label: 'اعلانات', icon: Megaphone, sub: 'انتشار اطلاعیه و نظرسنجی' },
     // ── «بیشتر» ──
     { to: '/admin/staff', label: 'کارکنان', icon: Contact, sub: 'افزودن کارمند، شیفت و دسترسی‌ها' },
-    { to: '/admin/reservations', label: 'رزروها', icon: CalendarRange, sub: 'رزرو امکانات و تأیید درخواست‌ها' },
+    { to: '/admin/reservations', label: 'مشاعات', icon: CalendarRange, sub: 'تعریف مشاع، تایم‌تیبل و تأیید درخواست‌ها' },
     { to: '/admin/finance', label: 'گزارش مالی', icon: Landmark, sub: 'خلاصه‌ی مالی، فاکتورها و وصول شارژ' },
-    { to: '/admin/amenity-rules', label: 'قوانین رزرو هوشمند', icon: SlidersHorizontal, sub: 'سقف رزرو، سانس‌ها و نیاز به تأیید' },
     { to: '/admin/logs', label: 'داشبورد لاگ', icon: ScrollText, sub: 'لاگ متمرکز رفتار کاربران و خطاها' },
   ],
   resident: [

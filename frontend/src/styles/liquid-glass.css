@@ -9,9 +9,9 @@
 :root {
   color-scheme: light dark;
   /* هدر موبایل + منوی کشویی — مقدار نهایی را ThemeContext بر اساس رنگ‌بندی/حالت می‌گذارد */
-  --hdr-bg: #0f4a44;
-  --hdr-soft: #17625a;
-  --hdr-acc: #14a695;
+  --hdr-bg: #004e72;
+  --hdr-soft: #0b648f;
+  --hdr-acc: #ff6e42;
 
   /* ---------- Light Mode ---------- */
   --lg-bg-base: #f4f6f9;
@@ -158,8 +158,8 @@
   --lg4-pri-soft: var(--lg-primary-soft);
   --lg4-acc: var(--lg-accent);
   --lg4-acc-soft: var(--lg-accent-soft);
-  --lg4-hero-a: #14a695;
-  --lg4-hero-b: #0b5e54;
+  --lg4-hero-a: #0a6a99;
+  --lg4-hero-b: #004e72;
 
   --lg4-card: rgba(255, 255, 255, 0.5);
   --lg4-card-border: rgba(255, 255, 255, 0.72);
@@ -199,49 +199,7 @@
   --lg4-lens-shadow: 0 4px 14px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.3);
 }
 
-/* رنگ‌بندی‌های قابل انتخاب — صفحه شخصی‌سازی (data-pal روی <html>) */
-[data-pal='teal'] {
-  --lg4-pri: #0f7c6e;
-  --lg4-acc: #c46a1a;
-  --lg4-hero-a: #1a9a88;
-  --lg4-hero-b: #0b5e54;
-}
-[data-pal='blue'] {
-  --lg4-pri: #2f6bf0;
-  --lg4-acc: #d9691f;
-  --lg4-hero-a: #4a88ff;
-  --lg4-hero-b: #2458d6;
-}
-[data-pal='violet'] {
-  --lg4-pri: #6a4cdb;
-  --lg4-acc: #c93f74;
-  --lg4-hero-a: #8467f0;
-  --lg4-hero-b: #4a2fb8;
-}
-[data-pal='coral'] {
-  --lg4-pri: #c94a24;
-  --lg4-acc: #2f6bf0;
-  --lg4-hero-a: #f07650;
-  --lg4-hero-b: #b83d1d;
-}
-[data-pal='rose'] {
-  --lg4-pri: #c2387a;
-  --lg4-acc: #0f7c6e;
-  --lg4-hero-a: #e0559a;
-  --lg4-hero-b: #9c2360;
-}
-[data-pal='graphite'] {
-  --lg4-pri: #3a4458;
-  --lg4-acc: #d9691f;
-  --lg4-hero-a: #4d586e;
-  --lg4-hero-b: #232a38;
-}
-[data-theme='dark'][data-pal='blue'] { --lg4-pri: #6e9cff; --lg4-hero-a: #3f74e8; --lg4-hero-b: #1d3f9e; }
-[data-theme='dark'][data-pal='teal'] { --lg4-pri: #4fd1b9; --lg4-hero-a: #14806f; --lg4-hero-b: #0a4a42; }
-[data-theme='dark'][data-pal='violet'] { --lg4-pri: #a894ff; --lg4-hero-a: #6a4cdb; --lg4-hero-b: #36218f; }
-[data-theme='dark'][data-pal='coral'] { --lg4-pri: #ff8a66; --lg4-hero-a: #d4552f; --lg4-hero-b: #8e2c12; }
-[data-theme='dark'][data-pal='rose'] { --lg4-pri: #ff7eb6; --lg4-hero-a: #c2387a; --lg4-hero-b: #7a1848; }
-[data-theme='dark'][data-pal='graphite'] { --lg4-pri: #9aa8c2; --lg4-hero-a: #3a4458; --lg4-hero-b: #161b26; }
+/* رنگ‌بندی‌ها: توکن‌ها را ThemeContext از lib/palettes.ts روی <html> می‌نویسد */
 
 /* حالت آسان: مقیاس فونت/لمس بزرگ‌تر برای ساکنان مسن‌تر */
 [data-lg-easy='on'] {

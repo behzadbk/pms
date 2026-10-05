@@ -7,6 +7,7 @@ import { useRole } from '../context/RoleContext'
 import { useStore, markNotificationsRead, faDateTime, type NotificationRec } from '../lib/store'
 import { useViewerAudiences } from '../lib/access'
 import { useAuth } from '../context/AuthContext'
+import { syncPushSubscription } from '../lib/pushNotifications'
 
 const kindIcon: Record<NotificationRec['kind'], typeof Bell> = {
   announcement: Megaphone,
@@ -33,6 +34,7 @@ export function NotificationBell({ variant }: { variant: 'dark' | 'light' }) {
   const loadInbox = useRef<() => void>(() => undefined)
   useEffect(() => {
     if (!user || user.role === 'super_admin') return
+    void syncPushSubscription()
     let alive = true
     loadInbox.current = () =>
       residentsApi
@@ -46,6 +48,19 @@ export function NotificationBell({ variant }: { variant: 'dark' | 'light' }) {
       window.clearInterval(t)
     }
   }, [user])
+  // پوش رسید (service worker) → صندوق فوراً تازه شود؛ کلیک روی اعلان سیستم → ناوبری داخل SPA
+  useEffect(() => {
+    if (!('serviceWorker' in navigator)) return
+    const onMsg = (e: MessageEvent) => {
+      if (e.data?.type === 'push') loadInbox.current()
+      else if (e.data?.type === 'navigate' && typeof e.data.url === 'string') {
+        const u = new URL(e.data.url, window.location.origin)
+        if (u.origin === window.location.origin) navigate(u.pathname + u.search)
+      }
+    }
+    navigator.serviceWorker.addEventListener('message', onMsg)
+    return () => navigator.serviceWorker.removeEventListener('message', onMsg)
+  }, [navigate])
   const unread = mine.filter((n) => !n.readBy.includes(reader)).length + inbox.filter((n) => !n.read).length
 
   /** لینک‌های سرور برای نقش فعلی (مثلاً مدیر به‌جای میز مسئول مشاعات به رزروها می‌رود) */

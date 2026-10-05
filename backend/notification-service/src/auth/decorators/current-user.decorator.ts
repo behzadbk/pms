@@ -7,6 +7,11 @@ export interface JwtPayload {
   email: string
   /** 'access' | 'refresh' — توکن‌های قدیمی بدون این فیلد access در نظر گرفته می‌شوند */
   typ?: 'access' | 'refresh'
+  /** شخص (residency.users) — ساکن و کودک */
+  pid?: string
+  kind?: 'family'
+  /** دسترسی‌های مؤثر کارمند (مثلاً amenity_desk) */
+  perms?: string[]
 }
 
 export const CurrentUser = createParamDecorator((_: unknown, ctx: ExecutionContext): JwtPayload => {

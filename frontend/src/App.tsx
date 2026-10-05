@@ -28,8 +28,7 @@ import { AdminDashboard } from './pages/admin/Dashboard'
 import { AdminFinance } from './pages/admin/Finance'
 import { AdminTickets } from './pages/admin/Tickets'
 import { AdminAnnouncements } from './pages/admin/Announcements'
-import { AdminReservations } from './pages/admin/Reservations'
-import { AdminAmenityRules } from './pages/admin/AmenityRules'
+import { AmenityManager } from './pages/admin/AmenityManager'
 import { AdminAuditLog } from './pages/admin/AuditLog'
 import { AnnouncementsFeed } from './pages/shared/AnnouncementsFeed'
 import { AccountantDashboard } from './pages/accountant/Dashboard'
@@ -169,8 +168,8 @@ function AppRoutes() {
         <Route path="/admin/finance" element={<RequireRole role="admin"><AdminFinance /></RequireRole>} />
         <Route path="/admin/tickets" element={<RequireRole role="admin"><AdminTickets /></RequireRole>} />
         <Route path="/admin/announcements" element={<RequireRole role="admin"><AdminAnnouncements /></RequireRole>} />
-        <Route path="/admin/reservations" element={<RequireRole role="admin"><AdminReservations /></RequireRole>} />
-        <Route path="/admin/amenity-rules" element={<RequireRole role="admin"><AdminAmenityRules /></RequireRole>} />
+        <Route path="/admin/reservations" element={<RequireRole role="admin"><AmenityManager /></RequireRole>} />
+        <Route path="/admin/amenity-rules" element={<Navigate to="/admin/reservations?tab=setup" replace />} />
         {/* ساکنین (RESIDENTS.md §3) — صفحه‌ی قدیمی «واحدها» با پرونده‌ی واحد جایگزین شد */}
         <Route path="/admin/units" element={<Navigate to="/admin/residents" replace />} />
         <Route path="/admin/residents" element={<RequireRole role="admin"><AdminResidents /></RequireRole>} />

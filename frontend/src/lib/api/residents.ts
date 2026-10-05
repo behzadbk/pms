@@ -244,6 +244,8 @@ export interface Amenity {
   max_hours: number
   capacity: number | null
   rule_text: string | null
+  description?: string | null
+  max_advance_days?: number
 }
 export interface Slot { hour: number; label: string; start: string; end: string; status: 'free' | 'taken' | 'past' }
 export interface ReservationRow {
@@ -345,7 +347,7 @@ export const residentsApi = {
 
   // ── رزرو مشاعات ──
   amenities: () => api.get<Amenity[]>(`${F}/amenities`),
-  slots: (amenityId: string, date: string) => api.get<{ amenity: Amenity; date: string; slots: Slot[] }>(`${F}/amenities/${amenityId}/slots${qs({ date })}`),
+  slots: (amenityId: string, date: string) => api.get<{ amenity: Amenity; date: string; closed: string | null; slots: Slot[] }>(`${F}/amenities/${amenityId}/slots${qs({ date })}`),
   book: (body: { amenity_id: string; start: string; hours?: number; unit_id?: string }) =>
     api.post<{ id: string; status: 'pending' | 'confirmed' | 'pending_parent'; amenity: string; start_at: string; end_at: string }>(`${F}/reservations`, body),
   myReservations: () => api.get<ReservationRow[]>(`${F}/me/reservations`),
