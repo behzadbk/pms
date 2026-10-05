@@ -2,9 +2,12 @@ import { useMemo, useState } from 'react'
 import { Eye, EyeOff, ImagePlus, Pencil, Plus, Star, Trash2, X, ShoppingBag } from 'lucide-react'
 import { Card } from '../../components/ui/Card'
 import { Modal, TextField, TextArea, SelectField, PrimaryButton, GhostButton } from '../../components/ui/Modal'
-import { toman, fnbVenues } from '../../lib/mockData'
+import { toman } from '../../lib/mockData'
 import { foodIcon } from '../../lib/foodIcons'
-import { useStore, saveMenuItem, deleteMenuItem, setMenuAvailability, uid } from '../../lib/store'
+import { saveMenuItem, deleteMenuItem, setMenuAvailability, announceDailySpecial, uid } from '../../lib/store'
+import { useFnbCatalog } from '../../lib/useFnbCatalog'
+import { DEMO_DATA } from '../../lib/demoMode'
+import { createMenuItem, updateMenuItem, deleteMenuItemApi, setItemAvailability } from '../../lib/api/fnb'
 import { venueByKey, type VenueKey } from '../../lib/staff'
 import type { ItemAvailability, MenuItem } from '../../lib/types'
 
@@ -40,14 +43,42 @@ function resizeImage(file: File, max = 480): Promise<string> {
 }
 
 export function StaffMenuManager({ venue: venueKey }: { venue: VenueKey }) {
-  const { menu } = useStore()
+  const { menu, venues, loading, error, reload } = useFnbCatalog()
   const { venueId, title } = venueByKey[venueKey]
-  const venue = fnbVenues.find((v) => v.id === venueId)!
-  const items = menu.filter((m) => m.venueId === venueId)
+  const venue = venues.find((v) => v.id === venueId)
+  const items = useMemo(() => menu.filter((m) => m.venueId === venueId), [menu, venueId])
   const categories = useMemo(() => {
     const fromItems = items.map((m) => m.category)
-    return [...new Set([...venue.categories.filter((c) => c !== 'همه'), ...fromItems])]
-  }, [items, venue.categories])
+    return [...new Set([...(venue?.categories ?? []).filter((c) => c !== 'همه'), ...fromItems])]
+  }, [items, venue])
+  const [busy, setBusy] = useState(false)
+  const [actionError, setActionError] = useState('')
+
+  /** ذخیره روی سرور (یا استور محلی در حالت دمو) و بازخوانی منو */
+  async function run(fn: () => Promise<unknown>) {
+    setBusy(true)
+    setActionError('')
+    try {
+      await fn()
+      await reload()
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : 'ذخیره‌سازی انجام نشد')
+    } finally {
+      setBusy(false)
+    }
+  }
+  const persistItem = (it: MenuItem, isNew: boolean, prev?: MenuItem) =>
+    run(async () => {
+      if (DEMO_DATA) saveMenuItem(it)
+      else if (isNew) await createMenuItem(it)
+      else await updateMenuItem(it)
+      if (it.isDailySpecial && !prev?.isDailySpecial && it.availability === 'available') announceDailySpecial(it, venue?.name ?? title)
+    })
+  const changeAvailability = (m: MenuItem, availability: MenuItem['availability']) =>
+    run(async () => {
+      if (DEMO_DATA) setMenuAvailability(m.id, availability)
+      else await setItemAvailability(m.id, availability)
+    })
 
   const [editing, setEditing] = useState<MenuItem | null>(null)
   const [deleting, setDeleting] = useState<MenuItem | null>(null)
@@ -80,13 +111,20 @@ export function StaffMenuManager({ venue: venueKey }: { venue: VenueKey }) {
         </PrimaryButton>
       </div>
 
+      {(error || actionError) && (
+        <div className="rounded-2xl px-4 py-3 text-sm bg-bad-soft text-bad">
+          {actionError || `دریافت منو از سرور ناموفق بود: ${error}`}
+        </div>
+      )}
+      {loading && <p className="text-sm text-muted">در حال دریافت منو…</p>}
+
       {special && (
         <div className="flex items-center gap-3 bg-brass-soft text-brass rounded-2xl px-4 py-3 text-sm">
           <Star size={18} className="shrink-0 fill-current" />
           <span className="flex-1">
             غذای روز: <b>{special.name}</b> — برای ساکنین اعلان شده است
           </span>
-          <button onClick={() => saveMenuItem({ ...special, isDailySpecial: false })} className="text-xs font-medium hover:underline">
+          <button onClick={() => persistItem({ ...special, isDailySpecial: false }, false, special)} disabled={busy} className="text-xs font-medium hover:underline">
             برداشتن
           </button>
         </div>
@@ -132,16 +170,16 @@ export function StaffMenuManager({ venue: venueKey }: { venue: VenueKey }) {
                 </div>
                 <div className="flex items-center gap-1 px-3 pb-3 flex-wrap">
                   {m.availability === 'available' ? (
-                    <button onClick={() => setMenuAvailability(m.id, 'sold_out')} className="text-xs font-medium text-warn bg-warn-soft px-2.5 py-1.5 rounded-lg">
+                    <button onClick={() => changeAvailability(m, 'sold_out')} className="text-xs font-medium text-warn bg-warn-soft px-2.5 py-1.5 rounded-lg">
                       اعلام ناموجود
                     </button>
                   ) : (
-                    <button onClick={() => setMenuAvailability(m.id, 'available')} className="text-xs font-medium text-good bg-good-soft px-2.5 py-1.5 rounded-lg">
+                    <button onClick={() => changeAvailability(m, 'available')} className="text-xs font-medium text-good bg-good-soft px-2.5 py-1.5 rounded-lg">
                       اعلام موجود
                     </button>
                   )}
                   <button
-                    onClick={() => setMenuAvailability(m.id, m.availability === 'hidden' ? 'available' : 'hidden')}
+                    onClick={() => changeAvailability(m, m.availability === 'hidden' ? 'available' : 'hidden')}
                     className="flex items-center gap-1 text-xs font-medium text-muted hover:bg-canvas px-2 py-1.5 rounded-lg"
                     title={m.availability === 'hidden' ? 'نمایش در منو' : 'خارج کردن از منو'}
                   >
@@ -168,9 +206,10 @@ export function StaffMenuManager({ venue: venueKey }: { venue: VenueKey }) {
           isNew={!items.some((i) => i.id === editing.id)}
           onClose={() => setEditing(null)}
           onSave={(it) => {
-            // فقط یک غذای روز در هر venue
-            if (it.isDailySpecial) items.filter((x) => x.isDailySpecial && x.id !== it.id).forEach((x) => saveMenuItem({ ...x, isDailySpecial: false }))
-            saveMenuItem(it)
+            // فقط یک غذای روز در هر venue (سرور هم همین را تضمین می‌کند)
+            if (DEMO_DATA && it.isDailySpecial) items.filter((x) => x.isDailySpecial && x.id !== it.id).forEach((x) => saveMenuItem({ ...x, isDailySpecial: false }))
+            const prev = items.find((x) => x.id === it.id)
+            void persistItem(it, !prev, prev)
             setEditing(null)
           }}
         />
@@ -186,7 +225,8 @@ export function StaffMenuManager({ venue: venueKey }: { venue: VenueKey }) {
             <PrimaryButton
               className="!bg-bad"
               onClick={() => {
-                if (deleting) deleteMenuItem(deleting.id)
+                const d = deleting
+                if (d) void run(async () => { if (DEMO_DATA) deleteMenuItem(d.id); else await deleteMenuItemApi(d.id) })
                 setDeleting(null)
               }}
             >

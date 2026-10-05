@@ -9,7 +9,10 @@ import { useEffect, useState } from 'react'
 import { Building2, Check, ChefHat, Clock, MapPin, X } from 'lucide-react'
 import { GlassCard, GlassPill } from '../../components/ui/Glass'
 import { toman } from '../../lib/mockData'
-import { useStore, setOrderStatus } from '../../lib/store'
+import { setOrderStatus } from '../../lib/store'
+import { useFnbOrders } from '../../lib/useFnbCatalog'
+import { updateOrderStatus } from '../../lib/api/fnb'
+import { DEMO_DATA } from '../../lib/demoMode'
 import type { FnbOrder, OrderStatus } from '../../lib/types'
 
 type Column = 'placed' | 'preparing' | 'ready'
@@ -21,7 +24,8 @@ const COLUMNS: { key: Column; title: string }[] = [
 ]
 
 function elapsedMinutes(placedAt: string): number {
-  // داده‌ی نمایشی: placedAt به‌صورت "HH:MM" است — تفاوت با اکنون را تخمین می‌زنیم
+  // سرور: ISO کامل؛ حالت دمو: "HH:MM"
+  if (placedAt.includes('T')) return Math.max(0, Math.round((Date.now() - new Date(placedAt).getTime()) / 60000))
   const [h, m] = placedAt.split(':').map(Number)
   const now = new Date()
   const placed = new Date(now)
@@ -36,9 +40,9 @@ function elapsedMinutes(placedAt: string): number {
  * و تغییر وضعیت اینجا در صفحه‌ی پیگیری سفارش ساکن دیده می‌شود.
  */
 export function StaffKitchenDisplay({ venueId, title }: { venueId?: string; title?: string }) {
-  const { orders: all } = useStore()
-  const orders = all.filter((o) => !venueId || o.venueId === venueId)
+  const { orders, error, reload } = useFnbOrders('staff', venueId)
   const [, forceTick] = useState(0)
+  const [actionError, setActionError] = useState('')
 
   // تیک هر ۳۰ ثانیه فقط برای به‌روزرسانی تایمرهای نمایشی
   useEffect(() => {
@@ -46,8 +50,16 @@ export function StaffKitchenDisplay({ venueId, title }: { venueId?: string; titl
     return () => clearInterval(t)
   }, [])
 
-  function transition(id: string, status: OrderStatus) {
-    setOrderStatus(id, status)
+  async function transition(id: string, status: OrderStatus) {
+    setActionError('')
+    try {
+      if (DEMO_DATA) setOrderStatus(id, status)
+      else await updateOrderStatus(id, status)
+      await reload()
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : 'تغییر وضعیت انجام نشد')
+      await reload()
+    }
   }
   const deliveredToday = orders.filter((o) => o.status === 'delivered').length
 
@@ -66,6 +78,12 @@ export function StaffKitchenDisplay({ venueId, title }: { venueId?: string; titl
           سفارش‌های فعال — طراحی‌شده برای تبلت · تحویل‌شده امروز: {deliveredToday.toLocaleString('fa-IR')}
         </p>
       </div>
+
+      {(error || actionError) && (
+        <div className="rounded-2xl px-4 py-3 text-sm" style={{ color: 'var(--lg-danger)', background: 'var(--lg-danger-soft)' }}>
+          {actionError || `دریافت سفارش‌ها از سرور ناموفق بود: ${error}`}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {COLUMNS.map((col) => (
