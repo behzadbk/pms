@@ -259,7 +259,7 @@ export default function App() {
         <RoleProvider>
           <PermissionsProvider>
             <BrowserRouter>
-                <AppRoutes />
+              <AppRoutes />
             </BrowserRouter>
           </PermissionsProvider>
         </RoleProvider>

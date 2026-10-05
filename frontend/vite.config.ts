@@ -73,17 +73,8 @@ export default defineConfig(({ mode }) => ({
         // دریافت و کلیک اعلان‌های Web Push (public/push-sw.js)
         importScripts: ['push-sw.js'],
         runtimeCaching: [
-          {
-            // درخواست‌های GET به API — تازه‌ترین داده وقتی آنلاین، fallback به کش وقتی آفلاین
-            urlPattern: ({ url, request }) => url.pathname.startsWith('/api/') && request.method === 'GET',
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'api-get-cache',
-              networkTimeoutSeconds: 4,
-              expiration: { maxEntries: 100, maxAgeSeconds: 60 * 60 * 24 }, // ۲۴ ساعت
-              cacheableResponse: { statuses: [0, 200] },
-            },
-          },
+          // پاسخ‌های API عمداً کش نمی‌شوند: سیستم آنلاین است و منو/موجودی/سفارش/شارژ باید همیشه
+          // از سرور بیاید؛ کش با timeout کوتاه روی اینترنت کند داده‌ی ۲۴ ساعت قدیمی نشان می‌داد.
           {
             // فونت‌های self-hosted و آیکون‌ها — بدون تغییر مکرر، CacheFirst
             urlPattern: ({ request }) => request.destination === 'font' || request.destination === 'image',

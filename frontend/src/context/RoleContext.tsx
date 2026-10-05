@@ -11,12 +11,10 @@ interface RoleContextValue {
 const RoleContext = createContext<RoleContextValue | null>(null)
 
 /**
- * سوییچر نقش فقط برای دمو/توسعه است. در build واقعی خاموش است، وگرنه هر کاربری
- * (مثلاً ساکن) می‌توانست ظاهر پنل مدیریت را برای خودش باز کند.
- * برای نمایش دمو روی سرور: VITE_DEMO_ROLE_SWITCHER=true
+ * سوییچر نقش فقط برای توسعه‌ی محلی (npm run dev) است. در هر build واقعی/آنلاین خاموش است،
+ * وگرنه هر کاربری (مثلاً ساکن) می‌توانست ظاهر پنل مدیریت را برای خودش باز کند.
  */
-export const ROLE_SWITCHER_ENABLED =
-  import.meta.env.DEV || import.meta.env.VITE_DEMO_ROLE_SWITCHER === 'true'
+export const ROLE_SWITCHER_ENABLED = import.meta.env.DEV
 
 export function RoleProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth()

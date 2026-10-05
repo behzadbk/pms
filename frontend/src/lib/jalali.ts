@@ -130,12 +130,10 @@ export function todayJalali(): string {
   return formatJalali(new Date().toISOString().slice(0, 10))
 }
 
-/** instant (timestamptz/ISO) → «۱ مهر ۱۴۰۵ · ۱۴:۳۰» به وقت تهران */
-export function faDateTime(iso: string | null | undefined): string {
+/** تاریخ و ساعت شمسی برای نمایش (مثلاً «آخرین ورود»)؛ مقدار خالی/نامعتبر → «—» یا خود رشته */
+export function faDateTime(iso?: string | null): string {
   if (!iso) return '—'
   const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return '—'
-  const day = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Tehran', year: 'numeric', month: '2-digit', day: '2-digit' }).format(d)
-  const time = d.toLocaleTimeString('fa-IR', { timeZone: 'Asia/Tehran', hour: '2-digit', minute: '2-digit' })
-  return `${formatJalali(day)} · ${time}`
+  if (Number.isNaN(d.getTime())) return iso
+  return `${d.toLocaleDateString('fa-IR')} · ${d.toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' })}`
 }

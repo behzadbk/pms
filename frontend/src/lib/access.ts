@@ -5,7 +5,7 @@ import { ALL_PERMISSIONS, departmentDefaults, staffNavItems, type StaffPermissio
  * دسترسی‌های مؤثر کارمند فعلی.
  * - کارمند واقعی (role=staff): همان چیزی که بک‌اند در /auth/me برگردانده (پیش‌فرض بخش ∪ دسترسی دستی)
  * - مدیر ساختمان: به همه‌ی پنل‌های کارکنان دسترسی دارد (مثلاً مدیر هم می‌تواند رزرو تایید کند)
- * - پیش‌نمایش دمو (سوییچر نقش): همه
+ * - سایر نقش‌ها (فقط وقتی سوییچر نقش در حالت توسعه روشن است): همه
  */
 export function useStaffPermissions(): StaffPermission[] {
   const { user } = useAuth()
