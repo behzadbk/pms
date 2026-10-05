@@ -90,7 +90,7 @@ export class LobbyJoinDto {
 
 export class AcceptInviteDto {
   @IsOptional() @IsString() @MinLength(2) @MaxLength(120) name?: string
-  @IsString() @MinLength(6, { message: 'رمز عبور باید حداقل ۶ کاراکتر باشد' }) @MaxLength(128) password: string
+  @IsString() @MinLength(8, { message: 'رمز عبور باید حداقل ۸ کاراکتر باشد' }) @MaxLength(72) password: string
 }
 
 /* ───────────── سوپرادمین ───────────── */

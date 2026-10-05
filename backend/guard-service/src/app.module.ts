@@ -7,6 +7,7 @@ import { EventsModule } from './events/events.module'
 import { RealtimeModule } from './realtime/realtime.module'
 import { GuestPassesModule } from './guest-passes/guest-passes.module'
 import { ParcelsModule } from './parcels/parcels.module'
+import { DeskModule } from './desk/desk.module'
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { ParcelsModule } from './parcels/parcels.module'
     RealtimeModule,
     GuestPassesModule,
     ParcelsModule,
+    DeskModule,
   ],
 })
 export class AppModule {}

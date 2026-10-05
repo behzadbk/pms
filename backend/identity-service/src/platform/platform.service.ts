@@ -6,6 +6,7 @@ import { DatabaseService } from '../database/database.service'
 import { EventsService } from '../events/events.service'
 import { CreateBuildingDto } from './dto/create-building.dto'
 import { UpdateBuildingDto } from './dto/update-building.dto'
+import { generateTempPassword } from '../auth/password.util'
 import { BuildingTier, TIERS, getTier, suggestMonthlyFee } from './tiers'
 
 export interface BuildingRow {
@@ -54,7 +55,9 @@ const SELECT_COLUMNS = `
 `
 
 function toDateString(value: Date | null): string | null {
-  return value ? new Date(value).toISOString().slice(0, 10) : null
+  if (!value) return null
+  const d = new Date(value) // ستون DATE → نیمه‌شب محلی؛ با getterهای محلی فرمت می‌شود
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
 /**
@@ -97,7 +100,7 @@ export class PlatformService {
     return mapBuilding(row)
   }
 
-  async createBuilding(dto: CreateBuildingDto): Promise<Building> {
+  async createBuilding(dto: CreateBuildingDto): Promise<Building & { adminCredentials?: { email: string; password: string; mustChangePassword: true; note: string } }> {
     // اعتبارسنجی سطح — getTier در صورت نامعتبر بودن throw می‌کند
     getTier(dto.tier)
     const monthlyFee = dto.monthlyFee ?? suggestMonthlyFee(dto.tier, dto.unitCount)
@@ -105,7 +108,9 @@ export class PlatformService {
     // ساختمان و مدیر اولیه‌اش در یک تراکنش ساخته می‌شوند (یا هر دو، یا هیچ‌کدام).
     // شناسه از قبل تولید می‌شود تا بتوان context تنانت را برای درج کاربر (زیر RLS) ست کرد.
     const tenantId = randomUUID()
-    const passwordHash = dto.adminEmail ? await bcrypt.hash(dto.adminPassword!, 10) : null
+    // اگر رمزی ارسال نشده، رمز موقت تصادفی ساخته می‌شود؛ در هر دو حالت ورود اول تعویض رمز اجباری است
+    const adminPassword = dto.adminEmail ? dto.adminPassword ?? generateTempPassword() : null
+    const passwordHash = adminPassword ? await bcrypt.hash(adminPassword, 10) : null
     const row = await this.db.withTenant(tenantId, async (client) => {
       const exists = await client.query('SELECT 1 FROM identity.tenants WHERE subdomain = $1', [
         dto.subdomain,
@@ -134,10 +139,15 @@ export class PlatformService {
           tenantId,
         ],
       )
+      // ردیف ساختمان (ساختار ملک) همان لحظه ساخته می‌شود تا مدیر بتواند بلافاصله واحد تعریف کند
+      await client.query(
+        `INSERT INTO property.buildings (tenant_id, name, address, total_units) VALUES ($1, $2, $3, $4)`,
+        [tenantId, dto.name, dto.address ?? null, dto.unitCount],
+      )
       if (dto.adminEmail && passwordHash) {
         await client.query(
-          `INSERT INTO identity.users (tenant_id, full_name, email, password_hash, role)
-           VALUES ($1, $2, $3, $4, 'admin')`,
+          `INSERT INTO identity.users (tenant_id, full_name, email, password_hash, role, must_change_password)
+           VALUES ($1, $2, $3, $4, 'admin', true)`,
           [tenantId, dto.adminFullName ?? dto.managerName ?? 'مدیر مجتمع', dto.adminEmail.trim().toLowerCase(), passwordHash],
         )
       }
@@ -151,7 +161,20 @@ export class PlatformService {
       unitCount: row.unit_count,
     })
 
-    return mapBuilding(row)
+    return {
+      ...mapBuilding(row),
+      // فقط همین یک‌بار در پاسخ ساخت برمی‌گردد؛ هرگز ذخیره‌ی متنی یا لاگ نمی‌شود
+      ...(adminPassword
+        ? {
+            adminCredentials: {
+              email: dto.adminEmail!.trim().toLowerCase(),
+              password: adminPassword,
+              mustChangePassword: true as const,
+              note: 'این رمز دیگر نمایش داده نمی‌شود؛ مدیر در اولین ورود باید رمز را عوض کند.',
+            },
+          }
+        : {}),
+    }
   }
 
   async updateBuilding(id: string, dto: UpdateBuildingDto): Promise<Building> {
@@ -206,6 +229,11 @@ export class PlatformService {
                 next_due_at = CURRENT_DATE + 30
           WHERE id = $1
         RETURNING ${SELECT_COLUMNS}`,
+        [id],
+      )
+      // فاکتورهای باز این ساختمان هم پرداخت‌شده ثبت می‌شوند
+      await client.query(
+        `UPDATE identity.platform_invoices SET status = 'paid', paid_at = now() WHERE tenant_id = $1 AND status IN ('pending','failed')`,
         [id],
       )
       return res.rows[0]

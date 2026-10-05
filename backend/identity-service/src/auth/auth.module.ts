@@ -8,6 +8,8 @@ import { AuthService } from './auth.service'
 import { JwtStrategy } from './jwt.strategy'
 import { JwtAuthGuard } from './guards/jwt-auth.guard'
 import { RolesGuard } from './guards/roles.guard'
+import { DatabaseModule } from '../database/database.module'
+import { LoginThrottleService } from './login-throttle.service'
 import { EventsModule } from '../events/events.module'
 
 @Module({
@@ -24,6 +26,7 @@ import { EventsModule } from '../events/events.module'
   controllers: [AuthController],
   providers: [
     AuthService,
+    LoginThrottleService,
     JwtStrategy,
     { provide: APP_GUARD, useClass: JwtAuthGuard }, // پیش‌فرض همه Route‌ها محافظت‌شده‌اند؛ با @Public() معاف می‌شوند
     { provide: APP_GUARD, useClass: RolesGuard },

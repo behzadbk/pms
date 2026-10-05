@@ -16,6 +16,9 @@ export interface LogSearchFilters {
   limit?: number
 }
 
+/** نام نمایشی کاربر: حساب ورود یا شخص (ساکن) */
+const ACTOR_NAME = `COALESCE((SELECT full_name FROM identity.users u WHERE u.id = e.user_id), (SELECT name FROM residency.users r WHERE r.id = e.user_id))`
+
 @Injectable()
 export class LogQueryService {
   constructor(private readonly db: DatabaseService) {}
@@ -51,12 +54,12 @@ export class LogQueryService {
 
     return this.db.withTenant(tenantId, async (client) => {
       const rows = await client.query(
-        `SELECT * FROM audit.event_logs ${finalWhere}
-         ORDER BY occurred_at DESC LIMIT ${limit} OFFSET ${offset}`,
+        `SELECT e.*, ${ACTOR_NAME} AS actor_name FROM audit.event_logs e ${finalWhere}
+         ORDER BY occurred_at DESC, id DESC LIMIT ${limit} OFFSET ${offset}`,
         params,
       )
       const count = await client.query(
-        `SELECT count(*)::int AS total FROM audit.event_logs ${finalWhere}`,
+        `SELECT count(*)::int AS total FROM audit.event_logs e ${finalWhere}`,
         params,
       )
       return { data: rows.rows, meta: { total: count.rows[0].total, page, limit } }
@@ -65,7 +68,7 @@ export class LogQueryService {
 
   async findOne(tenantId: string, id: string) {
     return this.db.withTenant(tenantId, async (client) => {
-      const res = await client.query('SELECT * FROM audit.event_logs WHERE id = $1', [id])
+      const res = await client.query(`SELECT e.*, ${ACTOR_NAME} AS actor_name FROM audit.event_logs e WHERE e.id = $1`, [id])
       if (!res.rows[0]) throw new NotFoundException('لاگ یافت نشد')
       return res.rows[0]
     })
@@ -87,13 +90,13 @@ export class LogQueryService {
 
     return this.db.withTenant(tenantId, async (client) => {
       const beforeRows = await client.query(
-        `SELECT * FROM audit.event_logs
+        `SELECT e.*, ${ACTOR_NAME} AS actor_name FROM audit.event_logs e
          WHERE session_id = $1 AND (occurred_at, id) < ($2, $3)
          ORDER BY occurred_at DESC, id DESC LIMIT ${b}`,
         [target.session_id, target.occurred_at, target.id],
       )
       const afterRows = await client.query(
-        `SELECT * FROM audit.event_logs
+        `SELECT e.*, ${ACTOR_NAME} AS actor_name FROM audit.event_logs e
          WHERE session_id = $1 AND (occurred_at, id) > ($2, $3)
          ORDER BY occurred_at ASC, id ASC LIMIT ${a}`,
         [target.session_id, target.occurred_at, target.id],
@@ -110,14 +113,14 @@ export class LogQueryService {
   async getSession(tenantId: string, sessionId: string) {
     return this.db.withTenant(tenantId, async (client) => {
       const res = await client.query(
-        `SELECT * FROM audit.event_logs WHERE session_id = $1 ORDER BY occurred_at ASC LIMIT 1000`,
+        `SELECT e.*, ${ACTOR_NAME} AS actor_name FROM audit.event_logs e WHERE session_id = $1 ORDER BY occurred_at ASC LIMIT 1000`,
         [sessionId],
       )
       return res.rows
     })
   }
 
-  async getStats(tenantId: string, from?: string, to?: string) {
+  async getStats(tenantId: string, from?: string, to?: string, bucket?: string) {
     return this.db.withTenant(tenantId, async (client) => {
       const params = [from ?? new Date(Date.now() - 86400000).toISOString(), to ?? new Date().toISOString()]
       const byLevel = await client.query(
@@ -137,7 +140,26 @@ export class LogQueryService {
          GROUP BY 1, 2 ORDER BY count DESC LIMIT 10`,
         params,
       )
-      return { byLevel: byLevel.rows, topErrors: topErrors.rows, byDevice: byDevice.rows }
+      // سری زمانی حجم لاگ (کل + خطا) برای نمودار؛ بازه‌ی بیش از ۲ روز → روزانه، وگرنه ساعتی
+      const spanMs = new Date(params[1]).getTime() - new Date(params[0]).getTime()
+      const unit = bucket === 'day' || bucket === 'hour' ? bucket : spanMs > 2 * 86_400_000 ? 'day' : 'hour'
+      const volume = await client.query(
+        `SELECT date_trunc('${unit}', occurred_at AT TIME ZONE 'Asia/Tehran') AS bucket_local,
+                min(occurred_at) AS at, count(*)::int AS count, count(*) FILTER (WHERE level = 'error')::int AS error_count,
+                count(*) FILTER (WHERE level = 'warn')::int AS warn_count
+           FROM audit.event_logs WHERE occurred_at BETWEEN $1 AND $2 GROUP BY 1 ORDER BY 1`,
+        params,
+      )
+      const sources = await client.query(
+        `SELECT source, count(*)::int AS count FROM audit.event_logs WHERE occurred_at BETWEEN $1 AND $2 GROUP BY 1 ORDER BY count DESC`,
+        params,
+      )
+      const total = byLevel.rows.reduce((n: number, r: { count: number }) => n + r.count, 0)
+      return {
+        range: { from: params[0], to: params[1], bucket: unit }, total,
+        byLevel: byLevel.rows, topErrors: topErrors.rows, byDevice: byDevice.rows, sources: sources.rows,
+        volume: volume.rows.map((r: { at: string; count: number; error_count: number; warn_count: number }) => ({ at: r.at, count: r.count, error_count: r.error_count, warn_count: r.warn_count })),
+      }
     })
   }
 }

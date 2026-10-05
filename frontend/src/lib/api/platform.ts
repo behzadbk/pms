@@ -68,6 +68,7 @@ export interface CreateBuildingInput {
   status?: 'active' | 'trial'
   /** حساب مدیر اولیه‌ی مجتمع — بدون آن مشتری راهی برای ورود به پنل خودش ندارد */
   adminEmail?: string
+  /** اختیاری — اگر خالی باشد بک‌اند رمز موقت تصادفی می‌سازد و فقط یک‌بار برمی‌گرداند */
   adminPassword?: string
   adminFullName?: string
 }
@@ -98,10 +99,10 @@ export function getBuilding(id: string) {
 }
 
 export function createBuilding(input: CreateBuildingInput) {
-  return api.post<Building>('/identity/platform/buildings', input)
+  return api.post<CreatedBuilding>('/identity/platform/buildings', input)
 }
 
-export function updateBuilding(id: string, changes: Partial<CreateBuildingInput> & { status?: BuildingStatus }) {
+export function updateBuilding(id: string, changes: Partial<Omit<CreateBuildingInput, 'status'>> & { status?: BuildingStatus }) {
   return api.patch<Building>(`/identity/platform/buildings/${id}`, changes)
 }
 
@@ -114,3 +115,76 @@ export function settleBuilding(id: string) {
 export function listTiers() {
   return api.get<TierResponse[]>('/identity/platform/tiers')
 }
+
+/** نمایش مبلغ به تومان (قالب ثابت صفحات پلتفرم) */
+export const fmtToman = (n: number) => Math.round(n).toLocaleString('fa-IR') + ' تومان'
+
+/** پاسخ ساخت ساختمان: اعتبارنامه‌ی مدیر فقط همین یک‌بار برمی‌گردد */
+export type CreatedBuilding = Building & {
+  adminCredentials?: { email: string; password: string; mustChangePassword: true; note: string }
+}
+
+export interface PlatformTenant {
+  id: string
+  name: string
+  subdomain: string
+  status: BuildingStatus
+  tier: BuildingTier
+  plan: string
+  /** سقف واحد در قرارداد */
+  unitLimit: number
+  /** واحدهای واقعاً ثبت‌شده */
+  unitCount: number
+  residentCount: number
+  adminCount: number
+  staffCount: number
+  monthlyFee: number
+  outstandingAmount: number
+  billingStatus: BillingStatus
+  joinedAt: string
+}
+
+export interface PlatformSummary {
+  period: string
+  totalTenants: number
+  activeTenants: number
+  trialTenants: number
+  suspendedTenants: number
+  totalMrr: number
+  totalUnitsManaged: number
+  totalResidents: number
+  totalOutstanding: number
+  overdueTenants: number
+  invoices: { thisPeriod: number; pending: number; paid: number; failed: number; paidAmountLast30Days: number }
+  recentTenants: PlatformTenant[]
+}
+
+export type InvoiceStatus = 'pending' | 'paid' | 'failed' | 'void'
+
+export interface PlatformInvoice {
+  id: string
+  tenantId: string
+  tenantName: string
+  period: string
+  amount: number
+  status: InvoiceStatus
+  issuedAt: string | null
+  dueAt: string | null
+  paidAt: string | null
+  note: string | null
+}
+
+export const getSummary = () => api.get<PlatformSummary>('/identity/platform/summary')
+export const listTenants = () => api.get<{ tenants: PlatformTenant[] }>('/identity/platform/tenants')
+export const listInvoices = (q: { tenantId?: string; status?: string; period?: string } = {}) => {
+  const qs = new URLSearchParams(Object.entries(q).filter(([, v]) => v) as [string, string][]).toString()
+  return api.get<{ invoices: PlatformInvoice[] }>(`/identity/platform/invoices${qs ? `?${qs}` : ''}`)
+}
+export const createInvoice = (body: { tenantId: string; period?: string; amount?: number; note?: string }) =>
+  api.post<PlatformInvoice>('/identity/platform/invoices', body)
+export const generateInvoices = (period?: string) =>
+  api.post<{ period: string; created: number }>('/identity/platform/invoices/generate', { period })
+export const setInvoiceStatus = (id: string, status: InvoiceStatus) =>
+  api.patch<{ ok: boolean }>(`/identity/platform/invoices/${id}/status`, { status })
+/** خروجی کامل داده‌ی یک ساختمان (JSON) برای پشتیبان‌گیری/انتقال */
+export const exportBuilding = (id: string) => api.get<Record<string, unknown>>(`/identity/platform/buildings/${id}/export`)

@@ -1,5 +1,5 @@
 import { Injectable, OnModuleDestroy } from '@nestjs/common'
-import { Pool, PoolClient } from 'pg'
+import { Pool, PoolClient, types } from 'pg'
 import { HealthIndicatorResult, HealthCheckError } from '@nestjs/terminus'
 
 /**
@@ -11,6 +11,9 @@ import { HealthIndicatorResult, HealthCheckError } from '@nestjs/terminus'
  * Engine binary (که در برخی محیط‌های محدود شبکه در دسترس نیست) قابل build و
  * اجرا باشد، مستقیماً از `pg` استفاده شده — منطق RLS دقیقاً یکسان است.
  */
+// NUMERIC (مبلغ‌های تومانی بدون اعشار) به‌صورت عدد برگردد، نه رشته
+types.setTypeParser(1700, (v: string) => parseFloat(v))
+
 @Injectable()
 export class DatabaseService implements OnModuleDestroy {
   private readonly pool: Pool

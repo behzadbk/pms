@@ -1,103 +1,165 @@
-import { useState } from 'react'
-import { CreditCard, CheckCircle2, Loader2 } from 'lucide-react'
+import { Fragment, useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
+import { CreditCard, CheckCircle2, Loader2, Info, ChevronDown } from 'lucide-react'
 import { Card, CardHeader } from '../../components/ui/Card'
 import { StatusPill } from '../../components/ui/StatusPill'
-import { myCharges, toman } from '../../lib/mockData'
-
-type PayState = 'idle' | 'processing' | 'success'
+import { Loading, ErrorBlock, useLoad, useToast } from '../../components/hm'
+import { errText } from '../../lib/api/residents'
+import { dayFa, financeApi, instantFa, methodFa, periodFa, tomanText, type MyCharge } from '../../lib/api/finance'
 
 export function ResidentCharges() {
-  const [payState, setPayState] = useState<PayState>('idle')
-  const pending = myCharges.filter((c) => c.status !== 'paid')
-  const pendingTotal = pending.reduce((sum, c) => sum + c.total, 0)
+  const charges = useLoad(() => financeApi.myCharges(), [])
+  const receipts = useLoad(() => financeApi.myReceipts(), [])
+  const gateway = useLoad(() => financeApi.gateway(), [])
+  const [params, setParams] = useSearchParams()
+  const { toast, toastNode } = useToast()
+  const [payingId, setPayingId] = useState<string | null>(null)
+  const [open, setOpen] = useState<string | null>(null)
 
-  function handlePay() {
-    setPayState('processing')
-    setTimeout(() => setPayState('success'), 1400)
+  // بازگشت از درگاه: ?pay=success|failed
+  useEffect(() => {
+    const p = params.get('pay')
+    if (!p) return
+    toast(p === 'success' ? 'پرداخت با موفقیت انجام شد' : 'پرداخت انجام نشد یا لغو شد')
+    void charges.reload(true)
+    void receipts.reload(true)
+    setParams({}, { replace: true })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  async function pay(c: MyCharge) {
+    setPayingId(c.id)
+    try {
+      const r = await financeApi.initiatePayment(c.id)
+      window.location.href = r.redirectUrl
+    } catch (e) {
+      toast(errText(e))
+      setPayingId(null)
+    }
   }
+
+  if (charges.loading) return <Loading />
+  if (charges.error || !charges.data) return <ErrorBlock message={charges.error ?? 'خطا در دریافت شارژها'} retry={charges.reload} />
+  const list = charges.data
+  const pending = list.filter((c) => c.status !== 'paid')
+  const pendingTotal = pending.reduce((sum, c) => sum + c.total_amount, 0)
+  const units = [...new Set(list.map((c) => c.unit_number))]
+  const online = !!gateway.data?.online
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-xl font-bold">شارژ و پرداخت</h1>
-        <p className="text-muted text-sm mt-1">تاریخچه شارژهای واحد ۱۲ و پرداخت آنلاین</p>
+        <p className="text-muted text-sm mt-1">{units.length ? `تاریخچه شارژهای واحد ${units.map((u) => u).join('، ')}` : 'تاریخچه شارژها'} و پرداخت</p>
       </div>
 
-      {payState === 'success' ? (
-        <Card className="border-good/30 bg-good-soft">
-          <div className="p-6 flex flex-col items-center text-center gap-3">
-            <CheckCircle2 size={40} className="text-good" />
-            <div>
-              <p className="font-semibold text-good">پرداخت با موفقیت انجام شد</p>
-              <p className="text-sm text-good/80 mt-1">مبلغ {toman(pendingTotal)} از حساب شما کسر و رسید صادر شد.</p>
-            </div>
-            <button className="text-sm font-medium text-tile hover:underline mt-1">دانلود رسید PDF</button>
-          </div>
-        </Card>
-      ) : pending.length > 0 ? (
+      {list.length === 0 && (
+        <Card><p className="p-6 text-sm text-muted">هنوز شارژی برای واحد شما صادر نشده است.</p></Card>
+      )}
+
+      {pending.length > 0 && (
         <Card>
           <CardHeader title="شارژهای در انتظار پرداخت" />
-          <div className="px-5 pb-5 space-y-3">
+          <div className="px-4 sm:px-5 pb-5 space-y-3">
             {pending.map((c) => (
-              <div key={c.id} className="flex items-center justify-between p-4 rounded-xl border border-line">
-                <div>
-                  <p className="text-sm font-medium">{c.period}</p>
-                  <p className="text-xs text-muted mt-0.5">سررسید: {c.dueDate}</p>
+              <div key={c.id} className="p-4 rounded-xl border border-line space-y-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-medium">{periodFa(c.period)} · واحد {c.unit_number}</p>
+                    <p className="text-xs text-muted mt-0.5">سررسید: {dayFa(c.due_date)}</p>
+                    {c.late_fee_amount > 0 && <p className="text-xs text-bad mt-0.5">شامل جریمه‌ی دیرکرد {tomanText(c.late_fee_amount)}</p>}
+                  </div>
+                  <div className="text-left shrink-0">
+                    <p className="text-sm font-semibold">{tomanText(c.total_amount)}</p>
+                    <StatusPill status={c.status} />
+                  </div>
                 </div>
-                <div className="text-left">
-                  <p className="text-sm font-semibold">{toman(c.total)}</p>
-                  <StatusPill status={c.status} />
-                </div>
+                {online && (
+                  <button onClick={() => pay(c)} disabled={payingId !== null} className="w-full flex items-center justify-center gap-2 bg-tile text-white py-2.5 rounded-xl text-sm font-medium hover:opacity-90 disabled:opacity-70">
+                    {payingId === c.id ? <><Loader2 size={16} className="animate-spin" /> در حال اتصال به درگاه…</> : <><CreditCard size={16} /> پرداخت آنلاین</>}
+                  </button>
+                )}
               </div>
             ))}
             <div className="pt-3 flex items-center justify-between border-t border-line">
               <span className="text-sm text-muted">جمع قابل پرداخت</span>
-              <span className="font-bold">{toman(pendingTotal)}</span>
+              <span className="font-bold">{tomanText(pendingTotal)}</span>
             </div>
-            <button
-              onClick={handlePay}
-              disabled={payState === 'processing'}
-              className="w-full flex items-center justify-center gap-2 bg-tile text-white py-3 rounded-xl text-sm font-medium hover:opacity-90 disabled:opacity-70"
-            >
-              {payState === 'processing' ? (
-                <>
-                  <Loader2 size={16} className="animate-spin" /> در حال اتصال به درگاه پرداخت...
-                </>
-              ) : (
-                <>
-                  <CreditCard size={16} /> پرداخت آنلاین
-                </>
-              )}
-            </button>
+            {!online && gateway.data && (
+              <p className="text-xs leading-6 bg-tile-soft text-tile rounded-xl px-3.5 py-3 flex gap-2">
+                <Info size={15} className="shrink-0 mt-1" />
+                <span>پرداخت آنلاین برای این ساختمان فعال نیست. مبلغ را به‌صورت کارت‌به‌کارت یا نقدی به حسابدار ساختمان بپردازید؛ پس از «ثبت پرداخت» توسط حسابداری، وضعیت شارژ اینجا «پرداخت‌شده» می‌شود و اعلان دریافت می‌کنید.</span>
+              </p>
+            )}
           </div>
         </Card>
-      ) : null}
+      )}
+      {list.length > 0 && pending.length === 0 && (
+        <Card className="border-good/30 bg-good-soft">
+          <div className="p-5 flex items-center gap-3 text-good"><CheckCircle2 size={28} /><p className="font-semibold text-sm">همه‌ی شارژهای شما پرداخت شده است.</p></div>
+        </Card>
+      )}
 
-      <Card>
-        <CardHeader title="تاریخچه شارژها" />
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-right text-muted border-y border-line">
-                <th className="font-medium px-5 py-2.5">دوره</th>
-                <th className="font-medium px-5 py-2.5">مبلغ</th>
-                <th className="font-medium px-5 py-2.5">سررسید</th>
-                <th className="font-medium px-5 py-2.5">وضعیت</th>
-              </tr>
-            </thead>
-            <tbody>
-              {myCharges.map((c) => (
-                <tr key={c.id} className="border-b border-line last:border-0">
-                  <td className="px-5 py-3 font-medium">{c.period}</td>
-                  <td className="px-5 py-3 text-muted">{toman(c.total)}</td>
-                  <td className="px-5 py-3 text-muted">{c.dueDate}</td>
-                  <td className="px-5 py-3"><StatusPill status={c.status} /></td>
+      {list.length > 0 && (
+        <Card>
+          <CardHeader title="تاریخچه شارژها" />
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-right text-muted border-y border-line">
+                  <th className="font-medium px-4 sm:px-5 py-2.5">دوره</th>
+                  <th className="font-medium px-4 sm:px-5 py-2.5">مبلغ</th>
+                  <th className="font-medium px-4 sm:px-5 py-2.5">سررسید</th>
+                  <th className="font-medium px-4 sm:px-5 py-2.5">وضعیت</th>
+                  <th className="px-2 py-2.5"></th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </Card>
+              </thead>
+              <tbody>
+                {list.map((c) => (
+                  <Fragment key={c.id}>
+                    <tr className="border-b border-line cursor-pointer" onClick={() => setOpen(open === c.id ? null : c.id)}>
+                      <td className="px-4 sm:px-5 py-3 font-medium whitespace-nowrap">{periodFa(c.period)}{units.length > 1 && <span className="text-xs text-muted"> · واحد {c.unit_number}</span>}</td>
+                      <td className="px-4 sm:px-5 py-3 text-muted whitespace-nowrap">{tomanText(c.total_amount)}</td>
+                      <td className="px-4 sm:px-5 py-3 text-muted whitespace-nowrap">{dayFa(c.due_date)}</td>
+                      <td className="px-4 sm:px-5 py-3"><StatusPill status={c.status} /></td>
+                      <td className="px-2 py-3 text-muted"><ChevronDown size={15} className={open === c.id ? 'rotate-180' : ''} /></td>
+                    </tr>
+                    {open === c.id && (
+                      <tr className="border-b border-line bg-canvas/60">
+                        <td colSpan={5} className="px-5 py-3 text-xs space-y-1.5">
+                          <Row k="مبلغ پایه" v={tomanText(c.base_amount)} />
+                          {c.late_fee_amount > 0 && <Row k="جریمه‌ی دیرکرد" v={tomanText(c.late_fee_amount)} />}
+                          {c.status === 'paid' && <Row k="پرداخت" v={`${methodFa(c.pay_method)} · ${instantFa(c.paid_at)}`} />}
+                          {c.formula_name && <Row k="فرمول" v={c.formula_name} />}
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
+
+      {receipts.data && receipts.data.length > 0 && (
+        <Card>
+          <CardHeader title="رسیدهای پرداخت" />
+          <div className="px-4 sm:px-5 pb-5 space-y-2">
+            {receipts.data.map((r) => (
+              <div key={r.id} className="flex items-center justify-between gap-3 p-3 rounded-xl border border-line text-sm">
+                <div><p className="font-medium">شارژ {periodFa(r.period)} · واحد {r.unit_number}</p><p className="text-xs text-muted mt-0.5">{methodFa(r.method)} · {instantFa(r.paid_at)}{r.reference ? ` · پیگیری ${r.reference}` : ''}</p></div>
+                <span className="font-semibold text-good whitespace-nowrap">{tomanText(r.amount)}</span>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+      {toastNode}
     </div>
   )
+}
+
+function Row({ k, v }: { k: string; v: string }) {
+  return <div className="flex justify-between gap-4"><span className="text-muted">{k}</span><span className="font-medium text-left">{v}</span></div>
 }

@@ -58,7 +58,8 @@ export class CreateBuildingDto {
   @IsEmail({}, { message: 'ایمیل مدیر مجتمع نامعتبر است' })
   adminEmail?: string
 
-  @ValidateIf((o: CreateBuildingDto) => !!o.adminEmail)
+  /** اختیاری: اگر ارسال نشود رمز موقت تصادفی ساخته و فقط یک‌بار در پاسخ برگردانده می‌شود */
+  @IsOptional()
   @IsString()
   @MinLength(8, { message: 'رمز مدیر مجتمع باید حداقل ۸ کاراکتر باشد' })
   @MaxLength(72)

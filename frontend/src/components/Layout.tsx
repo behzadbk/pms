@@ -10,7 +10,8 @@ import { residentsApi, errText } from '../lib/api/residents'
 import { Sheet, Cta } from './hm'
 import { departmentLabel } from '../lib/staff'
 import { useStaffNav } from '../lib/access'
-import { roles } from '../lib/mockData'
+import { roles } from '../lib/roles'
+import { ForcePasswordChange } from './ForcePasswordChange'
 import type { Role } from '../lib/types'
 import { NotificationPrompt } from './NotificationPrompt'
 import { NotificationBell } from './NotificationBell'
@@ -246,10 +247,10 @@ export function Layout() {
             className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-white/5 active:bg-white/10 relative transition-colors"
           >
             <div className="w-8 h-8 rounded-full bg-brass flex items-center justify-center text-xs font-bold shrink-0">
-              {(user?.fullName ?? info.personaName)[0]}
+              {(user?.fullName ?? info.label)[0]}
             </div>
             <div className="text-right flex-1 min-w-0">
-              <p className="text-sm font-medium truncate">{user?.fullName ?? info.personaName}</p>
+              <p className="text-sm font-medium truncate">{user?.fullName ?? info.label}</p>
               <p className="text-xs text-white/50 truncate">{user?.role === 'staff' ? departmentLabel(user.department) : info.label}</p>
             </div>
             <motion.span animate={{ rotate: switcherOpen ? 180 : 0 }} transition={{ duration: 0.2 }}>
@@ -312,7 +313,7 @@ export function Layout() {
         <header className="hidden lg:flex h-16 border-b border-line bg-card items-center justify-between px-6 shrink-0">
           <div>
             <p className="text-sm text-muted">خوش آمدید،</p>
-            <p className="font-semibold">{user?.fullName ?? info.personaName} — {user?.role === 'staff' ? departmentLabel(user.department) : info.personaSub}</p>
+            <p className="font-semibold">{user?.fullName ?? info.label} — {user?.role === 'staff' ? departmentLabel(user.department) : info.sub}</p>
           </div>
           <div className="flex items-center gap-2">
             <NotificationBell variant="light" />
@@ -320,6 +321,7 @@ export function Layout() {
         </header>
 
         <NotificationPrompt />
+        {user?.mustChangePassword && <ForcePasswordChange />}
 
         <main className="flex-1 p-4 sm:p-6 pb-24 lg:pb-6">
           <AnimatePresence mode="wait">
