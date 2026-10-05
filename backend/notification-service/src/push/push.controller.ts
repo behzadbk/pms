@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, HttpCode, Post, Query } from '@nestjs/common'
+import { Body, Controller, Get, HttpCode, Post, Query } from '@nestjs/common'
 import { IsString, IsUrl, MaxLength, ValidateNested, IsOptional } from 'class-validator'
 import { Type } from 'class-transformer'
 import { CurrentUser, JwtPayload } from '../auth/decorators/current-user.decorator'

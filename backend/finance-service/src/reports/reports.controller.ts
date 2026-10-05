@@ -3,7 +3,6 @@ import { DatabaseService } from '../database/database.service'
 import { CurrentUser, JwtPayload } from '../auth/decorators/current-user.decorator'
 import { Roles } from '../auth/decorators/roles.decorator'
 import { SettingsService } from '../billing/settings.service'
-import { FINANCE_ACCESS_SQL } from '../billing/notify'
 import { bad, num } from '../common/validate'
 import { parsePeriod, periodOfIso, periodRange, shiftPeriod, tehranToday } from '../common/jalali'
 
