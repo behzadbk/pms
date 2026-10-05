@@ -51,6 +51,7 @@ MIGRATIONS=(
   "backend/identity-service/prisma/migrations/006_building_rules.sql"
   "backend/identity-service/prisma/migrations/007_initial_password.sql"
   "backend/audit-service/prisma/migrations/002_partition_maintenance.sql"
+  "backend/fnb-service/prisma/migrations/002_menu_sync.sql"
 )
 
 SEEDS=(

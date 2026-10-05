@@ -5,7 +5,10 @@ import { FnbGateway } from '../realtime/fnb.gateway'
 import { canTransition, OrderStatus, RELEASES_STOCK } from './order-status'
 
 export interface PlaceOrderDto {
-  venueId: string
+  venueId?: string
+  venueKind?: 'restaurant' | 'cafe'
+  destinationLabel?: string
+  ownerLabel?: string
   unitId: string
   deliveryType: 'in_unit' | 'amenity_zone'
   deliveryZoneId?: string
@@ -36,9 +39,10 @@ export class OrdersService {
         throw new BadRequestException('تعداد هر آیتم باید عددی صحیح بین ۱ و ۵۰ باشد')
       }
     }
-    if (dto.deliveryType === 'amenity_zone' && !dto.deliveryZoneId) {
-      throw new BadRequestException('برای تحویل در مشاعات، انتخاب منطقه الزامی است')
+    if (dto.deliveryType === 'amenity_zone' && !dto.deliveryZoneId && !dto.destinationLabel) {
+      throw new BadRequestException('برای تحویل در مشاعات، انتخاب مقصد الزامی است')
     }
+    if (!dto.unitId) throw new BadRequestException('واحد سفارش‌دهنده مشخص نیست')
 
     return this.db.withTenant(tenantId, async (c) => {
       // قوانین برج: سفارش غذا برای واحد بدهکار بسته است (فقط سفارش خودِ ساکن/کودک؛ ثبت دستی کارکنان مستثناست)
@@ -48,9 +52,15 @@ export class OrdersService {
           throw new ForbiddenException({ statusCode: 403, code: 'debtor_restricted', message: 'سفارش غذا برای واحد شما به‌علت معوقه‌ی شارژ بسته است؛ پس از تسویه باز می‌شود.' })
         }
       }
+      let venueId = dto.venueId
+      if (!venueId) {
+        const v = await c.query('SELECT id FROM fnb.venues WHERE kind = $1', [dto.venueKind ?? ''])
+        venueId = v.rows[0]?.id
+      }
+      if (!venueId) throw new BadRequestException('رستوران/کافی‌شاپ نامعتبر است')
       const ids = dto.items.map((i) => i.itemId)
       const itemsRes = await c.query(
-        `SELECT id, name, price, availability, stock_count, reserved_count
+        `SELECT id, venue_id, name, price, availability, stock_count, reserved_count
          FROM fnb.menu_items WHERE id = ANY($1::uuid[]) FOR UPDATE`,
         [ids],
       )
@@ -60,6 +70,7 @@ export class OrdersService {
       for (const line of dto.items) {
         const item = byId.get(line.itemId)
         if (!item) throw new NotFoundException(`آیتم ${line.itemId} یافت نشد`)
+        if (item.venue_id !== venueId) throw new BadRequestException('آیتم متعلق به این رستوران/کافی‌شاپ نیست')
         if (item.availability !== 'available') {
           throw new ConflictException(`«${item.name}» در حال حاضر موجود نیست`)
         }
@@ -80,11 +91,13 @@ export class OrdersService {
       const orderRes = await c.query(
         `INSERT INTO fnb.orders
            (tenant_id, order_number, venue_id, unit_id, ordered_by, delivery_type,
-            delivery_zone_id, delivery_note, status, subtotal, surcharge, total, placed_at)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'placed',$9,$10,$11, now()) RETURNING *`,
+            delivery_zone_id, delivery_note, status, subtotal, surcharge, total, placed_at,
+            destination_label, owner_label)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'placed',$9,$10,$11, now(), $12, $13) RETURNING *`,
         [
-          tenantId, orderNumber, dto.venueId, dto.unitId, userId, dto.deliveryType,
+          tenantId, orderNumber, venueId, dto.unitId, userId, dto.deliveryType,
           dto.deliveryZoneId ?? null, dto.deliveryNote ?? null, subtotal, surcharge, subtotal + surcharge,
+          dto.destinationLabel ?? null, dto.ownerLabel ?? null,
         ],
       )
       const order = orderRes.rows[0]
@@ -193,6 +206,45 @@ export class OrdersService {
       const r = await c.query(
         'SELECT * FROM fnb.orders WHERE unit_id = $1 ORDER BY placed_at DESC NULLS LAST LIMIT 50',
         [unitId],
+      )
+      return r.rows
+    })
+  }
+
+  /**
+   * فهرست سفارش‌ها با اقلام، در قالب مورد نیاز فرانت.
+   * کارکنان: سفارش‌های در جریان + امروز؛ ساکن: فقط سفارش‌های خودش.
+   */
+  async list(tenantId: string, opts: { venueKind?: string; userId?: string }) {
+    const where: string[] = []
+    const params: unknown[] = []
+    if (opts.userId) {
+      params.push(opts.userId)
+      where.push(`o.ordered_by = $${params.length}`)
+    } else {
+      where.push(`(o.status IN ('placed','accepted','preparing','ready','out_for_delivery') OR o.placed_at > now() - interval '1 day')`)
+    }
+    if (opts.venueKind) {
+      params.push(opts.venueKind)
+      where.push(`v.kind = $${params.length}`)
+    }
+    where.push(`o.status <> 'draft'`)
+    return this.db.withTenant(tenantId, async (c) => {
+      const r = await c.query(
+        `SELECT o.id, o.order_number AS "orderNumber", v.kind AS "venueKind", v.name AS "venueName", v.billing,
+                v.prep_time_minutes AS "prepTimeMinutes", o.delivery_type AS "deliveryType",
+                COALESCE(o.destination_label, z.name, 'واحد من') AS "destinationLabel", o.delivery_note AS "deliveryNote",
+                o.status, o.subtotal::float8 AS subtotal, o.total::float8 AS total, o.placed_at AS "placedAt",
+                o.owner_label AS "ownerUnit",
+                COALESCE((SELECT json_agg(json_build_object('itemId', oi.item_id, 'name', oi.item_name_snapshot,
+                            'quantity', oi.quantity, 'unitPrice', oi.unit_price::float8, 'lineTotal', oi.line_total::float8))
+                          FROM fnb.order_items oi WHERE oi.order_id = o.id), '[]'::json) AS items
+         FROM fnb.orders o
+         JOIN fnb.venues v ON v.id = o.venue_id
+         LEFT JOIN fnb.delivery_zones z ON z.id = o.delivery_zone_id
+         WHERE ${where.join(' AND ')}
+         ORDER BY o.placed_at DESC NULLS LAST LIMIT 100`,
+        params,
       )
       return r.rows
     })

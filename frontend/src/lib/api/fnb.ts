@@ -11,6 +11,84 @@ import { io, type Socket } from 'socket.io-client'
 import type { DeliveryType, FnbOrder, FnbVenue, MenuItem, OrderStatus } from '../types'
 import { api } from './client'
 
+/* ---------- کاتالوگ مشترک (رستوران/کافی‌شاپ + منو) ---------- */
+
+export type VenueKind = 'restaurant' | 'cafe'
+/** شناسه‌ی پایدار سمت کلاینت: رستوران v1، کافی‌شاپ v2 (سفارش‌ها و صف آشپزخانه با همین کلید کار می‌کنند) */
+export const venueIdOfKind = (k: VenueKind) => (k === 'cafe' ? 'v2' : 'v1')
+export const kindOfVenueId = (id: string): VenueKind => (id === 'v2' ? 'cafe' : 'restaurant')
+
+interface CatalogVenueRow { id: string; name: string; kind: VenueKind; billing: FnbVenue['billing']; is_open: boolean; prep_time_minutes: number }
+interface CatalogItemRow {
+  id: string; venue_kind: VenueKind; category: string; name: string; description: string | null; image_url: string | null
+  price: number; availability: MenuItem['availability']; icon: string; color: string; is_daily_special: boolean
+}
+
+export async function getCatalog(): Promise<{ venues: FnbVenue[]; menu: MenuItem[] }> {
+  const r = await api.get<{ venues: CatalogVenueRow[]; items: CatalogItemRow[] }>('/fnb/catalog')
+  const venues: FnbVenue[] = r.venues.map((v) => ({
+    id: venueIdOfKind(v.kind), name: v.name, icon: v.kind, isOpen: v.is_open, prepTimeMinutes: v.prep_time_minutes,
+    billing: v.billing, categories: ['همه'],
+  }))
+  const menu: MenuItem[] = r.items.map((i) => ({
+    id: i.id, venueId: venueIdOfKind(i.venue_kind), category: i.category, name: i.name, price: i.price, icon: i.icon, color: i.color,
+    availability: i.availability, image: i.image_url ?? undefined, description: i.description ?? undefined, isDailySpecial: i.is_daily_special,
+  }))
+  return { venues, menu }
+}
+
+const itemBody = (m: MenuItem) => ({
+  venueKind: kindOfVenueId(m.venueId), category: m.category, name: m.name, description: m.description, imageUrl: m.image,
+  price: m.price, availability: m.availability, icon: m.icon, color: m.color, isDailySpecial: !!m.isDailySpecial,
+})
+
+export function createMenuItem(m: MenuItem) {
+  return api.post<{ id: string }>('/fnb/menu-items', itemBody(m))
+}
+export function updateMenuItem(m: MenuItem) {
+  return api.put<{ id: string }>(`/fnb/menu-items/${m.id}`, itemBody(m))
+}
+export function deleteMenuItemApi(id: string) {
+  return api.delete<{ deleted: boolean; hidden?: boolean }>(`/fnb/menu-items/${id}`)
+}
+
+/* ---------- سفارش‌ها (روی سرور) ---------- */
+
+interface OrderRow extends Omit<FnbOrder, 'venueId' | 'placedAt'> { venueKind: VenueKind; placedAt: string }
+const toOrder = (r: OrderRow): FnbOrder => {
+  const { venueKind, ...rest } = r
+  return { ...rest, venueId: venueIdOfKind(venueKind), ownerUnit: rest.ownerUnit ?? undefined, deliveryNote: rest.deliveryNote ?? undefined }
+}
+
+export interface PlaceOrderRequest {
+  venueId: string
+  unitId: string
+  deliveryType: DeliveryType
+  destinationLabel: string
+  ownerLabel?: string
+  deliveryNote?: string
+  items: { itemId: string; quantity: number }[]
+}
+
+/** ثبت سفارش روی سرور؛ id سفارش را برمی‌گرداند */
+export async function placeOrderOnServer(i: PlaceOrderRequest): Promise<string> {
+  const r = await api.post<{ id: string }>(
+    '/fnb/orders',
+    { venueKind: kindOfVenueId(i.venueId), unitId: i.unitId, deliveryType: i.deliveryType, destinationLabel: i.destinationLabel, ownerLabel: i.ownerLabel, deliveryNote: i.deliveryNote, items: i.items },
+    { idempotencyKey: crypto.randomUUID() },
+  )
+  return r.id
+}
+
+export async function listMyOrders(): Promise<FnbOrder[]> {
+  return (await api.get<OrderRow[]>('/fnb/my-orders')).map(toOrder)
+}
+
+export async function listStaffOrders(venueId?: string): Promise<FnbOrder[]> {
+  const q = venueId ? `?venue=${kindOfVenueId(venueId)}` : ''
+  return (await api.get<OrderRow[]>(`/fnb/orders${q}`)).map(toOrder)
+}
+
 export function listVenues() {
   return api.get<FnbVenue[]>('/fnb/venues')
 }

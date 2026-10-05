@@ -5,6 +5,9 @@ import { ApiError } from '../../lib/api/client'
 import { residentsApi, errText, fa, toman, type OwnChildRequest } from '../../lib/api/residents'
 import { usePermissions } from '../../context/PermissionsContext'
 import { useStore, placeFnbOrder, addTicket } from '../../lib/store'
+import { useFnbCatalog } from '../../lib/useFnbCatalog'
+import { placeOrderOnServer } from '../../lib/api/fnb'
+import { DEMO_DATA } from '../../lib/demoMode'
 import { Cta, Loading, Seg, Sheet, useToast } from '../../components/hm'
 import { BookAmenity } from '../resident/Book'
 
@@ -152,7 +155,7 @@ function TicketForm({ onSubmit }: { onSubmit: (t: string) => Promise<void> }) {
 
 /** سفارش کودک از منوی رستوران/کافی‌شاپ — تا سقف ماهانه مستقیم، وگرنه درخواست برای والد */
 function ChildOrderSheet({ open, onClose, onDone }: { open: boolean; onClose: () => void; onDone: (msg?: string) => void }) {
-  const { menu } = useStore()
+  const { menu } = useFnbCatalog()
   const { perms } = usePermissions()
   const navigate = useNavigate()
   const [venue, setVenue] = useState<'v1' | 'v2'>('v1')
@@ -178,11 +181,18 @@ function ChildOrderSheet({ open, onClose, onDone }: { open: boolean; onClose: ()
     try {
       const r = await residentsApi.childRequest({ type: 'order', amount: total, payload })
       if (r.status === 'placed') {
-        placeFnbOrder({
-          venueId: venue, venueName, deliveryType: 'in_unit', destinationLabel: payload.destination, billing: 'monthly_charge',
-          items: lines.map((x) => ({ itemId: x.id, name: x.name, quantity: cart[x.id], unitPrice: x.price, lineTotal: x.price * cart[x.id] })),
-          subtotal: total, total, prepTimeMinutes: 25,
-        })
+        if (DEMO_DATA) {
+          placeFnbOrder({
+            venueId: venue, venueName, deliveryType: 'in_unit', destinationLabel: payload.destination, billing: 'monthly_charge',
+            items: lines.map((x) => ({ itemId: x.id, name: x.name, quantity: cart[x.id], unitPrice: x.price, lineTotal: x.price * cart[x.id] })),
+            subtotal: total, total, prepTimeMinutes: 25,
+          })
+        } else if (perms?.unit?.id) {
+          await placeOrderOnServer({
+            venueId: venue, unitId: perms.unit.id, deliveryType: 'in_unit', destinationLabel: payload.destination, ownerLabel: `واحد ${fa(perms.unit.no)}`,
+            items: lines.map((x) => ({ itemId: x.id, quantity: cart[x.id] })),
+          })
+        }
         onDone(`سفارش ثبت شد · ${toman(total)} تومان`)
       } else if (r.request) {
         onDone()

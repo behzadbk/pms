@@ -1,4 +1,5 @@
-import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common'
+import { BadRequestException, Body, Controller, Delete, Get, NotFoundException, Param, Patch, Post, Put, Query } from '@nestjs/common'
+import type { PoolClient } from 'pg'
 import { DatabaseService } from '../database/database.service'
 import { CurrentUser, JwtPayload } from '../auth/decorators/current-user.decorator'
 import { Roles } from '../auth/decorators/roles.decorator'
@@ -7,6 +8,24 @@ import { FnbGateway } from '../realtime/fnb.gateway'
 
 type Availability = 'available' | 'sold_out' | 'hidden'
 
+interface MenuItemBody {
+  venueKind: 'restaurant' | 'cafe'
+  category: string
+  name: string
+  description?: string
+  imageUrl?: string
+  price?: number
+  availability: Availability
+  icon?: string
+  color?: string
+  isDailySpecial?: boolean
+}
+
+const DEFAULT_VENUES = [
+  { kind: 'restaurant', name: 'رستوران ساختمان', billing: 'wallet', prep: 25 },
+  { kind: 'cafe', name: 'کافی‌شاپ ساختمان', billing: 'monthly_charge', prep: 10 },
+]
+
 @Controller('fnb')
 export class MenuController {
   constructor(
@@ -14,6 +33,36 @@ export class MenuController {
     private readonly events: EventsService,
     private readonly gateway: FnbGateway,
   ) {}
+
+  /**
+   * کاتالوگ کامل ساختمان (رستوران + کافی‌شاپ + منو) در یک درخواست.
+   * venueهای رستوران/کافی‌شاپ در اولین فراخوانی خودکار ساخته می‌شوند.
+   * ساکن آیتم‌های «مخفی» را نمی‌بیند؛ مسئول منو (staff/admin) همه را می‌بیند.
+   */
+  @Get('catalog')
+  catalog(@CurrentUser() user: JwtPayload) {
+    const canSeeHidden = user.role === 'admin' || user.role === 'staff'
+    return this.db.withTenant(user.tenant_id!, async (c) => {
+      for (const v of DEFAULT_VENUES) {
+        await c.query(
+          `INSERT INTO fnb.venues (tenant_id, name, kind, billing, prep_time_minutes)
+           VALUES ($1,$2,$3,$4,$5) ON CONFLICT (tenant_id, kind) WHERE kind IS NOT NULL DO NOTHING`,
+          [user.tenant_id, v.name, v.kind, v.billing, v.prep],
+        )
+      }
+      const venues = await c.query(
+        `SELECT id, name, kind, billing, is_open, prep_time_minutes FROM fnb.venues WHERE kind IS NOT NULL ORDER BY kind DESC`,
+      )
+      const items = await c.query(
+        `SELECT m.id, m.venue_id, v.kind AS venue_kind, m.category, m.name, m.description, m.image_url,
+                m.price::float8 AS price, m.availability, m.icon, m.color, m.is_daily_special
+         FROM fnb.menu_items m JOIN fnb.venues v ON v.id = m.venue_id
+         WHERE v.kind IS NOT NULL ${canSeeHidden ? '' : "AND m.availability <> 'hidden'"}
+         ORDER BY m.is_daily_special DESC, m.name`,
+      )
+      return { venues: venues.rows, items: items.rows }
+    })
+  }
 
   @Get('venues')
   venues(@CurrentUser() user: JwtPayload) {
@@ -107,18 +156,83 @@ export class MenuController {
 
   @Roles('admin', 'staff')
   @Post('menu-items')
-  create(@CurrentUser() user: JwtPayload, @Body() body: Record<string, unknown>) {
+  create(@CurrentUser() user: JwtPayload, @Body() body: MenuItemBody) {
     return this.db.withTenant(user.tenant_id!, async (c) => {
+      const venueId = await this.venueIdByKind(c, body.venueKind)
+      const b = this.validate(body)
+      if (b.isDailySpecial && b.availability === 'available') {
+        await c.query('UPDATE fnb.menu_items SET is_daily_special = false WHERE venue_id = $1', [venueId])
+      }
       const r = await c.query(
         `INSERT INTO fnb.menu_items
-           (tenant_id, venue_id, category_id, name, description, image_url, price, availability, stock_count, dietary_tags)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,'available',$8,$9) RETURNING *`,
-        [
-          user.tenant_id, body.venueId, body.categoryId, body.name, body.description ?? null,
-          body.imageUrl ?? null, body.price, body.stockCount ?? null, body.dietaryTags ?? [],
-        ],
+           (tenant_id, venue_id, category, name, description, image_url, price, availability, icon, color, is_daily_special)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING id`,
+        [user.tenant_id, venueId, b.category, b.name, b.description, b.imageUrl, b.price, b.availability, b.icon, b.color, b.isDailySpecial],
       )
-      return r.rows[0]
+      return { id: r.rows[0].id }
     })
+  }
+
+  @Roles('admin', 'staff')
+  @Put('menu-items/:id')
+  update(@CurrentUser() user: JwtPayload, @Param('id') id: string, @Body() body: MenuItemBody) {
+    return this.db.withTenant(user.tenant_id!, async (c) => {
+      const b = this.validate(body)
+      const cur = await c.query('SELECT venue_id FROM fnb.menu_items WHERE id = $1', [id])
+      if (!cur.rows[0]) throw new NotFoundException('آیتم یافت نشد')
+      if (b.isDailySpecial && b.availability === 'available') {
+        await c.query('UPDATE fnb.menu_items SET is_daily_special = false WHERE venue_id = $1 AND id <> $2', [cur.rows[0].venue_id, id])
+      }
+      await c.query(
+        `UPDATE fnb.menu_items
+         SET category=$2, name=$3, description=$4, image_url=$5, price=$6, availability=$7, icon=$8, color=$9,
+             is_daily_special=$10, updated_at = now()
+         WHERE id = $1`,
+        [id, b.category, b.name, b.description, b.imageUrl, b.price, b.availability, b.icon, b.color, b.isDailySpecial],
+      )
+      return { id }
+    })
+  }
+
+  @Roles('admin', 'staff')
+  @Delete('menu-items/:id')
+  remove(@CurrentUser() user: JwtPayload, @Param('id') id: string) {
+    return this.db.withTenant(user.tenant_id!, async (c) => {
+      // آیتمی که سابقه‌ی سفارش دارد حذف نمی‌شود (snapshot سفارش‌ها سالم بماند) — مخفی می‌شود
+      const used = await c.query('SELECT 1 FROM fnb.order_items WHERE item_id = $1 LIMIT 1', [id])
+      if (used.rows[0]) {
+        await c.query(`UPDATE fnb.menu_items SET availability='hidden', is_daily_special=false, updated_at=now() WHERE id=$1`, [id])
+        return { deleted: false, hidden: true }
+      }
+      await c.query('DELETE FROM fnb.menu_items WHERE id = $1', [id])
+      return { deleted: true }
+    })
+  }
+
+  private async venueIdByKind(c: PoolClient, kind: string): Promise<string> {
+    const r = await c.query('SELECT id FROM fnb.venues WHERE kind = $1', [kind])
+    if (!r.rows[0]) throw new BadRequestException('رستوران/کافی‌شاپ نامعتبر است')
+    return r.rows[0].id
+  }
+
+  private validate(body: MenuItemBody) {
+    const name = String(body.name ?? '').trim()
+    const category = String(body.category ?? '').trim()
+    if (!name) throw new BadRequestException('نام آیتم الزامی است')
+    if (!category) throw new BadRequestException('دسته الزامی است')
+    const price = Number(body.price ?? 0)
+    if (!Number.isFinite(price) || price < 0) throw new BadRequestException('قیمت نامعتبر است')
+    if (!['available', 'sold_out', 'hidden'].includes(body.availability)) throw new BadRequestException('وضعیت نامعتبر است')
+    return {
+      name: name.slice(0, 120),
+      category: category.slice(0, 60),
+      description: body.description ? String(body.description).slice(0, 300) : null,
+      imageUrl: body.imageUrl ? String(body.imageUrl) : null,
+      price: Math.round(price),
+      availability: body.availability,
+      icon: String(body.icon || 'burger').slice(0, 30),
+      color: String(body.color || '#c9a227').slice(0, 9),
+      isDailySpecial: !!body.isDailySpecial,
+    }
   }
 }

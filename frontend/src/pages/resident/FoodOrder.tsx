@@ -5,9 +5,12 @@ import {
   Building2, Minus, Plus, RotateCcw, type LucideIcon,
 } from 'lucide-react'
 import { GlassCard, GlassPill, GlassSheet, GlassToast } from '../../components/ui/Glass'
-import { fnbVenues, deliveryZones, toman } from '../../lib/mockData'
+import { deliveryZones, toman } from '../../lib/mockData'
+import { useFnbCatalog, useFnbOrders } from '../../lib/useFnbCatalog'
+import { placeOrderOnServer } from '../../lib/api/fnb'
+import { usePermissions } from '../../context/PermissionsContext'
 import { foodIcon, zoneIcon } from '../../lib/foodIcons'
-import { useStore, placeFnbOrder } from '../../lib/store'
+import { placeFnbOrder } from '../../lib/store'
 import { useMyUnit } from '../../lib/myUnit'
 import { DEMO_DATA } from '../../lib/demoMode'
 import { residentsApi } from '../../lib/api/residents'
@@ -36,7 +39,8 @@ const STAGE_OF: Partial<Record<OrderStatus, number>> = {
 const priceText = (p: number) => (p ? toman(p) : '')
 
 export function ResidentFoodOrder() {
-  const [venueId, setVenueId] = useState(fnbVenues[0]?.id ?? '')
+  const { venues: fnbVenues, menu, loading: menuLoading, error: menuError } = useFnbCatalog()
+  const [venueId, setVenueId] = useState('')
   const venue = fnbVenues.find((v) => v.id === venueId) ?? fnbVenues[0]
   const [category, setCategory] = useState('همه')
   const [cart, setCart] = useState<Record<string, number>>({})
@@ -60,7 +64,9 @@ export function ResidentFoodOrder() {
   const [zoneNote, setZoneNote] = useState('')
   const [toast, setToast] = useState('')
   const [orderId, setOrderId] = useState<string | null>(null)
-  const { menu, orders } = useStore()
+  const { orders, reload: reloadOrders } = useFnbOrders('mine')
+  const { perms } = usePermissions()
+  const [placing, setPlacing] = useState(false)
   const order = orders.find((o) => o.id === orderId) ?? null
   const toastTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
@@ -97,7 +103,7 @@ export function ResidentFoodOrder() {
   }
 
   // منو از استور مشترک — همان چیزی که آشپزخانه/کافی‌شاپ در «مدیریت منو» تنظیم کرده
-  const venueMenu = menu.filter((m) => m.venueId === venueId && m.availability !== 'hidden')
+  const venueMenu = menu.filter((m) => m.venueId === venue?.id && m.availability !== 'hidden')
   const categories = ['همه', ...new Set(venueMenu.map((m) => m.category))]
   const menuList = venueMenu
     .filter((m) => category === 'همه' || m.category === category)
@@ -107,27 +113,53 @@ export function ResidentFoodOrder() {
     .filter((r): r is { item: MenuItem; qty: number } => !!r.item && r.qty > 0)
   const cartCount = cartRows.reduce((a, r) => a + r.qty, 0)
   const cartTotal = cartRows.reduce((a, r) => a + r.qty * r.item.price, 0)
-  function placeOrder() {
+  async function placeOrder() {
+    if (placing) return
     const destinationLabel = dest === 'unit' ? MY_UNIT : zone + (zoneNote ? ' — ' + zoneNote : '')
-    const id = placeFnbOrder({
-      venueId: venue.id,
-      venueName: venue.name,
-      deliveryType: dest === 'unit' ? 'in_unit' : 'amenity_zone',
-      destinationLabel,
-      deliveryNote: zoneNote || undefined,
-      billing: venue.billing,
-      items: cartRows.map((r) => ({
-        itemId: r.item.id,
-        name: r.item.name,
-        quantity: r.qty,
-        unitPrice: r.item.price,
-        lineTotal: r.qty * r.item.price,
-      })),
-      subtotal: cartTotal,
-      total: cartTotal,
-      prepTimeMinutes: venue.prepTimeMinutes,
-      ownerUnit: MY_UNIT,
-    })
+    const items = cartRows.map((r) => ({
+      itemId: r.item.id,
+      name: r.item.name,
+      quantity: r.qty,
+      unitPrice: r.item.price,
+      lineTotal: r.qty * r.item.price,
+    }))
+    let id: string
+    if (DEMO_DATA) {
+      id = placeFnbOrder({
+        venueId: venue.id,
+        venueName: venue.name,
+        deliveryType: dest === 'unit' ? 'in_unit' : 'amenity_zone',
+        destinationLabel,
+        deliveryNote: zoneNote || undefined,
+        billing: venue.billing,
+        items,
+        subtotal: cartTotal,
+        total: cartTotal,
+        prepTimeMinutes: venue.prepTimeMinutes,
+        ownerUnit: MY_UNIT,
+      })
+    } else {
+      const unitId = perms?.unit?.id
+      if (!unitId) return showToast('حساب شما هنوز به واحدی وصل نشده است')
+      setPlacing(true)
+      try {
+        id = await placeOrderOnServer({
+          venueId: venue.id,
+          unitId,
+          deliveryType: dest === 'unit' ? 'in_unit' : 'amenity_zone',
+          destinationLabel,
+          ownerLabel: MY_UNIT,
+          deliveryNote: zoneNote || undefined,
+          items: cartRows.map((r) => ({ itemId: r.item.id, quantity: r.qty })),
+        })
+        await reloadOrders()
+      } catch (e) {
+        showToast(e instanceof Error ? e.message : 'ثبت سفارش انجام نشد')
+        return
+      } finally {
+        setPlacing(false)
+      }
+    }
     setOrderId(id)
     setCart({})
     setSheetOpen(false)
@@ -137,6 +169,15 @@ export function ResidentFoodOrder() {
 
   // ساختمان تازه: هنوز رستوران/کافه‌ای تعریف نشده
   if (!venue) {
+    if (menuLoading) return <p className="text-sm text-[var(--hm-t2)] text-center py-10">در حال دریافت منو…</p>
+    if (menuError) {
+      return (
+        <GlassCard className="p-6 text-center">
+          <p className="font-extrabold text-[15px]">دریافت منو ممکن نشد</p>
+          <p className="text-xs text-[var(--hm-t2)] mt-2 leading-6">اتصال به سرور برقرار نشد؛ کمی بعد دوباره تلاش کنید.</p>
+        </GlassCard>
+      )
+    }
     return (
       <GlassCard className="p-6 text-center">
         <p className="font-extrabold text-[15px]">سفارش غذا هنوز راه‌اندازی نشده است</p>
@@ -163,7 +204,7 @@ export function ResidentFoodOrder() {
 
       <div className="flex gap-2">
         {fnbVenues.map((v) => {
-          const active = v.id === venueId
+          const active = v.id === venue.id
           return (
             <button
               key={v.id}
@@ -363,7 +404,7 @@ export function ResidentFoodOrder() {
 
         <button
           onClick={placeOrder}
-          disabled={cartRows.length === 0}
+          disabled={cartRows.length === 0 || placing}
           className="mt-3 w-full rounded-2xl py-4 text-white font-extrabold text-sm disabled:opacity-50"
           style={{ background: 'var(--lg-primary)' }}
         >

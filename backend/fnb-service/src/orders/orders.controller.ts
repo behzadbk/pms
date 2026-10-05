@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common'
+import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common'
 import { OrdersService, PlaceOrderDto } from './orders.service'
 import { CurrentUser, JwtPayload } from '../auth/decorators/current-user.decorator'
 import { Roles } from '../auth/decorators/roles.decorator'
@@ -13,6 +13,19 @@ export class OrdersController {
     // نکته Production: هدر Idempotency-Key باید اینجا بررسی شود تا دابل‌تپ موبایل
     // دو سفارش نسازد (همان الگوی استفاده‌شده در finance-svc برای پرداخت).
     return this.orders.place(user.tenant_id!, user.sub, dto, user.role)
+  }
+
+  /** سفارش‌های ساکن/کودکِ واردشده */
+  @Get('my-orders')
+  mine(@CurrentUser() user: JwtPayload) {
+    return this.orders.list(user.tenant_id!, { userId: user.sub })
+  }
+
+  /** صف و سفارش‌های امروز برای کارکنان (فیلتر اختیاری: restaurant | cafe) */
+  @Roles('admin', 'staff')
+  @Get('orders')
+  all(@CurrentUser() user: JwtPayload, @Query('venue') venue?: string) {
+    return this.orders.list(user.tenant_id!, { venueKind: venue })
   }
 
   @Get('orders/:id')
