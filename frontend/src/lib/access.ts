@@ -1,14 +1,11 @@
 import { useAuth } from '../context/AuthContext'
-import { useRole } from '../context/RoleContext'
 import { ALL_PERMISSIONS, departmentDefaults, staffNavItems, type StaffPermission } from './staff'
-import { viewerAudiences } from './store'
-import { useMyUnit } from './myUnit'
 
 /**
  * دسترسی‌های مؤثر کارمند فعلی.
  * - کارمند واقعی (role=staff): همان چیزی که بک‌اند در /auth/me برگردانده (پیش‌فرض بخش ∪ دسترسی دستی)
  * - مدیر ساختمان: به همه‌ی پنل‌های کارکنان دسترسی دارد (مثلاً مدیر هم می‌تواند رزرو تایید کند)
- * - پیش‌نمایش دمو (سوییچر نقش): همه
+ * - سایر نقش‌ها (فقط وقتی سوییچر نقش در حالت توسعه روشن است): همه
  */
 export function useStaffPermissions(): StaffPermission[] {
   const { user } = useAuth()
@@ -19,14 +16,6 @@ export function useStaffPermissions(): StaffPermission[] {
 export function useHasPermission(p: StaffPermission | null) {
   const perms = useStaffPermissions()
   return p === null || perms.includes(p)
-}
-
-/** مخاطب‌های اعلان برای کاربر فعلی (نقش + دسترسی‌های کارمند) */
-export function useViewerAudiences() {
-  const { role } = useRole()
-  const perms = useStaffPermissions()
-  const my = useMyUnit()
-  return viewerAudiences(role, role === 'staff' ? perms : [], my.label)
 }
 
 /**

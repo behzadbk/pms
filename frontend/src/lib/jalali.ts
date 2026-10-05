@@ -129,3 +129,11 @@ export function parseDateInput(input: string | null | undefined): string | null 
 export function todayJalali(): string {
   return formatJalali(new Date().toISOString().slice(0, 10))
 }
+
+/** تاریخ و ساعت شمسی برای نمایش (مثلاً «آخرین ورود»)؛ مقدار خالی/نامعتبر → «—» یا خود رشته */
+export function faDateTime(iso?: string | null): string {
+  if (!iso) return '—'
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return iso
+  return `${d.toLocaleDateString('fa-IR')} · ${d.toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' })}`
+}

@@ -7,8 +7,6 @@ import { EmptyState, ErrorBlock, Loading, PageHeader, Seg, useLoad, useToast } f
 import { useBuildingId } from './Residents'
 import { useResidentsScope } from '../../../lib/residentsScope'
 
-const IMPORT_KEY = 'hamino.last-import'
-
 type Tab = 'requests' | 'import' | 'qr'
 
 /** A5 — صف درخواست‌های عضویت + نتیجه‌ی ورود از اکسل + QR لابی */
@@ -31,7 +29,6 @@ export function AdminJoinRequests() {
         onChange={(t) => setParams(t === 'requests' ? {} : { tab: t }, { replace: true })}
       />
       {tab === 'requests' && <Requests buildingId={buildingId} toast={toast} />}
-      {tab === 'requests' && <LastImport />}
       {tab === 'import' && <ImportPanel buildingId={buildingId} toast={toast} />}
       {tab === 'qr' && <LobbyQr buildingId={buildingId} />}
       {toastNode}
@@ -115,19 +112,6 @@ function Requests({ buildingId, toast }: { buildingId: string; toast: (m: string
   )
 }
 
-/** نتیجه‌ی آخرین ورود گروهی (روی همین دستگاه) */
-function LastImport() {
-  const [r] = useState<ImportResult | null>(() => {
-    try {
-      return JSON.parse(localStorage.getItem(IMPORT_KEY) ?? 'null')
-    } catch {
-      return null
-    }
-  })
-  if (!r) return null
-  return <ImportCard r={r} />
-}
-
 function ImportCard({ r }: { r: ImportResult }) {
   function downloadErrors() {
     const csv = '﻿ردیف,خطا\n' + r.errors.map((e) => `${e.row},"${e.reason.replace(/"/g, '""')}"`).join('\n')
@@ -175,11 +159,6 @@ function ImportPanel({ buildingId, toast }: { buildingId: string; toast: (m: str
     try {
       const r = await residentsApi.importFile(buildingId, file)
       setResult(r)
-      try {
-        localStorage.setItem(IMPORT_KEY, JSON.stringify(r))
-      } catch {
-        /* ignore */
-      }
       toast(`${fa(r.created)} از ${fa(r.total)} ثبت شد`)
     } catch (e) {
       toast(errText(e))
