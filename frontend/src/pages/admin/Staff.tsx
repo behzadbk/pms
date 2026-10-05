@@ -14,7 +14,7 @@ import {
   type StaffDepartment,
   type StaffPermission,
 } from '../../lib/staff'
-import { faDateTime } from '../../lib/store'
+import { faDateTime } from '../../lib/jalali'
 import { LAST_TENANT_KEY } from '../Login'
 
 type FormState = {

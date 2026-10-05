@@ -61,7 +61,6 @@ MIGRATIONS=(
   "backend/notification-service/prisma/migrations/004_announcements.sql"
   "backend/finance-service/prisma/migrations/002_finance_v2.sql"
   "backend/finance-service/prisma/migrations/002_charge_engine.sql"
-  "backend/facility-service/prisma/migrations/003_maintenance.sql"
   "backend/facility-service/prisma/migrations/004_maintenance.sql"
 )
 

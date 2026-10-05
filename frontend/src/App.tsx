@@ -1,4 +1,4 @@
-import { useEffect, type ReactElement } from 'react'
+import type { ReactElement } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { RoleProvider, useRole } from './context/RoleContext'
@@ -9,7 +9,6 @@ import { Onboarding, ONBOARDING_SEEN_KEY } from './pages/Onboarding'
 import { Settings } from './pages/shared/Settings'
 import { MoreScreen } from './components/Layout'
 import { PermissionsProvider, usePermissions } from './context/PermissionsContext'
-import { refreshStore, setStoreScope } from './lib/store'
 import type { AppModule } from './lib/api/residents'
 import { AdminResidents } from './pages/admin/residents/Residents'
 import { SuperAdminBuildingScope } from './lib/residentsScope'
@@ -253,17 +252,6 @@ function AppRoutes() {
   )
 }
 
-/** استور داده‌ی پنل‌ها را به ساختمان واردشده وصل می‌کند (هر ساختمان جدا و تازه‌ساخته خام است) */
-function StoreScope({ children }: { children: ReactElement }) {
-  const { user } = useAuth()
-  const tenant = user?.tenantId ?? null
-  setStoreScope(tenant, false) // هم‌زمان با رندر، تا فرزندان از همان ساختمان بخوانند
-  useEffect(() => {
-    refreshStore()
-  }, [tenant])
-  return children
-}
-
 export default function App() {
   return (
     <ThemeProvider>
@@ -271,9 +259,7 @@ export default function App() {
         <RoleProvider>
           <PermissionsProvider>
             <BrowserRouter>
-              <StoreScope>
-                <AppRoutes />
-              </StoreScope>
+              <AppRoutes />
             </BrowserRouter>
           </PermissionsProvider>
         </RoleProvider>
