@@ -15,7 +15,6 @@ interface UserRow {
   person_id: string | null
   person_status: string | null
   tenant_name?: string | null
-  must_change_password?: boolean
   sessions_valid_after: Date | null
   id: string
   full_name: string

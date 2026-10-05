@@ -8,7 +8,6 @@ import { AuthService } from './auth.service'
 import { JwtStrategy } from './jwt.strategy'
 import { JwtAuthGuard } from './guards/jwt-auth.guard'
 import { RolesGuard } from './guards/roles.guard'
-import { DatabaseModule } from '../database/database.module'
 import { LoginThrottleService } from './login-throttle.service'
 import { EventsModule } from '../events/events.module'
 
