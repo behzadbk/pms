@@ -10,6 +10,29 @@
 -- idempotent.
 -- ============================================================================
 
+-- ─── سازگاری با دیتابیس‌هایی که شکل قدیمی (مایگریشن ۰۰۳ منسوخ‌شده) را دارند ─────────
+-- ۰۰۳ جدول‌های assets/tickets/ticket_events/service_records را با ستون‌های دیگری ساخته بود
+-- (assigned_to/reported_by/…). اگر آن شکل هست، کنار گذاشته می‌شود (*_v003) و داده‌اش در پایان
+-- همین فایل به جدول‌های جدید منتقل می‌شود. روی دیتابیس تازه هیچ کاری نمی‌کند.
+DO $compat$
+BEGIN
+  IF to_regclass('facility.tickets') IS NOT NULL
+     AND NOT EXISTS (SELECT 1 FROM information_schema.columns
+                      WHERE table_schema = 'facility' AND table_name = 'tickets' AND column_name = 'assignee_login')
+     AND to_regclass('facility.tickets_v003') IS NULL THEN
+    ALTER TABLE facility.service_records RENAME TO service_records_v003;
+    ALTER TABLE facility.ticket_events   RENAME TO ticket_events_v003;
+    ALTER TABLE facility.tickets         RENAME TO tickets_v003;
+    ALTER TABLE facility.assets          RENAME TO assets_v003;
+    DROP INDEX IF EXISTS facility.assets_tenant_idx;
+    DROP INDEX IF EXISTS facility.tickets_tenant_status_idx;
+    DROP INDEX IF EXISTS facility.tickets_unit_idx;
+    DROP INDEX IF EXISTS facility.ticket_events_ticket_idx;
+    DROP INDEX IF EXISTS facility.service_records_asset_idx;
+  END IF;
+END
+$compat$;
+
 CREATE TABLE IF NOT EXISTS facility.assets (
   id                    uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id             uuid NOT NULL,
@@ -155,3 +178,26 @@ BEGIN
   END LOOP;
 END
 $rls$;
+
+-- ─── انتقال داده‌ی شکل قدیمی (فقط اگر ۰۰۳ قبلاً اجرا شده بود) ─────────────────────
+DO $copy$
+BEGIN
+  IF to_regclass('facility.tickets_v003') IS NOT NULL THEN
+    INSERT INTO facility.assets (id, tenant_id, name, category, location, service_interval_days, is_active, created_at)
+      SELECT id, tenant_id, name, category, NULLIF(location, '—'), service_interval_days, is_active, created_at FROM facility.assets_v003
+      ON CONFLICT (id) DO NOTHING;
+    INSERT INTO facility.tickets (id, tenant_id, kind, category, subject, body, priority, status, location, unit_id, reporter_name, reporter_login,
+                                  asset_id, assignee_login, resolved_at, created_at, updated_at)
+      SELECT id, tenant_id, kind, COALESCE(category, 'گزارش خرابی'), subject, body, priority, status, location, unit_id, reporter, reported_by,
+             asset_id, assigned_to, resolved_at, created_at, updated_at FROM facility.tickets_v003
+      ON CONFLICT (id) DO NOTHING;
+    INSERT INTO facility.ticket_events (id, tenant_id, ticket_id, type, text, created_at)
+      SELECT id, tenant_id, ticket_id, 'note', text, created_at FROM facility.ticket_events_v003
+      ON CONFLICT (id) DO NOTHING;
+    INSERT INTO facility.service_records (id, tenant_id, asset_id, ticket_id, type, description, performer, cost, performed_on, created_by, created_at)
+      SELECT id, tenant_id, asset_id, ticket_id, type, description, performer, cost, performed_on, created_by, created_at FROM facility.service_records_v003
+      ON CONFLICT (id) DO NOTHING;
+    DROP TABLE facility.service_records_v003, facility.ticket_events_v003, facility.tickets_v003, facility.assets_v003;
+  END IF;
+END
+$copy$;

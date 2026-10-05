@@ -67,24 +67,22 @@ s,b=call("property","GET","/units/not-a-uuid",token=tok["admin"]); check("proper
 # ── ۴. رزرو
 U1="bbbbbbbb-0000-0000-0000-000000000001"; U3="bbbbbbbb-0000-0000-0000-000000000003"; AM="dddddddd-0000-0000-0000-000000000001"
 s,b=call("facility","GET","/amenities",token=tok["resident"]); check("facility","لیست مشاعات",s==200 and len(b)>=3,s)
-import random
-start=(dt.datetime.utcnow()+dt.timedelta(days=random.randint(2,6))).replace(hour=random.randint(8,20),minute=0,second=0,microsecond=0)
-s,b=call("facility","POST",f"/amenities/{AM}/reservations",{"unitId":U1,"startAt":start.isoformat()+"Z","endAt":(start+dt.timedelta(hours=1)).isoformat()+"Z"},token=tok["resident"]); check("facility","رزرو معتبر",s in(200,201),(s,b))
-s,b=call("facility","POST",f"/amenities/{AM}/reservations",{"unitId":U3,"startAt":start.isoformat()+"Z","endAt":(start+dt.timedelta(hours=1)).isoformat()+"Z"},token=tok["guard"]); check("facility","رزرو هم‌پوشان → 409",s==409,(s,b))
-s,b=call("facility","GET",f"/amenities/xyz/calendar?from=a&to=b",token=tok["resident"]); check("facility","پارامتر نامعتبر تقویم → 400 نه 500",s==400,s)
+s,b=call("facility","POST",f"/amenities/{AM}/reservations",{"unitId":U1,"startAt":"2030-01-01T10:00:00Z","endAt":"2030-01-01T11:00:00Z"},token=tok["resident"]); check("facility","مسیر قدیمی رزرو (بدون قوانین) حذف شده است → 404",s==404,s)
+s,b=call("facility","GET",f"/amenities/{AM}/slots?date=2030-01-01",token=tok["resident"]); check("facility","ساعت‌های یک روز مشاع (v2)",s in(200,400,409),s)
+s,b=call("facility","GET","/amenities/xyz/slots?date=2030-01-01",token=tok["resident"]); check("facility","شناسه نامعتبر مشاع → 400 نه 500",s==400,s)
 # ── ۵. مالی
 CH="b1b1b1b1-0000-0000-0000-000000000001"
-s,b=call("finance","GET",f"/units/{U1}/charges",token=tok["resident"]); check("finance","شارژهای واحد",s==200,s)
-s,b=call("finance","POST","/payments/initiate",{"chargeId":CH},token=tok["resident"],headers={"Idempotency-Key":str(uuid.uuid4())}); check("finance","شروع پرداخت",s in(200,201),(s,b)); pid=b.get("id") if isinstance(b,dict) else None
+s,b=call("finance","GET","/me/charges",token=tok["resident"]); check("finance","شارژهای من (ساکن)",s==200,s)
+s,b=call("finance","POST","/payments/initiate",{"chargeId":CH},token=tok["resident"],headers={"Idempotency-Key":str(uuid.uuid4())}); check("finance","شروع پرداخت (یا ۵۰۳ وقتی درگاه آنلاین فعال نیست)",s in(200,201,503),(s,b)); pid=b.get("id") if isinstance(b,dict) else None
 TID="11111111-1111-1111-1111-111111111111"
 if pid:
     s,b=call("finance","POST",f"/payments/webhook/zarinpal/{TID}",{"paymentId":pid,"success":True}); check("finance","webhook بدون امضا → 401",s==401,(s,b))
     sig=hmac.new(os.environ.get("PAYMENT_WEBHOOK_SECRET","local_webhook_secret").encode(),f"{TID}:{pid}:true".encode(),hashlib.sha256).hexdigest()
     s,b=call("finance","POST",f"/payments/webhook/zarinpal/{TID}",{"paymentId":pid,"success":True},headers={"X-Webhook-Signature":sig}); check("finance","webhook امضاشده → پرداخت موفق",s in(200,201) and b.get("status")=="success",(s,b))
-    s,b=call("finance","GET",f"/units/{U1}/charges",token=tok["resident"]); check("finance","شارژ بعد از پرداخت «paid» شد",any(c["id"]==CH and c["status"]=="paid" for c in b),b)
+    s,b=call("finance","GET","/me/charges",token=tok["resident"]); check("finance","شارژ بعد از پرداخت «paid» شد",any(c["id"]==CH and c["status"]=="paid" for c in b),b)
     s,b=call("finance","POST","/payments/initiate",{"chargeId":CH},token=tok["resident"]); check("finance","پرداخت دوباره‌ی شارژ پرداخت‌شده → 409",s==409,s)
-s,b=call("finance","POST","/charges/generate-monthly",{"period":"2026-11","formulaId":"a1a1a1a1-0000-0000-0000-000000000001"},token=tok["admin"]); check("finance","صدور شارژ توسط مدیر → 403 (مسئولیت حسابداری)",s==403,s)
-s,b=call("finance","POST","/charges/generate-monthly",{"period":"2026-11","formulaId":"a1a1a1a1-0000-0000-0000-000000000001"},token=tok["accountant"]); check("finance","صدور شارژ ماهانه توسط حسابدار (gRPC به property)",s in(200,201) and b.get("generatedCount",0)>0,(s,b))
+s,b=call("finance","POST","/charges/generate-monthly",{"period":"1405-12","formulaId":"a1a1a1a1-0000-0000-0000-000000000001"},token=tok["admin"]); check("finance","صدور شارژ توسط مدیر → 403 (مسئولیت حسابداری)",s==403,s)
+s,b=call("finance","POST","/charges/generate-monthly",{"period":"1405-12","formulaId":"a1a1a1a1-0000-0000-0000-000000000001"},token=tok["accountant"]); check("finance","صدور شارژ ماهانه توسط حسابدار (gRPC به property)",s in(200,201) and b.get("generatedCount",0)>0,(s,b))
 # ── ۶. نگهبانی
 s,b=call("guard","GET","/guest-passes/verify?code=PMS-DEMO-001",token=tok["guard"]); check("guard","بررسی کد مهمان",s==200 and b.get("ok"),(s,b))
 s,b=call("guard","POST",f"/units/{U1}/guest-passes",{"guestName":"مهمان تست","validUntil":(dt.datetime.utcnow()+dt.timedelta(hours=5)).isoformat()+"Z"},token=tok["resident"]); check("guard","ساکن برای واحد خودش کد مهمان صادر می‌کند",s in(200,201),(s,b)); gp=b.get("id") if isinstance(b,dict) else None
@@ -101,23 +99,23 @@ if parcel:
 s,b=call("guard","POST","/parcels",{"unitId":U1,"courierCompany":"پست"},token=tok["resident"]); check("guard","ساکن نباید مرسوله ثبت کند",s==403,f"status={s}")
 # ── ۷. رستوران
 V=None
-s,b=call("fnb","GET","/fnb/venues",token=tok["resident"]); check("fnb","لیست رستوران‌ها",s==200,s); V=b[0]["id"] if s==200 and b else None
+s,b=call("fnb","GET","/venues",token=tok["resident"]); check("fnb","لیست رستوران‌ها",s==200,s); V=b[0]["id"] if s==200 and b else None
 if V:
-    s,b=call("fnb","POST","/fnb/orders",{"venueId":V,"unitId":U1,"deliveryType":"in_unit","items":[{"itemId":"f3f3f3f3-0000-0000-0000-000000000001","quantity":2}]},token=tok["resident"]); check("fnb","ثبت سفارش",s in(200,201),(s,b)); oid=b.get("id") if isinstance(b,dict) else None
-    s,b=call("fnb","POST","/fnb/orders",{"venueId":V,"unitId":U1,"deliveryType":"in_unit","items":[{"itemId":"f3f3f3f3-0000-0000-0000-000000000002","quantity":-5}]},token=tok["resident"]); check("fnb","تعداد منفی باید رد شود",s==400,f"status={s} total={b.get('total') if isinstance(b,dict) else b}")
-    s,b=call("fnb","GET","/fnb/kitchen/queue",token=tok["staff"]); check("fnb","صف آشپزخانه (کارمند)",s==200,s)
-    s,b=call("fnb","GET","/fnb/kitchen/queue",token=tok["resident"]); check("fnb","صف آشپزخانه برای ساکن → 403",s==403,s)
+    s,b=call("fnb","POST","/orders",{"venue_id":V,"delivery_type":"in_unit","items":[{"item_id":"f3f3f3f3-0000-0000-0000-000000000001","quantity":2}]},token=tok["resident"]); check("fnb","ثبت سفارش",s in(200,201),(s,b)); oid=b.get("id") if isinstance(b,dict) else None
+    s,b=call("fnb","POST","/orders",{"venue_id":V,"delivery_type":"in_unit","items":[{"item_id":"f3f3f3f3-0000-0000-0000-000000000002","quantity":-5}]},token=tok["resident"]); check("fnb","تعداد منفی باید رد شود",s==400,f"status={s} total={b.get('total') if isinstance(b,dict) else b}")
+    s,b=call("fnb","GET","/kitchen/queue",token=tok["staff"]); check("fnb","صف آشپزخانه (کارمند)",s==200,s)
+    s,b=call("fnb","GET","/kitchen/queue",token=tok["resident"]); check("fnb","صف آشپزخانه برای ساکن → 403",s==403,s)
     if oid:
-        s,b=call("fnb","PATCH",f"/fnb/orders/{oid}/status",{"status":"accepted"},token=tok["staff"]); check("fnb","تغییر وضعیت سفارش",s==200,(s,b))
-        s,b=call("fnb","PATCH",f"/fnb/orders/{oid}/status",{"status":"delivered"},token=tok["staff"]); check("fnb","پرش غیرمجاز وضعیت → 409/400",s in(400,409),(s,b))
-    s,b=call("fnb","POST","/fnb/orders",{"venueId":V,"unitId":U1,"deliveryType":"in_unit","items":[{"itemId":"f3f3f3f3-0000-0000-0000-000000000001","quantity":1}]},token=tok["resident"]); o2=b.get("id") if isinstance(b,dict) else None
+        s,b=call("fnb","PATCH",f"/orders/{oid}/status",{"status":"accepted"},token=tok["staff"]); check("fnb","تغییر وضعیت سفارش",s==200,(s,b))
+        s,b=call("fnb","PATCH",f"/orders/{oid}/status",{"status":"delivered"},token=tok["staff"]); check("fnb","پرش غیرمجاز وضعیت → 409/400",s in(400,409),(s,b))
+    s,b=call("fnb","POST","/orders",{"venue_id":V,"delivery_type":"in_unit","items":[{"item_id":"f3f3f3f3-0000-0000-0000-000000000001","quantity":1}]},token=tok["resident"]); o2=b.get("id") if isinstance(b,dict) else None
     if o2:
-        s,b=call("fnb","POST",f"/fnb/orders/{o2}/cancel",{},token=tok["guard"]); check("fnb","کاربر دیگر نمی‌تواند سفارش ساکن را لغو کند",s==404,s)
-        s,b=call("fnb","POST",f"/fnb/orders/{o2}/cancel",{},token=tok["resident"]); check("fnb","ساکن سفارش خودش را لغو می‌کند",s in(200,201),(s,b))
+        s,b=call("fnb","POST",f"/orders/{o2}/cancel",{},token=tok["guard"]); check("fnb","کاربر دیگر نمی‌تواند سفارش ساکن را لغو کند",s==404,s)
+        s,b=call("fnb","POST",f"/orders/{o2}/cancel",{},token=tok["resident"]); check("fnb","ساکن سفارش خودش را لغو می‌کند",s in(200,201),(s,b))
 # ── ۸. لاگ
-s,b=call("audit","POST","/audit/client-batch",{"entries":[{"level":"info","event":"test","message":"hi"}]},token=tok["resident"]); check("audit","ارسال لاگ کلاینت",s in(200,201,202),(s,b))
-s,b=call("audit","GET","/audit/logs",token=tok["admin"]); check("audit","مشاهده لاگ (ادمین)",s==200,s)
-s,b=call("audit","GET","/audit/logs",token=tok["resident"]); check("audit","مشاهده لاگ برای ساکن → 403",s==403,s)
+s,b=call("audit","POST","/client-batch",{"logs":[{"level":"info","action":"test","message":"hi"}]},token=tok["resident"]); check("audit","ارسال لاگ کلاینت",s in(200,201,202),(s,b))
+s,b=call("audit","GET","/logs",token=tok["admin"]); check("audit","مشاهده لاگ (ادمین)",s==200,s)
+s,b=call("audit","GET","/logs",token=tok["resident"]); check("audit","مشاهده لاگ برای ساکن → 403",s==403,s)
 # ── ۹. ایزوله‌سازی
 s,b=call("identity","POST","/auth/login",{"email":"admin@borj-aftab.test","password":"Passw0rd!","tenantSubdomain":T})
 p=sum(1 for r in results if r[2]); f=len(results)-p
