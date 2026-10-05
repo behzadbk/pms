@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Check, Copy } from 'lucide-react'
 import { Cta, Note, Sheet } from '../../../components/hm'
 
-/** اطلاعات ورود ساکن (نام کاربری = موبایل، رمز اولیه = شماره واحد) برای تحویل حضوری/پیامکی */
+/** اطلاعات ورود ساکن (نام کاربری = موبایل، رمز اولیه = رمز موقت تصادفی) برای تحویل حضوری/پیامکی */
 export function CredentialsSheet({
   open,
   onClose,
@@ -46,7 +46,7 @@ export function CredentialsSheet({
           <span className="text-sm font-bold" dir="ltr">{username}</span>
         </div>
         <div className="py-3 flex items-center justify-between">
-          <span className="text-xs text-[var(--hm-t2)]">رمز اولیه (شماره واحد)</span>
+          <span className="text-xs text-[var(--hm-t2)]">رمز موقت اولیه</span>
           <span className="text-sm font-bold" dir="ltr">{password ?? 'قبلاً تعیین شده'}</span>
         </div>
       </div>

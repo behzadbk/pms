@@ -4,6 +4,8 @@ import { CurrentUser, JwtPayload } from '../auth/decorators/current-user.decorat
 import { Roles } from '../auth/decorators/roles.decorator'
 import { StaffService } from './staff.service'
 import { CreateStaffDto, UpdateStaffDto } from './dto/staff.dto'
+import { AccountantsService } from './accountants.service'
+import { CreateAccountantDto, UpdateAccountantDto } from './dto/accountant.dto'
 
 /**
  * نمونه یک Endpoint tenant-scoped — نشان می‌دهد چطور بقیه ماژول‌های
@@ -14,6 +16,7 @@ export class UsersController {
   constructor(
     private readonly db: DatabaseService,
     private readonly staff: StaffService,
+    private readonly accountants: AccountantsService,
   ) {}
 
   @Roles('admin', 'super_admin')
@@ -54,5 +57,31 @@ export class UsersController {
   @Delete('staff/:id')
   deleteStaff(@CurrentUser() user: JwtPayload, @Param('id', ParseUUIDPipe) id: string) {
     return this.staff.remove(user.tenant_id!, id, user.sub)
+  }
+
+  /* ───────────── حسابداران (ساخت توسط مدیر ساختمان) ───────────── */
+
+  @Roles('admin')
+  @Get('accountants')
+  listAccountants(@CurrentUser() user: JwtPayload) {
+    return this.accountants.list(user.tenant_id!)
+  }
+
+  @Roles('admin')
+  @Post('accountants')
+  createAccountant(@CurrentUser() user: JwtPayload, @Body() dto: CreateAccountantDto) {
+    return this.accountants.create(user.tenant_id!, dto, user.sub)
+  }
+
+  @Roles('admin')
+  @Patch('accountants/:id')
+  updateAccountant(@CurrentUser() user: JwtPayload, @Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateAccountantDto) {
+    return this.accountants.update(user.tenant_id!, id, dto, user.sub)
+  }
+
+  @Roles('admin')
+  @Delete('accountants/:id')
+  deleteAccountant(@CurrentUser() user: JwtPayload, @Param('id', ParseUUIDPipe) id: string) {
+    return this.accountants.remove(user.tenant_id!, id, user.sub)
   }
 }

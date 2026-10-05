@@ -267,7 +267,7 @@ export interface ReservationRow {
   requester: string | null
 }
 
-/** اطلاعات ورود ساکن: نام کاربری = موبایل، رمز اولیه = شماره واحد (password فقط هنگام ساخت/بازنشانی پر است) */
+/** اطلاعات ورود ساکن: نام کاربری = موبایل، رمز اولیه = رمز موقت تصادفی (password فقط هنگام ساخت/بازنشانی پر است) */
 export interface LoginCreds { username: string; password: string | null; created: boolean }
 
 /** قوانین برج */
@@ -324,7 +324,7 @@ export const residentsApi = {
   importFile: (buildingId: string, file: File) => upload<ImportResult>(`${I}/buildings/${buildingId}/residents/import`, file),
   templatePath: (buildingId: string) => `${I}/buildings/${buildingId}/residents/import/template`,
 
-  /** رمز ساکن را به شماره‌ی واحد برمی‌گرداند (نام کاربری = موبایل) */
+  /** رمز ساکن را به یک رمز موقت تصادفی تازه برمی‌گرداند (نام کاربری = موبایل) */
   resetPassword: (membershipId: string) => api.post<{ username: string; password: string }>(sc(`${I}/memberships/${membershipId}/reset-password`)),
 
   // ── واحدها، حذف ساکن، قوانین برج ──

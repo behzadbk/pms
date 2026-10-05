@@ -13,7 +13,7 @@ export interface AuthUser {
   tenantId: string | null
   /** نام ساختمان (برای سربرگ پنل‌ها) */
   tenantName?: string
-  /** رمز هنوز همان رمز اولیه (شماره واحد) است؛ باید از تنظیمات عوض شود */
+  /** رمز هنوز همان رمز موقت اولیه است؛ باید از تنظیمات عوض شود */
   mustChangePassword?: boolean
   /** فقط برای کارکنان (role=staff): بخش و دسترسی‌های مؤثر — تعیین می‌کند کدام پنل‌ها باز شود */
   department?: string | null

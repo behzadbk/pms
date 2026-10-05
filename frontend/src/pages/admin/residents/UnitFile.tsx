@@ -176,7 +176,7 @@ export function AdminUnitFile() {
               className="hm-row"
               disabled={busy}
               onClick={async () => {
-                if (!window.confirm(`رمز ${member.name} به شماره‌ی واحد ${fa(u.no)} بازنشانی شود؟ از همه‌ی دستگاه‌ها خارج می‌شود.`)) return
+                if (!window.confirm(`رمز ${member.name} بازنشانی و یک رمز موقت تازه ساخته شود؟ از همه‌ی دستگاه‌ها خارج می‌شود.`)) return
                 setBusy(true)
                 try {
                   const r = await residentsApi.resetPassword(member.id)
@@ -189,7 +189,7 @@ export function AdminUnitFile() {
                 }
               }}
             >
-              <span className="text-sm font-bold">بازنشانی رمز به شماره واحد</span>
+              <span className="text-sm font-bold">بازنشانی رمز (رمز موقت تازه)</span>
             </button>
             {member.role !== 'head' && ['adult', 'senior'].includes(member.role) && member.status === 'active' && (
               <button

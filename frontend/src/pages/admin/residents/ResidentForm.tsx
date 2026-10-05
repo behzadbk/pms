@@ -123,7 +123,7 @@ export function AdminResidentForm() {
           start_date: start ?? undefined,
           end_date: end ?? undefined,
           pays_charge: res === 'tenant' ? payer === 'tenant' : res === 'owner' ? true : undefined,
-          // ثبت مستقیم: ساکن فعال می‌شود و حساب ورود ساخته می‌شود (نام کاربری = موبایل، رمز = شماره واحد)
+          // ثبت مستقیم: ساکن فعال می‌شود و حساب ورود ساخته می‌شود (نام کاربری = موبایل، رمز = رمز موقت تصادفی)
           send_sms: false,
         })
         const unitNo = units.find((u) => u.id === unitId)?.no ?? ''

@@ -6,6 +6,11 @@ import { AuthModule } from './auth/auth.module'
 import { EventsModule } from './events/events.module'
 import { ChargesModule } from './charges/charges.module'
 import { PaymentsModule } from './payments/payments.module'
+import { FormulasModule } from './formulas/formulas.module'
+import { SettingsModule } from './settings/settings.module'
+import { InvoicesModule } from './invoices/invoices.module'
+import { SummaryModule } from './summary/summary.module'
+import { OverdueModule } from './overdue/overdue.module'
 import { ReservationEventsConsumer } from './events-consumer/reservation-events.consumer'
 
 @Module({
@@ -17,6 +22,11 @@ import { ReservationEventsConsumer } from './events-consumer/reservation-events.
     AuthModule,
     ChargesModule,
     PaymentsModule,
+    FormulasModule,
+    SettingsModule,
+    InvoicesModule,
+    SummaryModule,
+    OverdueModule,
   ],
   providers: [ReservationEventsConsumer],
 })

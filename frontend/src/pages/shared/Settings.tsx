@@ -193,7 +193,7 @@ function A11yToggle({
   )
 }
 
-/** تغییر رمز عبور — ساکن با رمز اولیه (شماره واحد) وارد می‌شود و از همین‌جا رمز خودش را می‌گذارد */
+/** تغییر رمز عبور — ساکن با رمز موقت اولیه وارد می‌شود و از همین‌جا رمز خودش را می‌گذارد */
 function PasswordSection() {
   const { user, markPasswordChanged } = useAuth()
   const [cur, setCur] = useState('')
@@ -237,7 +237,7 @@ function PasswordSection() {
         <KeyRound size={20} className="text-[var(--lg4-pri)]" />
         <h2 className="text-sm font-bold">تغییر رمز عبور</h2>
       </div>
-      {must && <p className="text-xs leading-6 text-[var(--lg4-pri)] font-bold">رمز شما هنوز رمز اولیه (شماره واحد) است؛ برای امنیت حساب لطفاً همین حالا رمز جدید بگذارید.</p>}
+      {must && <p className="text-xs leading-6 text-[var(--lg4-pri)] font-bold">رمز شما هنوز رمز موقت اولیه است؛ برای امنیت حساب لطفاً همین حالا رمز جدید بگذارید.</p>}
       <input className={input} type="password" autoComplete="current-password" placeholder="رمز فعلی" value={cur} onChange={(e) => setCur(e.target.value)} dir="ltr" />
       <input className={input} type="password" autoComplete="new-password" placeholder="رمز جدید (حداقل ۶ کاراکتر)" value={next} onChange={(e) => setNext(e.target.value)} dir="ltr" />
       <input className={input} type="password" autoComplete="new-password" placeholder="تکرار رمز جدید" value={again} onChange={(e) => setAgain(e.target.value)} dir="ltr" />
