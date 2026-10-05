@@ -10,7 +10,10 @@ export interface JwtPayload {
   /** شناسه‌ی شخص (residency.users.id) برای ساکنین */
   pid?: string
   perms?: string[]
+  /** 'family' = نشست کودک با کد خانواده */
   kind?: string
+  /** عضویت کودک در نشست خانواده */
+  mid?: string
 }
 
 export const CurrentUser = createParamDecorator((_: unknown, ctx: ExecutionContext): JwtPayload => {

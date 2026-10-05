@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Sun, Moon, MonitorSmartphone, Check, Sparkles, Waves, RotateCcw, ChevronRight, BellRing, Send } from 'lucide-react'
+import { Sun, Moon, MonitorSmartphone, Check, Sparkles, Waves, RotateCcw, ChevronRight, BellRing, Send, KeyRound } from 'lucide-react'
 import { disablePush, enablePush, getPushState, sendTestPush, type PushState } from '../../lib/pushNotifications'
 import { useAuth } from '../../context/AuthContext'
+import { changePassword } from '../../lib/api/identity'
+import { ApiError } from '../../lib/api/client'
 import { PALETTES, useTheme, type ThemeMode } from '../../context/ThemeContext'
 
 /**
@@ -37,6 +39,8 @@ export function Settings() {
           <p className="text-sm text-muted mt-0.5">ظاهر همین را به سلیقه خودتان تنظیم کنید</p>
         </div>
       </div>
+
+      <PasswordSection />
 
       {/* پیش‌نمایش زنده */}
       <div className="lg4-card p-4">
@@ -265,6 +269,62 @@ function NotificationsSection() {
         )}
         {msg && <p className={`text-xs leading-6 ${msg.ok ? 'text-[var(--lg-text-secondary)]' : 'text-bad'}`}>{msg.t}</p>}
       </div>
+    </section>
+  )
+}
+
+/** تغییر رمز عبور — ساکن با رمز اولیه (شماره واحد) وارد می‌شود و از همین‌جا رمز خودش را می‌گذارد */
+function PasswordSection() {
+  const { user, markPasswordChanged } = useAuth()
+  const [cur, setCur] = useState('')
+  const [next, setNext] = useState('')
+  const [again, setAgain] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
+  const must = !!user?.mustChangePassword
+
+  useEffect(() => {
+    if (must && window.location.hash === '#password') document.getElementById('password')?.scrollIntoView({ behavior: 'smooth' })
+  }, [must])
+
+  // سوپرادمین و کودک (ورود با کد خانواده) رمز ندارند
+  if (!user || user.role === 'super_admin' || user.role === 'child') return null
+
+  async function submit() {
+    setMsg(null)
+    if (next.length < 8) return setMsg({ ok: false, text: 'رمز جدید باید حداقل ۸ کاراکتر باشد' })
+    if (/^\d+$/.test(next)) return setMsg({ ok: false, text: 'رمز نباید فقط عدد باشد؛ حرف و عدد را ترکیب کنید' })
+    if (next !== again) return setMsg({ ok: false, text: 'تکرار رمز جدید یکسان نیست' })
+    setBusy(true)
+    try {
+      await changePassword(cur, next)
+      markPasswordChanged()
+      setCur('')
+      setNext('')
+      setAgain('')
+      setMsg({ ok: true, text: 'رمز عبور تغییر کرد؛ از دستگاه‌های دیگر خارج شدید.' })
+    } catch (e) {
+      setMsg({ ok: false, text: e instanceof ApiError ? e.message : 'تغییر رمز ناموفق بود' })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const input = 'w-full h-11 rounded-xl px-3 text-sm bg-transparent border border-[var(--lg-border-hairline)]'
+  return (
+    <section id="password" className="lg4-card p-4 space-y-3">
+      <div className="flex items-center gap-2">
+        <KeyRound size={20} className="text-[var(--lg4-pri)]" />
+        <h2 className="text-sm font-bold">تغییر رمز عبور</h2>
+      </div>
+      {must && <p className="text-xs leading-6 text-[var(--lg4-pri)] font-bold">رمز شما هنوز رمز اولیه (شماره واحد) است؛ برای امنیت حساب لطفاً همین حالا رمز جدید بگذارید.</p>}
+      <input className={input} type="password" autoComplete="current-password" placeholder="رمز فعلی" value={cur} onChange={(e) => setCur(e.target.value)} dir="ltr" />
+      <input className={input} type="password" autoComplete="new-password" placeholder="رمز جدید (حداقل ۸ کاراکتر)" value={next} onChange={(e) => setNext(e.target.value)} dir="ltr" />
+      <input className={input} type="password" autoComplete="new-password" placeholder="تکرار رمز جدید" value={again} onChange={(e) => setAgain(e.target.value)} dir="ltr" />
+      {msg && <p className={`text-xs font-bold ${msg.ok ? 'text-[var(--lg4-pri)]' : 'text-[var(--hm-bad)]'}`}>{msg.text}</p>}
+      <button className="w-full h-11 rounded-full bg-[var(--lg4-pri)] text-white text-sm font-bold disabled:opacity-40" disabled={busy || !cur || !next || !again} onClick={() => void submit()}>
+        {busy ? 'در حال ذخیره…' : 'ذخیره‌ی رمز جدید'}
+      </button>
     </section>
   )
 }

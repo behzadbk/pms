@@ -79,6 +79,37 @@ export class RejectDto {
   @IsOptional() @IsString() @MaxLength(200) reason?: string
 }
 
+/* ───────────── واحدها و قوانین برج ───────────── */
+
+export class CreateUnitDto {
+  @IsString() @MinLength(1, { message: 'شماره‌ی واحد را وارد کنید' }) @MaxLength(12) unit_number: string
+  @IsOptional() @Type(() => Number) @IsInt() @Min(-5) @Max(150) floor?: number
+  @IsOptional() @Type(() => Number) @Min(1) @Max(5000) area?: number
+  @IsOptional() @Type(() => Number) @IsInt() @Min(0) @Max(20) parking_count?: number
+  @IsOptional() @IsString() @MaxLength(12) storage_no?: string
+}
+
+export class UpdateUnitDto {
+  @IsOptional() @IsString() @MinLength(1) @MaxLength(12) unit_number?: string
+  @IsOptional() @Type(() => Number) @IsInt() @Min(-5) @Max(150) floor?: number
+  @IsOptional() @Type(() => Number) @Min(1) @Max(5000) area?: number
+  @IsOptional() @Type(() => Number) @IsInt() @Min(0) @Max(20) parking_count?: number
+  @IsOptional() @IsString() @MaxLength(12) storage_no?: string
+}
+
+/** ساخت گروهی واحدها: «n طبقه × m واحد» با شماره‌گذاری ۱۰۱، ۱۰۲، … ۲۰۱، … */
+export class BulkUnitsDto {
+  @Type(() => Number) @IsInt() @Min(1, { message: 'تعداد طبقات حداقل ۱ است' }) @Max(80) floors: number
+  @Type(() => Number) @IsInt() @Min(1, { message: 'تعداد واحد در هر طبقه حداقل ۱ است' }) @Max(30) units_per_floor: number
+  @IsOptional() @Type(() => Number) @IsInt() @Min(0) @Max(150) start_floor?: number
+  @IsOptional() @Type(() => Number) @Min(1) @Max(5000) area?: number
+}
+
+export class BuildingRulesDto {
+  @Type(() => Number) @IsInt({ message: 'مهلت را به روز و عدد صحیح وارد کنید' }) @Min(0) @Max(365) debtor_grace_days: number
+  @IsObject() restrictions: Record<string, boolean>
+}
+
 /* ───────────── عمومی: QR لابی و پذیرش دعوت ───────────── */
 
 export class LobbyJoinDto {

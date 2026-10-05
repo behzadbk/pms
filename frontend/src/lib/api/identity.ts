@@ -11,10 +11,12 @@ export interface AuthUser {
   role: Role
   /** برای سوپرادمین null است — کاربر سطح پلتفرم به هیچ مجتمعی تعلق ندارد */
   tenantId: string | null
+  /** نام ساختمان (برای سربرگ پنل‌ها) */
+  tenantName?: string
   /** فقط برای کارکنان (role=staff): بخش و دسترسی‌های مؤثر — تعیین می‌کند کدام پنل‌ها باز شود */
   department?: string | null
   permissions?: string[]
-  /** حساب با رمز موقت ساخته شده — تا تعویض رمز، فقط فرم تغییر رمز نمایش داده می‌شود */
+  /** حساب با رمز موقت/اولیه (مثلاً شماره واحد) — تا تعویض رمز، فقط فرم تغییر رمز نمایش داده می‌شود */
   mustChangePassword?: boolean
 }
 
@@ -47,6 +49,13 @@ export function logout() {
   if (typeof caches !== 'undefined') {
     caches.delete('api-get-cache').catch(() => undefined)
   }
+}
+
+/** تغییر رمز توسط خود کاربر؛ توکن‌های تازه ذخیره می‌شوند تا از دستگاه فعلی بیرون نیفتد */
+export async function changePassword(currentPassword: string, newPassword: string) {
+  const res = await api.post<{ ok: boolean; accessToken: string; refreshToken: string }>('/identity/auth/change-password', { currentPassword, newPassword })
+  setToken(res.accessToken)
+  setRefreshToken(res.refreshToken)
 }
 
 export function getMe() {

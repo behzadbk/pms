@@ -10,8 +10,9 @@ export class LoginDto {
   @MaxLength(254)
   email: string
 
+  // رمز اولیه‌ی ساکن شماره‌ی واحد است (مثلاً ۴ رقم)؛ حداقل ۶ کاراکتر فقط هنگام «تغییر رمز» اعمال می‌شود
   @IsString()
-  @MinLength(6)
+  @MinLength(3)
   password: string
 
   // subdomain مجتمع — برای تعیین اینکه کاربر متعلق به کدام tenant است

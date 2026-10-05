@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Building, Info } from 'lucide-react'
 import { residentsApi, errText, fa, type Residency, type UnitFile, type UnitListItem } from '../../../lib/api/residents'
 import { formatJalali, parseDateInput, todayJalali } from '../../../lib/jalali'
 import { Cta, Field, FieldCard, Loading, PageHeader, Seg, StickyCta, useToast } from '../../../components/hm'
+import { CredentialsSheet } from './CredentialsSheet'
+import { useResidentsScope, useUnitParam } from '../../../lib/residentsScope'
 import { UnitPickSheet, useBuildingId } from './Residents'
 
 const RES_HINT: Record<Residency, string> = {
@@ -28,7 +30,9 @@ const EMPTY: FormState = { name: '', phone: '', nid: '', start: todayJalali(), e
 export function AdminResidentForm() {
   const buildingId = useBuildingId()
   const navigate = useNavigate()
-  const { id: editUnitId } = useParams()
+  const editUnitId = useUnitParam() || undefined
+  const sc = useResidentsScope()
+  const [creds, setCreds] = useState<{ name: string; unitNo: string; username: string; password: string | null; toast: string } | null>(null)
   const [search] = useSearchParams()
   const memberId = search.get('member')
   const editing = !!editUnitId && !!memberId
@@ -109,9 +113,9 @@ export function AdminResidentForm() {
           end_date: res === 'tenant' ? end : null,
           pays_charge: res === 'tenant' ? payer === 'tenant' : res === 'owner',
         })
-        navigate(`/admin/units/${unitId}`, { replace: true, state: { toast: 'اطلاعات ساکن ذخیره شد' } })
+        navigate(sc.unit(unitId), { replace: true, state: { toast: 'اطلاعات ساکن ذخیره شد' } })
       } else {
-        await residentsApi.addResident(unitId, {
+        const r = await residentsApi.addResident(unitId, {
           name: f.name.trim(),
           phone: f.phone,
           national_id: f.nid || undefined,
@@ -119,12 +123,13 @@ export function AdminResidentForm() {
           start_date: start ?? undefined,
           end_date: end ?? undefined,
           pays_charge: res === 'tenant' ? payer === 'tenant' : res === 'owner' ? true : undefined,
-          send_sms: true,
+          // ثبت مستقیم: ساکن فعال می‌شود و حساب ورود ساخته می‌شود (نام کاربری = موبایل، رمز = شماره واحد)
+          send_sms: false,
         })
-        navigate('/admin/residents', {
-          replace: true,
-          state: { toast: res === 'owner_absent' ? 'مالک ثبت شد · واحد خالی می‌ماند' : 'ساکن ثبت شد · پیامک دعوت ارسال شد' },
-        })
+        const unitNo = units.find((u) => u.id === unitId)?.no ?? ''
+        const toastMsg = res === 'owner_absent' ? 'مالک ثبت شد · واحد خالی می‌ماند' : 'ساکن ثبت شد'
+        if (r.credentials) setCreds({ name: f.name.trim(), unitNo, username: r.credentials.username, password: r.credentials.password, toast: toastMsg })
+        else navigate(sc.list, { replace: true, state: { toast: toastMsg } })
       }
     } catch (err) {
       toast(errText(err))
@@ -136,6 +141,16 @@ export function AdminResidentForm() {
   if (loading) return <Loading />
   return (
     <div className="flex flex-col gap-4 hm-fade-in">
+      {creds && (
+        <CredentialsSheet
+          open
+          name={creds.name}
+          unitNo={fa(creds.unitNo)}
+          username={creds.username}
+          password={creds.password}
+          onClose={() => navigate(sc.list, { replace: true, state: { toast: creds.toast } })}
+        />
+      )}
       <div className="flex flex-col gap-3">
         <PageHeader title={editing ? 'ویرایش ساکن' : 'ثبت دستی ساکن'} sub={editing ? `واحد ${fa(file?.no ?? '')}` : 'مرحله ۱ از ۲ · اطلاعات سرپرست'} back />
         {!editing && (

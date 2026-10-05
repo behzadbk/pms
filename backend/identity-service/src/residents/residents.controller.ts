@@ -12,9 +12,10 @@ import { JoinService } from './join.service'
 import { HouseholdService } from './household.service'
 import { ChildService } from './child.service'
 import { AdminResidentsService } from './admin-residents.service'
+import { TowerService } from './tower.service'
 import { HousekeepingService } from './housekeeping.service'
 import {
-  AcceptInviteDto, AddMemberDto, AddResidentDto, ChildRequestDto, CreateUnitsDto, DecideChildRequestDto, ExitUnlockDto, FamilyCodeLoginDto,
+  AcceptInviteDto, AddMemberDto, AddResidentDto, BuildingRulesDto, BulkUnitsDto, ChildRequestDto, CreateUnitDto, CreateUnitsDto, UpdateUnitDto, DecideChildRequestDto, ExitUnlockDto, FamilyCodeLoginDto,
   InviteDto, LobbyJoinDto, MergeDto, MoveOutDto, ParentControlDto, RejectDto, TransferDto, TransferHeadDto, UpdateMembershipDto,
 } from './dto/residents.dto'
 
@@ -29,6 +30,7 @@ export class ManagerResidentsController {
     private readonly manager: ManagerService,
     private readonly join: JoinService,
     private readonly hk: HousekeepingService,
+    private readonly tower: TowerService,
   ) {}
 
   @Get('buildings/:id/units')
@@ -38,16 +40,60 @@ export class ManagerResidentsController {
     return this.manager.listUnits(tenant, FILTERS.includes(filter as UnitFilter) ? (filter as UnitFilter) : 'all', q ?? '')
   }
 
-  @Post('buildings/:id/units')
-  createUnits(@ReqCtx() ctx: RequestCtx, @Param('id', ParseUUIDPipe) id: string, @Body() dto: CreateUnitsDto) {
-    return this.manager.createUnits(scopeTenant(ctx.user, id), dto, ctx)
-  }
-
   @Get('units/:id')
   async unit(@CurrentUser() u: JwtPayload, @Param('id', ParseUUIDPipe) id: string, @Query('building_id') b?: string) {
     const tenant = scopeTenant(u, b)
     await this.hk.touch(tenant)
     return this.manager.getUnit(tenant, id)
+  }
+
+  /* ── ساخت و ویرایش واحدها (ساختمان تازه هیچ واحدی ندارد) ── */
+
+  @Post('buildings/:id/units')
+  createUnit(@ReqCtx() ctx: RequestCtx, @Param('id', ParseUUIDPipe) id: string, @Body() dto: CreateUnitDto) {
+    return this.tower.createUnit(scopeTenant(ctx.user, id), dto, ctx)
+  }
+
+  /** چند شماره‌ی واحد در یک درخواست («101, 102, 103») — از انتخاب‌گر واحد در فرم ساکنین */
+  @Post('buildings/:id/units/multi')
+  createUnits(@ReqCtx() ctx: RequestCtx, @Param('id', ParseUUIDPipe) id: string, @Body() dto: CreateUnitsDto) {
+    return this.manager.createUnits(scopeTenant(ctx.user, id), dto, ctx)
+  }
+
+  @Post('buildings/:id/units/bulk')
+  @HttpCode(200)
+  bulkUnits(@ReqCtx() ctx: RequestCtx, @Param('id', ParseUUIDPipe) id: string, @Body() dto: BulkUnitsDto) {
+    return this.tower.bulkCreate(scopeTenant(ctx.user, id), dto, ctx)
+  }
+
+  @Patch('units/:id')
+  updateUnit(@ReqCtx() ctx: RequestCtx, @Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateUnitDto, @Query('building_id') b?: string) {
+    return this.tower.updateUnit(scopeTenant(ctx.user, b), id, dto, ctx)
+  }
+
+  @Delete('units/:id')
+  deleteUnit(@ReqCtx() ctx: RequestCtx, @Param('id', ParseUUIDPipe) id: string, @Query('building_id') b?: string) {
+    return this.tower.deleteUnit(scopeTenant(ctx.user, b), id, ctx)
+  }
+
+  /** حذف ساکن = پایان عضویت با ردپا؛ پاسخ پرونده‌ی تازه‌ی واحد است */
+  @Delete('memberships/:id')
+  async removeMember(@ReqCtx() ctx: RequestCtx, @Param('id', ParseUUIDPipe) id: string, @Query('building_id') b?: string) {
+    const tenant = scopeTenant(ctx.user, b)
+    const r = await this.tower.removeMember(tenant, id, ctx)
+    return this.manager.getUnit(tenant, r.unit_id)
+  }
+
+  /* ── قوانین برج: مهلت بدهکاری و محدودیت‌ها ── */
+
+  @Get('buildings/:id/rules')
+  rules(@CurrentUser() u: JwtPayload, @Param('id', ParseUUIDPipe) id: string) {
+    return this.tower.getRules(scopeTenant(u, id))
+  }
+
+  @Put('buildings/:id/rules')
+  putRules(@ReqCtx() ctx: RequestCtx, @Param('id', ParseUUIDPipe) id: string, @Body() dto: BuildingRulesDto) {
+    return this.tower.putRules(scopeTenant(ctx.user, id), dto, ctx)
   }
 
   @Post('units/:id/residents')
@@ -58,6 +104,13 @@ export class ManagerResidentsController {
   @Patch('memberships/:id')
   updateMembership(@ReqCtx() ctx: RequestCtx, @Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateMembershipDto, @Query('building_id') b?: string) {
     return this.manager.updateMembership(scopeTenant(ctx.user, b), id, dto, ctx)
+  }
+
+  /** رمز ساکن را به شماره‌ی واحد برمی‌گرداند و نام‌کاربری/رمز را به مدیر نشان می‌دهد */
+  @Post('memberships/:id/reset-password')
+  @HttpCode(200)
+  resetPassword(@ReqCtx() ctx: RequestCtx, @Param('id', ParseUUIDPipe) id: string, @Query('building_id') b?: string) {
+    return this.manager.resetPassword(scopeTenant(ctx.user, b), id, ctx)
   }
 
   @Post('units/:id/invite')

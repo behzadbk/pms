@@ -100,12 +100,18 @@ export class GuestPassesController {
     return this.db.withTenant(user.tenant_id!, async (client) => {
       // ساکن فقط برای واحد خودش (عضویت فعال یا پیوند مالکیت) می‌تواند کد مهمان صادر کند
       if (user.role === 'resident') {
+        // دو مدل عضویت: پیوند قدیمی user_unit_links، یا عضویت فعال در مدل جدید ساکنین (residency.memberships)
         const link = await client.query(
           `SELECT 1 FROM property.user_unit_links WHERE user_id = $1 AND unit_id = $2
-           UNION ALL SELECT 1 FROM residency.memberships WHERE unit_id = $2 AND status = 'active'
-                       AND user_id = COALESCE($3::uuid, (SELECT person_id FROM identity.users WHERE id = $1))`,
+           UNION ALL SELECT 1 FROM residency.memberships WHERE unit_id = $2 AND status = 'active' AND role IN ('head', 'adult', 'senior')
+                        AND user_id = COALESCE($3::uuid, (SELECT person_id FROM identity.users WHERE id = $1))`,
           [user.sub, unitId, user.pid ?? null])
         if (!link.rowCount) throw new ForbiddenException('شما به این واحد دسترسی ندارید')
+        // قوانین برج: کارت مهمان برای واحد بدهکار بسته است (اگر مدیر این بخش را محدود کرده باشد)
+        const lock = await client.query<{ r: boolean }>(`SELECT residency.unit_restricted($1, 'module:guest') AS r`, [unitId])
+        if (lock.rows[0]?.r) {
+          throw new ForbiddenException({ statusCode: 403, code: 'debtor_restricted', message: 'صدور کارت مهمان برای واحد شما به‌علت معوقه‌ی شارژ بسته است؛ پس از تسویه باز می‌شود.' })
+        }
       }
       return this.createPass(client, user, unitId, body)
     })

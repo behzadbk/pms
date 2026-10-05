@@ -83,7 +83,7 @@ export function matchPreset(p: { modules: ModuleMap; monthly_cap: number; quiet:
 }
 
 /** ماتریس دسترسی نقش‌ها (بخش «ماتریس» فایل طراحی) — سطح هر بخش برای نقش‌های غیرکودک */
-export type Access = 'hidden' | 'approval' | 'free' | 'view'
+export type Access = 'hidden' | 'approval' | 'free' | 'view' | 'locked'
 export const APP_MODULES = ['finance', 'food', 'amenity', 'guest', 'ticket', 'parcel', 'notice', 'assembly', 'household', 'emergency'] as const
 export type AppModule = (typeof APP_MODULES)[number]
 export type PermissionMap = Record<AppModule, Access>
@@ -190,4 +190,42 @@ export function fa(n: number | string): string {
 /** «۱۲۳٬۰۰۰» */
 export function faMoney(n: number): string {
   return Math.round(n).toLocaleString('fa-IR')
+}
+
+/* ───────────── قوانین برج: محدودیت واحد بدهکار ───────────── */
+
+/** بخش‌هایی که مدیر می‌تواند برای واحد بدهکار ببندد. مالی، اعلانات، تیکت، مرسوله و تماس اضطراری هرگز. */
+export const RESTRICTABLE_MODULES = ['food', 'guest', 'amenity'] as const
+export type RestrictableModule = (typeof RESTRICTABLE_MODULES)[number]
+export const DEFAULT_DEBTOR_GRACE_DAYS = 30
+export const MAX_DEBTOR_GRACE_DAYS = 365
+
+const AMENITY_KEY_RE = /^amenity:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+/** کلید معتبر محدودیت: module:food | module:guest | module:amenity | amenity:<uuid> */
+export function isRestrictionKey(k: string): boolean {
+  if (AMENITY_KEY_RE.test(k)) return true
+  return RESTRICTABLE_MODULES.some((m) => k === `module:${m}`)
+}
+
+/** بخش‌هایی (از سه بخش قابل‌محدودسازی) که در نقشه‌ی محدودیت‌ها true هستند */
+export function restrictedModules(restrictions: Record<string, unknown> | null | undefined): RestrictableModule[] {
+  return RESTRICTABLE_MODULES.filter((m) => restrictions?.[`module:${m}`] === true)
+}
+
+/** مشاع‌های محدودشده (شناسه‌ها) */
+export function restrictedAmenities(restrictions: Record<string, unknown> | null | undefined): string[] {
+  return Object.entries(restrictions ?? {})
+    .filter(([k, v]) => v === true && AMENITY_KEY_RE.test(k))
+    .map(([k]) => k.slice('amenity:'.length))
+}
+
+/**
+ * واحد بدهکار: هر بخشِ محدودشده «قفل» می‌شود (نه پنهان) تا ساکن دلیلش را ببیند و بپردازد.
+ * بخشی که از قبل پنهان است (مثلاً مهمان برای کودک) همان‌طور پنهان می‌ماند.
+ */
+export function applyDebtorLocks(map: PermissionMap, locked: readonly RestrictableModule[]): PermissionMap {
+  const out = { ...map }
+  for (const m of locked) if (out[m] !== 'hidden') out[m] = 'locked'
+  return out
 }

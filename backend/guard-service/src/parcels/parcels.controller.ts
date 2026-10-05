@@ -62,6 +62,7 @@ export class ParcelsController {
     assertDesk(user)
     const tenantId = user.tenant_id!
     if (!body?.unitId) throw new BadRequestException('واحد مقصد الزامی است')
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(body.unitId)) throw new BadRequestException('شناسه‌ی واحد نامعتبر است')
     const courier = (body.courierCompany ?? '').trim().slice(0, 60) || null
     const tracking = (body.trackingCode ?? '').trim().slice(0, 60) || null
     const parcel = await this.db.withTenant(tenantId, async (client) => {

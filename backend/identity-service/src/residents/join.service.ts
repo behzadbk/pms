@@ -353,7 +353,7 @@ export class JoinService {
         `INSERT INTO identity.users (tenant_id, full_name, username, phone, password_hash, role, person_id)
          VALUES ($1, $2, $3, $3, $4, 'resident', $5)
          ON CONFLICT (tenant_id, username) WHERE username IS NOT NULL
-         DO UPDATE SET password_hash = EXCLUDED.password_hash, person_id = EXCLUDED.person_id, is_active = true, updated_at = now()
+         DO UPDATE SET password_hash = EXCLUDED.password_hash, person_id = EXCLUDED.person_id, is_active = true, must_change_password = false, updated_at = now()
          RETURNING id`,
         [tenant.id, p.name, username, hash, m.user_id],
       )

@@ -1,23 +1,23 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { ArrowLeftRight, ChevronLeft, FileUp, MessageSquare, PencilLine, QrCode, Search, UserPlus, Users } from 'lucide-react'
-import { useAuth } from '../../../context/AuthContext'
+import { ArrowLeftRight, Building2, ChevronLeft, FileUp, MessageSquare, PencilLine, QrCode, Search, UserPlus, Users } from 'lucide-react'
+import { useResidentsScope } from '../../../lib/residentsScope'
 import { residentsApi, errText, fa, type UnitCategory, type UnitListItem, type UnitsResponse } from '../../../lib/api/residents'
-import { Badge, Cta, EmptyState, ErrorBlock, Field, FieldCard, Loading, PageTitle, Sheet, StickyCta, useLoad, useToast } from '../../../components/hm'
+import { Badge, Cta, EmptyState, ErrorBlock, Field, FieldCard, Loading, PageTitle, Seg, Sheet, StickyCta, useLoad, useToast } from '../../../components/hm'
 
 type Filter = 'all' | UnitCategory
 const FILTERS: [Filter, string][] = [['all', 'همه'], ['owner', 'مالک'], ['tenant', 'مستأجر'], ['pending', 'در انتظار'], ['vacant', 'خالی']]
 
 /** شناسه‌ی ساختمانِ مدیر = tenant خودش */
 export function useBuildingId() {
-  const { user } = useAuth()
-  return user?.tenantId ?? ''
+  return useResidentsScope().buildingId
 }
 
 /** A1 — فهرست ساکنین با فیلتر، جست‌وجو و دکمه‌ی «افزودن ساکن» */
-export function AdminResidents({ buildingId: forced, readOnly }: { buildingId?: string; readOnly?: boolean } = {}) {
-  const own = useBuildingId()
-  const buildingId = forced ?? own
+export function AdminResidents({ readOnly }: { readOnly?: boolean } = {}) {
+  const sc = useResidentsScope()
+  const buildingId = sc.buildingId
+  const [unitsOpen, setUnitsOpen] = useState(false)
   const navigate = useNavigate()
   const [filter, setFilter] = useState<Filter>('all')
   const [q, setQ] = useState('')
@@ -45,9 +45,9 @@ export function AdminResidents({ buildingId: forced, readOnly }: { buildingId?: 
 
   function open(u: UnitListItem) {
     if (readOnly) return
-    if (u.category === 'vacant') navigate(`/admin/residents/new?unit=${u.id}`)
-    else if (u.category === 'pending') navigate('/admin/residents/requests')
-    else navigate(`/admin/units/${u.id}`)
+    if (u.category === 'vacant') navigate(`${sc.newResident}?unit=${u.id}`)
+    else if (u.category === 'pending') navigate(sc.requests)
+    else navigate(sc.unit(u.id))
   }
 
   const counts = data?.counts
@@ -58,9 +58,14 @@ export function AdminResidents({ buildingId: forced, readOnly }: { buildingId?: 
         title="ساکنین"
         action={
           !readOnly && (
-            <button className="hm-back" onClick={() => navigate('/admin/residents/requests')} aria-label="درخواست‌های عضویت و ورود از اکسل">
+            <span className="flex items-center gap-1">
+            <button className="hm-back" onClick={() => setUnitsOpen(true)} aria-label="افزودن واحد">
+              <Building2 size={22} />
+            </button>
+            <button className="hm-back" onClick={() => navigate(sc.requests)} aria-label="درخواست‌های عضویت و ورود از اکسل">
               <FileUp size={22} />
             </button>
+            </span>
           )
         }
       />
@@ -78,7 +83,17 @@ export function AdminResidents({ buildingId: forced, readOnly }: { buildingId?: 
 
       {loading && !data && <Loading />}
       {error && <ErrorBlock message={error} retry={() => reload()} />}
-      {data && data.units.length === 0 && <EmptyState icon={Users} title="واحدی با این مشخصات نیست" tone="mute" />}
+      {data && data.counts.all === 0 && (
+        <div className="hm-card p-5 flex flex-col items-center gap-3 text-center">
+          <Building2 size={36} className="text-[var(--hm-pri)]" />
+          <p className="text-base font-bold">هنوز واحدی برای این ساختمان تعریف نشده</p>
+          <p className="text-xs leading-6 text-[var(--hm-t2)]">ابتدا واحدها را بسازید (مثلاً «۵ طبقه × ۴ واحد» با یک بار زدن)، سپس برای هر واحد ساکن ثبت کنید.</p>
+          <button className="hm-cta lg4-capsule px-5" onClick={() => setUnitsOpen(true)}>
+            ساخت واحدها
+          </button>
+        </div>
+      )}
+      {data && data.counts.all > 0 && data.units.length === 0 && <EmptyState icon={Users} title="واحدی با این مشخصات نیست" tone="mute" />}
       <div className="flex flex-col gap-2">
         {data?.units.map((u) =>
           u.category === 'vacant' ? (
@@ -121,15 +136,25 @@ export function AdminResidents({ buildingId: forced, readOnly }: { buildingId?: 
         </StickyCta>
       )}
 
+      <UnitsSheet
+        open={unitsOpen}
+        buildingId={buildingId}
+        onClose={() => setUnitsOpen(false)}
+        onDone={(msg) => {
+          setUnitsOpen(false)
+          toast(msg)
+          void reload(true)
+        }}
+      />
       <MethodsSheet
         open={methodsOpen}
         onClose={() => setMethodsOpen(false)}
         onPick={(i) => {
           setMethodsOpen(false)
           if (i === 0) setPicker('invite')
-          else if (i === 1) navigate('/admin/residents/new')
-          else if (i === 2) navigate('/admin/residents/requests?tab=qr')
-          else if (i === 3) navigate('/admin/residents/requests?tab=import')
+          else if (i === 1) navigate(sc.newResident)
+          else if (i === 2) navigate(`${sc.requests}?tab=qr`)
+          else if (i === 3) navigate(`${sc.requests}?tab=import`)
           else setPicker('swap')
         }}
       />
@@ -150,7 +175,7 @@ export function AdminResidents({ buildingId: forced, readOnly }: { buildingId?: 
         title="تغییر مستأجر · انتخاب واحد"
         units={(data?.units ?? []).filter((u) => u.category === 'tenant' || u.category === 'owner')}
         onClose={() => setPicker(null)}
-        onPick={(u) => navigate(`/admin/units/${u.id}/move-out?then=new`)}
+        onPick={(u) => navigate(`${sc.moveOut(u.id)}?then=new`)}
       />
       {toastNode}
     </div>
@@ -361,5 +386,72 @@ function InviteSheet({
         onCreated={() => onUnitsChanged?.()}
       />
     </>
+  )
+}
+
+/** ساخت واحد: «n طبقه × m واحد» یکجا، یا یک واحد با مشخصات */
+function UnitsSheet({ open, buildingId, onClose, onDone }: { open: boolean; buildingId: string; onClose: () => void; onDone: (msg: string) => void }) {
+  const [tab, setTab] = useState<'bulk' | 'one'>('bulk')
+  const [floors, setFloors] = useState('5')
+  const [per, setPer] = useState('4')
+  const [startFloor, setStartFloor] = useState('1')
+  const [no, setNo] = useState('')
+  const [floor, setFloor] = useState('')
+  const [area, setArea] = useState('')
+  const [err, setErr] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+  useEffect(() => {
+    if (open) setErr(null)
+  }, [open])
+  const n = (v: string) => Number(v.replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d))))
+  const total = n(floors) * n(per)
+
+  async function submit() {
+    setBusy(true)
+    setErr(null)
+    try {
+      if (tab === 'bulk') {
+        const r = await residentsApi.bulkUnits(buildingId, { floors: n(floors), units_per_floor: n(per), start_floor: n(startFloor) || 1 })
+        onDone(r.created ? `${fa(r.created)} واحد ساخته شد${r.skipped ? ` (${fa(r.skipped)} واحد از قبل بود)` : ''}` : 'همه‌ی این واحدها از قبل وجود داشتند')
+      } else {
+        await residentsApi.createUnit(buildingId, { unit_number: no.trim(), floor: floor ? n(floor) : undefined, area: area ? n(area) : undefined })
+        onDone(`واحد ${fa(no.trim())} ساخته شد`)
+        setNo('')
+      }
+    } catch (e) {
+      setErr(errText(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Sheet open={open} onClose={onClose} label="ساخت واحد">
+      <p className="mx-2 text-xl font-bold">ساخت واحد</p>
+      <p className="mx-2 mt-1 mb-3 text-sm text-[var(--hm-t2)]">شماره‌ها خودکار طبقه‌ای می‌شوند: طبقه ۳ ← ۳۰۱، ۳۰۲، …</p>
+      <Seg<'bulk' | 'one'> options={[['bulk', 'چند واحد یکجا'], ['one', 'یک واحد']]} value={tab} onChange={setTab} />
+      <div className="mt-3 flex flex-col gap-3">
+        {tab === 'bulk' ? (
+          <>
+            <FieldCard>
+              <Field label="تعداد طبقه" value={floors} onChange={setFloors} inputMode="numeric" />
+              <Field label="تعداد واحد در هر طبقه" value={per} onChange={setPer} inputMode="numeric" />
+              <Field label="شروع از طبقه" value={startFloor} onChange={setStartFloor} inputMode="numeric" />
+            </FieldCard>
+            <p className="text-xs text-[var(--hm-t2)] px-2">{total > 0 ? `${fa(total)} واحد ساخته می‌شود · واحدهای تکراری نادیده گرفته می‌شوند (حداکثر ۵۰۰ واحد در هر بار)` : ' '}</p>
+          </>
+        ) : (
+          <FieldCard>
+            <Field label="شماره واحد" value={no} onChange={setNo} placeholder="مثلاً ۴۰۲" inputMode="numeric" />
+            <Field label="طبقه (اختیاری)" value={floor} onChange={setFloor} inputMode="numeric" />
+            <Field label="متراژ (اختیاری)" value={area} onChange={setArea} inputMode="numeric" />
+          </FieldCard>
+        )}
+        {err && <p className="text-xs font-bold text-[var(--hm-bad)] px-2">{err}</p>}
+        <Cta onClick={submit} busy={busy} disabled={tab === 'bulk' ? !(total > 0) : !no.trim()}>
+          {tab === 'bulk' ? 'ساخت واحدها' : 'افزودن واحد'}
+        </Cta>
+      </div>
+    </Sheet>
   )
 }

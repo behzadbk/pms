@@ -1,4 +1,4 @@
-import type { ReactElement } from 'react'
+import { useEffect, type ReactElement } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { RoleProvider, useRole } from './context/RoleContext'
@@ -9,8 +9,10 @@ import { Onboarding, ONBOARDING_SEEN_KEY } from './pages/Onboarding'
 import { Settings } from './pages/shared/Settings'
 import { MoreScreen } from './components/Layout'
 import { PermissionsProvider, usePermissions } from './context/PermissionsContext'
+import { refreshStore, setStoreScope } from './lib/store'
 import type { AppModule } from './lib/api/residents'
 import { AdminResidents } from './pages/admin/residents/Residents'
+import { SuperAdminBuildingScope } from './lib/residentsScope'
 import { AdminResidentForm } from './pages/admin/residents/ResidentForm'
 import { AdminUnitFile } from './pages/admin/residents/UnitFile'
 import { AdminJoinRequests } from './pages/admin/residents/JoinRequests'
@@ -29,6 +31,8 @@ import { AdminFinance } from './pages/admin/Finance'
 import { AdminTickets } from './pages/admin/Tickets'
 import { AdminAnnouncements } from './pages/admin/Announcements'
 import { AmenityManager } from './pages/admin/AmenityManager'
+import { DebtorLock } from './components/DebtorLock'
+import { AdminRules } from './pages/admin/Rules'
 import { AdminAuditLog } from './pages/admin/AuditLog'
 import { AnnouncementsFeed } from './pages/shared/AnnouncementsFeed'
 import { AccountantDashboard } from './pages/accountant/Dashboard'
@@ -57,7 +61,6 @@ import { useHasPermission } from './lib/access'
 import type { StaffPermission } from './lib/staff'
 
 import { SuperAdminDashboard } from './pages/superadmin/Dashboard'
-import { SuperAdminTenants } from './pages/superadmin/Tenants'
 import { SuperAdminPlans } from './pages/superadmin/Plans'
 import { SuperAdminBilling } from './pages/superadmin/Billing'
 import { SuperAdminBuildings } from './pages/superadmin/Buildings'
@@ -136,6 +139,8 @@ function RequireModule({ module, children }: { module: AppModule; children: Reac
   const { visible, perms } = usePermissions()
   const { role } = useRole()
   if (perms && !visible(module)) return <Navigate to={`/${role}`} replace />
+  // قوانین برج: واحد بدهکار — بخش دیده می‌شود ولی بسته است
+  if (perms && perms.modules[module] === 'locked') return <DebtorLock debtor={perms.debtor} child={role === 'child'} />
   return children
 }
 
@@ -169,6 +174,7 @@ function AppRoutes() {
         <Route path="/admin/tickets" element={<RequireRole role="admin"><AdminTickets /></RequireRole>} />
         <Route path="/admin/announcements" element={<RequireRole role="admin"><AdminAnnouncements /></RequireRole>} />
         <Route path="/admin/reservations" element={<RequireRole role="admin"><AmenityManager /></RequireRole>} />
+        <Route path="/admin/rules" element={<RequireRole role="admin"><AdminRules /></RequireRole>} />
         <Route path="/admin/amenity-rules" element={<Navigate to="/admin/reservations?tab=setup" replace />} />
         {/* ساکنین (RESIDENTS.md §3) — صفحه‌ی قدیمی «واحدها» با پرونده‌ی واحد جایگزین شد */}
         <Route path="/admin/units" element={<Navigate to="/admin/residents" replace />} />
@@ -230,14 +236,32 @@ function AppRoutes() {
         <Route path="/super-admin" element={<RequireSuperAdmin><SuperAdminDashboard /></RequireSuperAdmin>} />
         <Route path="/super-admin/buildings" element={<RequireSuperAdmin><SuperAdminBuildings /></RequireSuperAdmin>} />
         <Route path="/super-admin/residents" element={<RequireSuperAdmin><SuperAdminResidents /></RequireSuperAdmin>} />
-        <Route path="/super-admin/residents/:id" element={<RequireSuperAdmin><SuperAdminBuildingResidents /></RequireSuperAdmin>} />
+        <Route path="/super-admin/residents/:id" element={<RequireSuperAdmin><SuperAdminBuildingScope /></RequireSuperAdmin>}>
+          <Route index element={<SuperAdminBuildingResidents />} />
+          <Route path="new" element={<AdminResidentForm />} />
+          <Route path="requests" element={<AdminJoinRequests />} />
+          <Route path="units/:unitId" element={<AdminUnitFile />} />
+          <Route path="units/:unitId/edit" element={<AdminResidentForm />} />
+          <Route path="units/:unitId/move-out" element={<AdminMoveOut />} />
+        </Route>
         <Route path="/super-admin/users/:id" element={<RequireSuperAdmin><SuperAdminUserFile /></RequireSuperAdmin>} />
-        <Route path="/super-admin/tenants" element={<RequireSuperAdmin><SuperAdminTenants /></RequireSuperAdmin>} />
+        <Route path="/super-admin/tenants" element={<Navigate to="/super-admin/buildings" replace />} />
         <Route path="/super-admin/plans" element={<RequireSuperAdmin><SuperAdminPlans /></RequireSuperAdmin>} />
         <Route path="/super-admin/billing" element={<RequireSuperAdmin><SuperAdminBilling /></RequireSuperAdmin>} />
       </Route>
     </Routes>
   )
+}
+
+/** استور داده‌ی پنل‌ها را به ساختمان واردشده وصل می‌کند (هر ساختمان جدا و تازه‌ساخته خام است) */
+function StoreScope({ children }: { children: ReactElement }) {
+  const { user } = useAuth()
+  const tenant = user?.tenantId ?? null
+  setStoreScope(tenant, false) // هم‌زمان با رندر، تا فرزندان از همان ساختمان بخوانند
+  useEffect(() => {
+    refreshStore()
+  }, [tenant])
+  return children
 }
 
 export default function App() {
@@ -247,7 +271,9 @@ export default function App() {
         <RoleProvider>
           <PermissionsProvider>
             <BrowserRouter>
-              <AppRoutes />
+              <StoreScope>
+                <AppRoutes />
+              </StoreScope>
             </BrowserRouter>
           </PermissionsProvider>
         </RoleProvider>

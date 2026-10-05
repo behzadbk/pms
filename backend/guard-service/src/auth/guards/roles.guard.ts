@@ -19,7 +19,11 @@ export class RolesGuard implements CanActivate {
     if (!requiredRoles || requiredRoles.length === 0) return true
 
     const { user } = context.switchToHttp().getRequest()
-    if (!user || !requiredRoles.includes(user.role)) {
+    // کارمندی که مدیر با بخش «امنیت» (security) ساخته نقش staff دارد و API ساخت نقش guard وجود ندارد؛
+    // پس کارمند دارای دسترسی security در این سرویس همان نگهبان حساب می‌شود.
+    const roles: string[] = user ? [user.role] : []
+    if (user?.role === 'staff' && Array.isArray(user.perms) && user.perms.includes('security')) roles.push('guard')
+    if (!user || !requiredRoles.some((r) => roles.includes(r))) {
       throw new ForbiddenException('نقش شما اجازه دسترسی به این عملیات را ندارد')
     }
     return true

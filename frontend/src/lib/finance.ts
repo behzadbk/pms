@@ -1,15 +1,12 @@
 import type { ChargeRec, DemoState, InvoiceRec } from './store'
 
 /**
- * موجودی افتتاحیه‌ی صندوق — موجودی فعلی = افتتاحیه + شارژهای وصول‌شده − فاکتورهای پرداخت‌شده.
- * (با داده‌ی نمونه، موجودی دقیقاً همان ۱۸۴٫۵ میلیون داشبورد قبلی می‌شود.)
+ * موجودی فعلی = موجودی اولیه (ورودی دستی/فایل حسابداری؛ ساختمان تازه ۰) + شارژهای وصول‌شده − فاکتورهای پرداخت‌شده.
  */
-export const OPENING_BALANCE = 199_250_000
-
-export function fundBalance(s: Pick<DemoState, 'charges' | 'invoices'>) {
+export function fundBalance(s: Pick<DemoState, 'charges' | 'invoices' | 'openingBalance'>) {
   const income = s.charges.filter((c) => c.status === 'paid').reduce((a, c) => a + c.total, 0)
   const expense = s.invoices.filter((i) => i.status === 'paid').reduce((a, i) => a + i.amount, 0)
-  return OPENING_BALANCE + income - expense
+  return (s.openingBalance ?? 0) + income - expense
 }
 
 export interface LedgerEntry {

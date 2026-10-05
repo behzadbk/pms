@@ -78,13 +78,12 @@ export function SuperAdminResidents() {
   )
 }
 
-/** فهرست ساکنین یک ساختمان از دید سوپرادمین (فقط‌خواندنی) */
+/** مدیریت کامل ساکنین یک ساختمان توسط سوپرادمین (ساخت واحد، ثبت/ویرایش/حذف ساکن) — همان صفحه‌های پنل مدیر */
 export function SuperAdminBuildingResidents() {
-  const { id = '' } = useParams()
   return (
     <div className="flex flex-col gap-3">
-      <PageHeader title="ساکنین ساختمان" sub="نمای سوپرادمین · برای ثبت و ویرایش از پنل مدیر همان ساختمان" back="/super-admin/residents" />
-      <AdminResidents buildingId={id} readOnly />
+      <PageHeader title="ساکنین ساختمان" sub="نمای سوپرادمین · دسترسی کامل ثبت، ویرایش و حذف" back="/super-admin/residents" />
+      <AdminResidents />
     </div>
   )
 }

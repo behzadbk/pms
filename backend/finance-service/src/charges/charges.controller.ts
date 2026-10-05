@@ -63,7 +63,7 @@ export class ChargesController {
   }
 
   /** پیش‌نمایش (dry-run) — هیچ چیزی ذخیره نمی‌شود */
-  @Roles('admin', 'accountant')
+  @Roles('accountant')
   @Post('charges/preview')
   preview(@Body() body: unknown, @CurrentUser() user: JwtPayload) {
     const b = parseIssue(body)
@@ -71,7 +71,7 @@ export class ChargesController {
   }
 
   /** صدور شارژ ماهانه با فرمول فعال. idempotent برای (واحد، دوره). */
-  @Roles('admin', 'accountant')
+  @Roles('accountant')
   @Post(['charges/generate', 'charges/generate-monthly'])
   async generate(@Body() body: unknown, @CurrentUser() user: JwtPayload) {
     const b = parseIssue(body)
@@ -81,14 +81,14 @@ export class ChargesController {
   }
 
   /** اجرای دستی بررسی معوقات/جریمه (همان کاری که job روزانه می‌کند) */
-  @Roles('admin', 'accountant')
+  @Roles('accountant')
   @Post('charges/run-overdue')
   runOverdue(@CurrentUser() user: JwtPayload) {
     return this.db.withTenant(user.tenant_id!, (client) => this.overdue.runForTenant(client, user.tenant_id!))
   }
 
   /** اصلاح یک شارژ (مبلغ پایه/سررسید/معافیت از جریمه/یادداشت) — فقط تا قبل از پرداخت */
-  @Roles('admin', 'accountant')
+  @Roles('accountant')
   @Patch('charges/:id')
   update(@Param('id', ParseUUIDPipe) id: string, @Body() body: unknown, @CurrentUser() user: JwtPayload) {
     const b = obj(body)
@@ -114,7 +114,7 @@ export class ChargesController {
   }
 
   /** ابطال شارژ اشتباه — فقط اگر پرداخت موفقی نداشته باشد */
-  @Roles('admin', 'accountant')
+  @Roles('accountant')
   @Delete('charges/:id')
   remove(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: JwtPayload) {
     return this.db.withTenant(user.tenant_id!, async (client) => {
@@ -132,7 +132,7 @@ export class ChargesController {
    * «ثبت پرداخت» دستی (نقدی / کارت‌به‌کارت / حواله / چک) — جایگزین درگاه وقتی درگاه آنلاین فعال نیست.
    * مبلغ همیشه کل شارژ (با جریمه‌ی فعلی) است؛ در گردش صندوق با روش و شماره پیگیری دیده می‌شود.
    */
-  @Roles('accountant', 'admin')
+  @Roles('accountant')
   @Post('charges/:id/payments/manual')
   manualPayment(@Param('id', ParseUUIDPipe) id: string, @Body() body: unknown, @CurrentUser() user: JwtPayload) {
     const b = obj(body)

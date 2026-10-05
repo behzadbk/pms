@@ -184,7 +184,7 @@ export interface OwnChildRequest {
   created_at: string
 }
 
-export type Access = 'hidden' | 'approval' | 'free' | 'view'
+export type Access = 'hidden' | 'approval' | 'free' | 'view' | 'locked'
 export type AppModule = 'finance' | 'food' | 'amenity' | 'guest' | 'ticket' | 'parcel' | 'notice' | 'assembly' | 'household' | 'emergency'
 export interface Permissions {
   kind: 'resident' | 'child' | 'caregiver' | 'owner_absent' | 'staff' | 'platform'
@@ -202,6 +202,10 @@ export interface Permissions {
   parent_name?: string | null
   pending_requests?: number
   preset?: string
+  /** واحد بدهکار (قوانین برج): روز تأخیر، مبلغ معوق و مهلت ساختمان؛ null = بدهکار نیست */
+  debtor?: { overdue_days: number; amount: number; grace_days: number } | null
+  /** شناسه‌ی مشاع‌هایی که برای این واحد بسته‌اند */
+  locked_amenities?: string[]
 }
 
 export interface InboxItem {
@@ -246,7 +250,10 @@ export interface Amenity {
   rule_text: string | null
   description?: string | null
   max_advance_days?: number
+  /** مشاعِ بسته برای واحد بدهکار */
+  locked?: boolean
 }
+export interface SlotLock { code: 'debtor_restricted'; overdue_days: number; message: string }
 export interface Slot { hour: number; label: string; start: string; end: string; status: 'free' | 'taken' | 'past' }
 export interface ReservationRow {
   id: string
@@ -262,8 +269,38 @@ export interface ReservationRow {
   requester: string | null
 }
 
+/** اطلاعات ورود ساکن: نام کاربری = موبایل، رمز اولیه = شماره واحد (password فقط هنگام ساخت/بازنشانی پر است) */
+export interface LoginCreds { username: string; password: string | null; created: boolean }
+
+/** قوانین برج */
+export interface RuleOption { key: string; label: string; hint?: string; id?: string; icon?: string | null }
+export interface BuildingRules {
+  debtor_grace_days: number
+  restrictions: Record<string, boolean>
+  configured: boolean
+  updated_at: string | null
+  modules: RuleOption[]
+  amenities: RuleOption[]
+  debtor_units_now: number
+}
+export interface UnitSpecs { unit_number?: string; floor?: number; area?: number; parking_count?: number; storage_no?: string }
+
 const I = '/identity'
 const F = '/facility'
+
+/**
+ * ساختمان فعال برای سوپرادمین: API ساکنین برای سوپرادمین به building_id نیاز دارد. صفحه‌های مدیر
+ * بدون تغییر برای سوپرادمین هم کار می‌کنند — لایه‌ی مسیر (SuperAdminBuildingScope) این مقدار را
+ * همزمان با رندر تنظیم می‌کند و همه‌ی درخواست‌های «واحد/ساکن» خودکار ?building_id= می‌گیرند.
+ * برای مدیر ساختمان همیشه null است (سرور خودش tenant را از توکن می‌داند).
+ */
+let scopeBuilding: string | null = null
+export const setBuildingScope = (id: string | null) => {
+  scopeBuilding = id
+}
+export const getBuildingScope = () => scopeBuilding
+const sc = (path: string) => (scopeBuilding ? `${path}${path.includes('?') ? '&' : '?'}building_id=${encodeURIComponent(scopeBuilding)}` : path)
+
 const qs = (o: Record<string, string | undefined>) => {
   const p = Object.entries(o).filter(([, v]) => v !== undefined && v !== '')
   return p.length ? '?' + p.map(([k, v]) => `${k}=${encodeURIComponent(v!)}`).join('&') : ''
@@ -272,25 +309,40 @@ const qs = (o: Record<string, string | undefined>) => {
 export const residentsApi = {
   // ── مدیر ──
   units: (buildingId: string, filter?: string, q?: string) => api.get<UnitsResponse>(`${I}/buildings/${buildingId}/units${qs({ filter, q })}`),
-  unit: (id: string) => api.get<UnitFile>(`${I}/units/${id}`),
+  unit: (id: string) => api.get<UnitFile>(sc(`${I}/units/${id}`)),
   /** ساخت دستی واحد(ها): unit_numbers می‌تواند چند شماره با فاصله/ویرگول باشد */
   createUnits: (buildingId: string, body: { unit_numbers: string; floor?: number; area?: number }) =>
-    api.post<{ created: { id: string; no: string }[]; skipped: string[] }>(`${I}/buildings/${buildingId}/units`, body),
-  addResident: (unitId: string, body: AddResidentBody) => api.post<{ membership_id: string; role: string; status: string }>(`${I}/units/${unitId}/residents`, body),
-  updateMembership: (id: string, body: Record<string, unknown>) => api.patch<UnitFile>(`${I}/memberships/${id}`, body),
-  invite: (unitId: string, phone: string) => api.post<{ membership_id: string; resent: boolean }>(`${I}/units/${unitId}/invite`, { phone }),
+    api.post<{ created: { id: string; no: string }[]; skipped: string[] }>(`${I}/buildings/${buildingId}/units/multi`, body),
+  addResident: (unitId: string, body: AddResidentBody) => api.post<{ membership_id: string; role: string; status: string; credentials?: LoginCreds | null }>(sc(`${I}/units/${unitId}/residents`), body),
+  updateMembership: (id: string, body: Record<string, unknown>) => api.patch<UnitFile>(sc(`${I}/memberships/${id}`), body),
+  invite: (unitId: string, phone: string) => api.post<{ membership_id: string; resent: boolean }>(sc(`${I}/units/${unitId}/invite`), { phone }),
   moveOutPreview: (unitId: string, date: string) =>
-    api.get<{ date: string; blockers: MoveOutBlockers; affected: { id: string; name: string; role: string }[] }>(`${I}/units/${unitId}/move-out${qs({ date })}`),
+    api.get<{ date: string; blockers: MoveOutBlockers; affected: { id: string; name: string; role: string }[] }>(sc(`${I}/units/${unitId}/move-out${qs({ date })}`)),
   moveOut: (unitId: string, date: string) =>
-    api.post<{ status: 'scheduled' | 'done'; blockers: MoveOutBlockers; affected: { name: string }[] }>(`${I}/units/${unitId}/move-out`, { date }),
+    api.post<{ status: 'scheduled' | 'done'; blockers: MoveOutBlockers; affected: { name: string }[] }>(sc(`${I}/units/${unitId}/move-out`), { date }),
   joinRequests: (buildingId: string) => api.get<JoinRequest[]>(`${I}/buildings/${buildingId}/join-requests`),
-  approve: (id: string) => api.post<{ status: string; name: string; requests: JoinRequest[] }>(`${I}/join-requests/${id}/approve`),
-  reject: (id: string, reason?: string) => api.post<{ requests: JoinRequest[] }>(`${I}/join-requests/${id}/reject`, { reason }),
-  transfer: (id: string, toUnitId?: string) => api.post<{ from_units: string[]; name: string; unit_no: string; requests: JoinRequest[] }>(`${I}/join-requests/${id}/transfer`, { to_unit_id: toUnitId }),
-  remindHead: (id: string) => api.post<{ head_name: string }>(`${I}/join-requests/${id}/remind-head`),
+  approve: (id: string) => api.post<{ status: string; name: string; requests: JoinRequest[] }>(sc(`${I}/join-requests/${id}/approve`)),
+  reject: (id: string, reason?: string) => api.post<{ requests: JoinRequest[] }>(sc(`${I}/join-requests/${id}/reject`), { reason }),
+  transfer: (id: string, toUnitId?: string) => api.post<{ from_units: string[]; name: string; unit_no: string; requests: JoinRequest[] }>(sc(`${I}/join-requests/${id}/transfer`), { to_unit_id: toUnitId }),
+  remindHead: (id: string) => api.post<{ head_name: string }>(sc(`${I}/join-requests/${id}/remind-head`)),
   lobbyQr: (buildingId: string) => api.get<{ token: string; url: string; building: string }>(`${I}/buildings/${buildingId}/lobby-qr`),
   importFile: (buildingId: string, file: File) => upload<ImportResult>(`${I}/buildings/${buildingId}/residents/import`, file),
   templatePath: (buildingId: string) => `${I}/buildings/${buildingId}/residents/import/template`,
+
+  /** رمز ساکن را به شماره‌ی واحد برمی‌گرداند (نام کاربری = موبایل) */
+  resetPassword: (membershipId: string) => api.post<{ username: string; password: string }>(sc(`${I}/memberships/${membershipId}/reset-password`)),
+
+  // ── واحدها، حذف ساکن، قوانین برج ──
+  createUnit: (buildingId: string, body: UnitSpecs & { unit_number: string }) => api.post<{ id: string; no: string }>(`${I}/buildings/${buildingId}/units`, body),
+  bulkUnits: (buildingId: string, body: { floors: number; units_per_floor: number; start_floor?: number; area?: number }) =>
+    api.post<{ created: number; skipped: number; total: number }>(`${I}/buildings/${buildingId}/units/bulk`, body),
+  updateUnit: (id: string, body: UnitSpecs) => api.patch<{ id: string; no: string }>(sc(`${I}/units/${id}`), body),
+  deleteUnit: (id: string) => api.delete<{ ok: boolean }>(sc(`${I}/units/${id}`)),
+  /** حذف ساکن = پایان عضویت با ردپا؛ پرونده‌ی تازه‌ی واحد برمی‌گردد */
+  removeResident: (membershipId: string) => api.delete<UnitFile>(sc(`${I}/memberships/${membershipId}`)),
+  rules: (buildingId: string) => api.get<BuildingRules>(`${I}/buildings/${buildingId}/rules`),
+  saveRules: (buildingId: string, body: { debtor_grace_days: number; restrictions: Record<string, boolean> }) =>
+    api.put<BuildingRules>(`${I}/buildings/${buildingId}/rules`, body),
 
   // ── سوپرادمین ──
   adminResidents: (q?: string, buildingId?: string) =>
@@ -347,7 +399,7 @@ export const residentsApi = {
 
   // ── رزرو مشاعات ──
   amenities: () => api.get<Amenity[]>(`${F}/amenities`),
-  slots: (amenityId: string, date: string) => api.get<{ amenity: Amenity; date: string; closed: string | null; slots: Slot[] }>(`${F}/amenities/${amenityId}/slots${qs({ date })}`),
+  slots: (amenityId: string, date: string) => api.get<{ amenity: Amenity; date: string; closed: string | null; lock?: SlotLock | null; slots: Slot[] }>(`${F}/amenities/${amenityId}/slots${qs({ date })}`),
   book: (body: { amenity_id: string; start: string; hours?: number; unit_id?: string }) =>
     api.post<{ id: string; status: 'pending' | 'confirmed' | 'pending_parent'; amenity: string; start_at: string; end_at: string }>(`${F}/reservations`, body),
   myReservations: () => api.get<ReservationRow[]>(`${F}/me/reservations`),

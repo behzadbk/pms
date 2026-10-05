@@ -67,6 +67,11 @@ export class OrdersService {
         if (lv < 2) throw new ForbiddenException('ثبت سفارش برای این حساب نیاز به تأیید والدین دارد')
       }
       if (['caregiver', 'owner_absent'].includes(m.role)) throw new ForbiddenException('سفارش غذا برای این نوع عضویت فعال نیست')
+      // قوانین برج: سفارش غذا برای واحد بدهکار بسته است (اگر مدیر این بخش را محدود کرده باشد)
+      const lock = await c.query<{ r: boolean }>(`SELECT residency.unit_restricted($1, 'module:food') AS r`, [m.unit_id])
+      if (lock.rows[0]?.r) {
+        throw new ForbiddenException({ statusCode: 403, code: 'debtor_restricted', message: 'سفارش غذا برای واحد شما به‌علت معوقه‌ی شارژ بسته است؛ پس از تسویه باز می‌شود.' })
+      }
 
       const vr = await c.query(`SELECT v.*, ${OPEN_NOW_SQL} AS open_now FROM fnb.venues v WHERE v.id = $1`, [dto.venue_id])
       const venue = vr.rows[0]
