@@ -3,6 +3,13 @@ import { Pool, PoolClient, types } from 'pg'
 import { HealthIndicatorResult, HealthCheckError } from '@nestjs/terminus'
 
 /**
+ * ستون DATE (oid 1082) را به‌صورت رشته‌ی ساده‌ی 'YYYY-MM-DD' برمی‌گردانیم، نه Date.
+ * pg به‌طور پیش‌فرض آن را در منطقه‌ی زمانی سرور به Date تبدیل می‌کرد و due_date/تاریخ‌ها
+ * روی سرورِ TZ=Asia/Tehran در JSON یک روز عقب (…T20:30:00.000Z) می‌رفت.
+ */
+types.setTypeParser(1082, (v: string) => v)
+
+/**
  * پیاده‌سازی واقعیِ الگوی Row-Level Security توضیح‌داده‌شده در
  * docs/ARCHITECTURE-SAAS.md بخش ۳ («تزریق tenant_id در هر Request»).
  *

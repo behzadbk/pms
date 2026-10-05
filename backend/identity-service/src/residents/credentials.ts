@@ -1,6 +1,6 @@
 import * as bcrypt from 'bcrypt'
+import { randomInt } from 'crypto'
 import type { PoolClient } from 'pg'
-import { toLatinDigits } from './phone'
 
 export interface LoginCredentials {
   username: string
@@ -15,20 +15,27 @@ export function usernameFromPhone(phone: string | null | undefined): string | nu
   return phone.startsWith('+98') ? '0' + phone.slice(3) : phone.replace('+', '')
 }
 
-/** رمز اولیه = شماره واحد (ارقام لاتین؛ مثلاً ۱۷۰۳ → 1703) */
-export function initialPassword(unitNumber: string): string {
-  return toLatinDigits(String(unitNumber)).trim()
+/** حروف و ارقامِ بدون ابهام (بدون 0/O و 1/l/I) تا رمز هنگام تحویل حضوری یا پیامکی اشتباه خوانده نشود */
+const PASSWORD_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789'
+
+/**
+ * رمز موقت تصادفی (۱۰ نویسه، با crypto.randomInt) — قبلاً رمز اولیه همان شماره‌ی واحد بود و حدس‌زدنش ساده بود.
+ * ساکن با پرچم must_change_password باید در اولین ورود رمز خودش را بگذارد.
+ */
+export function generateTempPassword(length = 10): string {
+  let out = ''
+  for (let i = 0; i < length; i++) out += PASSWORD_ALPHABET[randomInt(PASSWORD_ALPHABET.length)]
+  return out
 }
 
 /**
- * حساب ورود ساکن را (اگر نیست) می‌سازد: نام کاربری = موبایل، رمز = شماره واحد، با پرچم «باید رمز را عوض کند».
+ * حساب ورود ساکن را (اگر نیست) می‌سازد: نام کاربری = موبایل، رمز = رمز موقت تصادفی، با پرچم «باید رمز را عوض کند».
  * اگر شخص قبلاً حساب دارد (مثلاً از ساختمان/واحد دیگر یا با رمز خودش) دست‌نخورده می‌ماند.
  */
 export async function ensureLogin(
   client: PoolClient,
   tenantId: string,
   person: { id: string; name: string; phone: string | null },
-  unitNumber: string,
 ): Promise<LoginCredentials | null> {
   const username = usernameFromPhone(person.phone)
   if (!username) return null
@@ -39,7 +46,7 @@ export async function ensureLogin(
   if (existing.rowCount) return { username: existing.rows[0].username ?? username, password: null, created: false }
   const clash = await client.query(`SELECT 1 FROM identity.users WHERE tenant_id = $1 AND username = $2`, [tenantId, username])
   if (clash.rowCount) return null // نام کاربری برای حساب دیگری (مثلاً کارمند) گرفته شده
-  const password = initialPassword(unitNumber)
+  const password = generateTempPassword()
   const hash = await bcrypt.hash(password, 10)
   await client.query(
     `INSERT INTO identity.users (tenant_id, full_name, username, phone, password_hash, role, person_id, must_change_password)
@@ -49,9 +56,9 @@ export async function ensureLogin(
   return { username, password, created: true }
 }
 
-/** بازنشانی رمز به شماره واحد (مدیر) — نشست‌های قبلی قطع می‌شود */
-export async function resetToUnitPassword(client: PoolClient, tenantId: string, personId: string, unitNumber: string): Promise<{ username: string; password: string } | null> {
-  const password = initialPassword(unitNumber)
+/** بازنشانی رمز به یک رمز موقت تازه (مدیر) — نشست‌های قبلی قطع می‌شود */
+export async function resetToTempPassword(client: PoolClient, tenantId: string, personId: string): Promise<{ username: string; password: string } | null> {
+  const password = generateTempPassword()
   const hash = await bcrypt.hash(password, 10)
   const r = await client.query<{ username: string }>(
     `UPDATE identity.users SET password_hash = $3, must_change_password = true, is_active = true,

@@ -15,7 +15,7 @@ import {
   upsertPerson,
 } from './residency.repo'
 import { displayPhone, normalizePhone } from './phone'
-import { ensureLogin, resetToUnitPassword } from './credentials'
+import { ensureLogin, resetToTempPassword } from './credentials'
 import { formatJalali } from './jalali'
 import { RESIDENCY_LABEL, ROLE_LABEL, ageFromBirthYear, fa } from './residents.constants'
 import type { AddResidentDto, CreateUnitsDto, InviteDto, UpdateMembershipDto } from './dto/residents.dto'
@@ -351,8 +351,8 @@ export class ManagerService {
       unit_id: unitId,
       after: { role, residency: dto.residency, status, pays_charge: paysCharge, channel },
     })
-    // حساب ورود: نام کاربری = موبایل، رمز اولیه = شماره واحد (ساکن از «تنظیمات» عوضش می‌کند)
-    const credentials = await ensureLogin(client, tenantId, person, unit.unit_number)
+    // حساب ورود: نام کاربری = موبایل، رمز اولیه = رمز موقت تصادفی (ساکن از «تنظیمات» عوضش می‌کند)
+    const credentials = await ensureLogin(client, tenantId, person)
     return {
       membership_id: membershipId,
       user_id: person.id,
@@ -380,19 +380,19 @@ export class ManagerService {
     return rest as Omit<T, '_token'>
   }
 
-  /** بازنشانی رمز ساکن به شماره‌ی واحد (مدیر) — ساکن باید در اولین ورود عوضش کند */
+  /** بازنشانی رمز ساکن به رمز موقت تصادفی تازه (مدیر) — ساکن باید در اولین ورود عوضش کند */
   async resetPassword(tenantId: string, membershipId: string, ctx: RequestCtx) {
     return this.db.withTenant(tenantId, async (client) => {
       const m = await getMembershipOr404(client, membershipId)
-      const unit = await getUnitOr404(client, m.unit_id)
+      await getUnitOr404(client, m.unit_id)
       const person = (await client.query<{ id: string; name: string; phone: string | null }>(`SELECT id, name, phone FROM residency.users WHERE id = $1`, [m.user_id])).rows[0]
-      let creds = await resetToUnitPassword(client, tenantId, person.id, unit.unit_number)
+      let creds = await resetToTempPassword(client, tenantId, person.id)
       if (!creds) {
-        const c = await ensureLogin(client, tenantId, person, unit.unit_number)
+        const c = await ensureLogin(client, tenantId, person)
         creds = c?.password ? { username: c.username, password: c.password } : null
       }
       if (!creds) throw new BadRequestException('برای این شخص شماره موبایل ثبت نشده یا نام کاربری آن برای حساب دیگری است')
-      await writeAudit(client, tenantId, ctx, 'password.reset', { summary: `رمز ${person.name} به شماره‌ی واحد ${unit.unit_number} بازنشانی شد`, subject_user_id: person.id, membership_id: membershipId, unit_id: m.unit_id })
+      await writeAudit(client, tenantId, ctx, 'password.reset', { summary: `رمز ${person.name} بازنشانی شد (رمز موقت تازه)`, subject_user_id: person.id, membership_id: membershipId, unit_id: m.unit_id })
       return creds
     })
   }
