@@ -52,6 +52,7 @@ export class ChargesController {
       const formulaRes = await client.query(`SELECT * FROM finance.charge_formulas WHERE id = $1`, [body.formulaId])
       const formula = formulaRes.rows[0]
       if (!formula) throw new NotFoundException('فرمول شارژ یافت نشد')
+      if (formula.is_active === false) throw new BadRequestException('این فرمول غیرفعال است')
 
       const units = await this.propertyClient.listUnitsByTenant(tenantId)
 

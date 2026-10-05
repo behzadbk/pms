@@ -1,5 +1,8 @@
 import { Injectable, OnModuleDestroy } from '@nestjs/common'
-import { Pool, PoolClient } from 'pg'
+import { Pool, PoolClient, types } from 'pg'
+
+// ستون DATE (oid 1082) بدون تبدیل به Date برگردد تا منطقه‌ی زمانی سرور یک روز جابه‌جایی نسازد
+types.setTypeParser(1082, (v: string) => v)
 import { HealthIndicatorResult, HealthCheckError } from '@nestjs/terminus'
 
 /**
