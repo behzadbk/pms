@@ -4,6 +4,8 @@ import { DatabaseService } from '../database/database.service'
 import { EventsService } from '../events/events.service'
 import { CreateStaffDto, UpdateStaffDto } from './dto/staff.dto'
 import { effectivePermissions } from './staff.constants'
+import { passwordPolicyError } from '../auth/password.util'
+import { BadRequestException } from '@nestjs/common'
 
 interface StaffRow {
   id: string
@@ -75,14 +77,16 @@ export class StaffService {
   }
 
   async create(tenantId: string, dto: CreateStaffDto, actorId: string) {
+    const bad = passwordPolicyError(dto.password, [dto.username, dto.phone, dto.nationalId])
+    if (bad) throw new BadRequestException(bad)
     const hash = await bcrypt.hash(dto.password, 10)
     const row = await this.db
       .withTenant(tenantId, async (client) => {
         const res = await client.query<StaffRow>(
           `INSERT INTO identity.users
              (tenant_id, full_name, username, email, password_hash, role, phone, national_id,
-              department, permissions, profile, is_active)
-           VALUES ($1, $2, $3, $4, $5, 'staff', $6, $7, $8, $9, $10, $11)
+              department, permissions, profile, is_active, must_change_password)
+           VALUES ($1, $2, $3, $4, $5, 'staff', $6, $7, $8, $9, $10, $11, true)
            RETURNING ${COLUMNS}`,
           [
             tenantId,
@@ -121,7 +125,14 @@ export class StaffService {
     if (dto.permissions !== undefined) set('permissions', dto.permissions)
     if (dto.profile !== undefined) set('profile', JSON.stringify(dto.profile))
     if (dto.isActive !== undefined) set('is_active', dto.isActive)
-    if (dto.password) set('password_hash', await bcrypt.hash(dto.password, 10))
+    if (dto.password) {
+      const bad = passwordPolicyError(dto.password, [dto.username, dto.phone])
+      if (bad) throw new BadRequestException(bad)
+      set('password_hash', await bcrypt.hash(dto.password, 10))
+      // رمزی که مدیر تعیین/بازنشانی می‌کند موقت است: کارمند در اولین ورود باید عوضش کند
+      set('must_change_password', true)
+      set('sessions_valid_after', new Date())
+    }
 
     const row = await this.db
       .withTenant(tenantId, async (client) => {

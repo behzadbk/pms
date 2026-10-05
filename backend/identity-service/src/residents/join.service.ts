@@ -1,5 +1,6 @@
 import { BadRequestException, ConflictException, GoneException, Injectable, NotFoundException } from '@nestjs/common'
 import * as bcrypt from 'bcrypt'
+import { passwordPolicyError } from '../auth/password.util'
 import * as ExcelJS from 'exceljs'
 import type { PoolClient } from 'pg'
 import { DatabaseService } from '../database/database.service'
@@ -330,7 +331,6 @@ export class JoinService {
     if (invite.used_at) throw new GoneException('این لینک قبلاً استفاده شده است')
     if (invite.revoked_at) throw new GoneException('این دعوت لغو شده است')
     if (new Date(invite.expires_at) <= new Date()) throw new GoneException('اعتبار لینک دعوت (۷ روز) تمام شده است؛ از مدیر بخواهید دوباره ارسال کند')
-    const hash = await bcrypt.hash(password, 10)
     return this.db.withTenant(tenant.id, async (client) => {
       const m = await getMembershipOr404(client, invite.membership_id)
       if (m.status !== 'invited') throw new ConflictException('این دعوت دیگر معتبر نیست')
@@ -340,6 +340,11 @@ export class JoinService {
       }
       const p = (await client.query<{ name: string; phone: string | null }>(`SELECT name, phone FROM residency.users WHERE id = $1`, [m.user_id])).rows[0]
       if (p.name === 'دعوت‌شده') throw new BadRequestException('نام و نام خانوادگی را وارد کنید')
+      // رمز را خود ساکن می‌گذارد؛ نباید از روی شماره‌ی واحد/موبایل قابل حدس باشد
+      const unitNo = (await getUnitOr404(client, m.unit_id)).unit_number
+      const weak = passwordPolicyError(password, [p.phone?.replace(/^\+98/, '0'), p.phone?.replace(/^\+98/, ''), String(unitNo).length >= 3 ? unitNo : null])
+      if (weak) throw new BadRequestException(weak)
+      const hash = await bcrypt.hash(password, 10)
       await client.query(`UPDATE residency.invites SET used_at = now() WHERE id = $1`, [invite.id])
       await client.query(`UPDATE residency.memberships SET status = 'active', updated_at = now() WHERE id = $1`, [m.id])
       // حساب ورود در همین مجتمع: نام کاربری = شماره موبایل (۰۹…)

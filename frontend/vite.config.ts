@@ -9,7 +9,7 @@ import { VitePWA } from 'vite-plugin-pwa'
  * مسیر عیناً به سرویس مقصد فرستاده می‌شود). همین نگاشت را اینجا برای dev سرور تکرار
  * می‌کنیم تا بدون نیاز به Nginx/Ingress محلی، `npm run dev` مستقیماً به سرویس‌هایی که
  * روی پورت‌های خودشان (`npm run start:dev` در backend/<service>) در حال اجرا هستند وصل شود.
- * notification-service (۳۰۰۶) عمداً اینجا نیست — endpoint عمومی ندارد (فقط مصرف‌کننده صف داخلی).
+ * notification-service (۳۰۰۶): اشتراک Web Push (/api/notification/push/*).
  */
 const serviceProxy = {
   identity: 3001,
@@ -17,6 +17,7 @@ const serviceProxy = {
   facility: 3003,
   finance: 3004,
   guard: 3005,
+  notification: 3006,
   audit: 3007,
   fnb: 3008,
 } as const
@@ -69,6 +70,8 @@ export default defineConfig(({ mode }) => ({
         // اپ نصب‌شده (حتی با اینترنت وصل) صفحه‌ی «آفلاین هستید» نشان دهد. پوسته‌ی SPA درست است.
         navigateFallback: '/index.html',
         navigateFallbackDenylist: [/^\/api\//],
+        // دریافت و کلیک اعلان‌های Web Push (public/push-sw.js)
+        importScripts: ['push-sw.js'],
         runtimeCaching: [
           {
             // درخواست‌های GET به API — تازه‌ترین داده وقتی آنلاین، fallback به کش وقتی آفلاین

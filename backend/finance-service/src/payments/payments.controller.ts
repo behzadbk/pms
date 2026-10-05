@@ -1,28 +1,31 @@
 import {
-  BadGatewayException,
+  BadRequestException,
   Body,
+  ConflictException,
   Controller,
   Get,
   Headers,
-  Logger,
   NotFoundException,
   Param,
   ParseUUIDPipe,
   Post,
   Query,
   Res,
-  ConflictException,
   ServiceUnavailableException,
   UnauthorizedException,
+  BadGatewayException,
+  Logger,
 } from '@nestjs/common'
-import type { Response } from 'express'
 import { createHmac, randomUUID, timingSafeEqual } from 'crypto'
+import type { Response } from 'express'
 import { DatabaseService } from '../database/database.service'
 import { CurrentUser, JwtPayload } from '../auth/decorators/current-user.decorator'
-import { Public } from '../auth/decorators/public.decorator'
-import { EventsService } from '../events/events.service'
 import { Roles } from '../auth/decorators/roles.decorator'
-import { UNIT_ID_RE, assertUnitAccess } from '../common/unit-access'
+import { Public } from '../auth/decorators/public.decorator'
+import { FINANCE_ACCESS_SQL } from '../billing/notify'
+import { PaymentsService } from './payments.service'
+import { resolveGateway } from './gateway'
+import { periodLabel } from '../common/jalali'
 
 interface InitiateBody {
   chargeId: string
@@ -30,149 +33,117 @@ interface InitiateBody {
 }
 
 /**
- * جریان پرداخت شارژ — docs/SPEC.md بخش ۴.۱. درگاه واقعی زرین‌پال (API نسخه‌ی ۴):
- *   initiate → POST /pg/v4/payment/request.json → authority → ریدایرکت کاربر به StartPay
- *   callback → GET برگشت از درگاه → POST /pg/v4/payment/verify.json → ثبت پرداخت و بستن شارژ
- * پیکربندی (env): ZARINPAL_MERCHANT_ID (الزامی)، ZARINPAL_SANDBOX=true (آزمایشی)،
- * PAYMENT_CALLBACK_BASE (مثلاً https://pms.example.ir/api/finance)، APP_PUBLIC_URL (مقصد بعد از پرداخت).
- * بدون ZARINPAL_MERCHANT_ID پرداخت آنلاین «پیکربندی نشده» (۵۰۳) می‌دهد؛ لینک ساختگی ساخته نمی‌شود.
+ * جریان پرداخت آنلاین شارژ — docs/SPEC.md بخش ۴.۱.
+ *  - درگاه واقعی/سندباکس (زرین‌پال) فقط با ZARINPAL_MERCHANT_ID فعال است؛ بدون آن هیچ «موفقیت ساختگی»ای
+ *    وجود ندارد: initiate با ۵۰۳ و پیام روشن رد می‌شود و ساکن باید از «ثبت پرداخت دستی» حسابداری استفاده کند.
+ *  - تأیید نهایی همیشه با verify خود درگاه انجام می‌شود (نه اعتماد به پارامترهای callback).
  */
 @Controller('payments')
 export class PaymentsController {
-  private readonly logger = new Logger(PaymentsController.name)
+  private readonly log = new Logger(PaymentsController.name)
 
-  constructor(
-    private readonly db: DatabaseService,
-    private readonly events: EventsService,
-  ) {}
+  constructor(private readonly db: DatabaseService, private readonly payments: PaymentsService) {}
 
-  private zarinpal() {
-    const merchant = process.env.ZARINPAL_MERCHANT_ID
-    const callbackBase = process.env.PAYMENT_CALLBACK_BASE
-    if (!merchant || !callbackBase) {
-      throw new ServiceUnavailableException('درگاه پرداخت آنلاین برای این ساختمان پیکربندی نشده است؛ با مدیر تماس بگیرید')
-    }
-    const host = process.env.ZARINPAL_SANDBOX === 'true' ? 'https://sandbox.zarinpal.com' : 'https://payment.zarinpal.com'
-    return { merchant, host, callbackBase: callbackBase.replace(/\/$/, '') }
+  /** آیا پرداخت آنلاین پیکربندی شده؟ (برای نمایش/مخفی‌کردن دکمه‌ی پرداخت در UI) */
+  @Get('gateway')
+  gateway() {
+    const g = resolveGateway('zarinpal')
+    return { online: !!g, gateway: g?.name ?? null, sandbox: g?.sandbox ?? false }
   }
 
-  private async zpCall<T>(host: string, path: string, body: Record<string, unknown>): Promise<{ data?: T; errors?: unknown }> {
-    try {
-      const res = await fetch(`${host}/pg/v4/payment/${path}.json`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json', accept: 'application/json' },
-        body: JSON.stringify(body),
-        signal: AbortSignal.timeout(15_000),
-      })
-      return (await res.json()) as { data?: T; errors?: unknown }
-    } catch (err) {
-      this.logger.error(`تماس با زرین‌پال ناموفق: ${(err as Error).message}`)
-      throw new BadGatewayException('اتصال به درگاه پرداخت برقرار نشد؛ کمی بعد دوباره تلاش کنید')
-    }
-  }
-
-  @Roles('resident', 'admin', 'accountant')
+  @Roles('resident')
   @Post('initiate')
-  async initiate(
-    @Body() body: InitiateBody,
-    @Headers('idempotency-key') idempotencyKey: string | undefined,
-    @CurrentUser() user: JwtPayload,
-  ) {
+  async initiate(@Body() body: InitiateBody, @Headers('idempotency-key') idempotencyKey: string | undefined, @CurrentUser() user: JwtPayload) {
     const tenantId = user.tenant_id!
+    if (!body?.chargeId || !/^[0-9a-f-]{36}$/i.test(body.chargeId)) throw new BadRequestException('شناسه‌ی شارژ نامعتبر است')
+    const gw = resolveGateway(body.gateway)
+    if (!gw) {
+      throw new ServiceUnavailableException('درگاه پرداخت آنلاین برای این ساختمان فعال نیست. لطفاً مبلغ را به‌صورت کارت‌به‌کارت/نقدی پرداخت کنید تا حسابداری «ثبت پرداخت» را انجام دهد.')
+    }
     const key = idempotencyKey ?? randomUUID()
-    if (!UNIT_ID_RE.test(body?.chargeId ?? '')) throw new NotFoundException('شارژ یافت نشد')
-    const zp = this.zarinpal()
 
     return this.db.withTenant(tenantId, async (client) => {
-      // idempotency: اگر این کلید قبلاً استفاده شده، همان رکورد قبلی برگردانده می‌شود
-      // (جلوگیری از پرداخت دوباره در صورت retry شبکه‌ای از سمت کلاینت)
       const existing = await client.query(`SELECT * FROM finance.payments WHERE idempotency_key = $1`, [key])
-      if (existing.rows[0]) {
-        const e = existing.rows[0]
-        return { ...e, redirectUrl: e.gateway_ref_id ? `${zp.host}/pg/StartPay/${e.gateway_ref_id}` : null }
-      }
+      if (existing.rows[0]) return existing.rows[0]
 
-      const chargeRes = await client.query(`SELECT * FROM finance.monthly_charges WHERE id = $1`, [body.chargeId])
+      const chargeRes = await client.query(
+        `SELECT c.* FROM finance.monthly_charges c
+          WHERE c.id = $1 AND EXISTS (SELECT 1 FROM residency.memberships m WHERE m.unit_id = c.unit_id AND m.user_id = $2 AND ${FINANCE_ACCESS_SQL})`,
+        [body.chargeId, user.pid ?? null],
+      )
       const charge = chargeRes.rows[0]
       if (!charge) throw new NotFoundException('شارژ یافت نشد')
-      await assertUnitAccess(client, user, charge.unit_id)
       if (charge.status === 'paid') throw new ConflictException('این شارژ قبلاً پرداخت شده است')
 
-      const paymentId = randomUUID()
-      const callbackUrl = `${zp.callbackBase}/payments/callback/zarinpal/${tenantId}/${paymentId}`
-      const reply = await this.zpCall<{ code: number; authority: string }>(zp.host, 'request', {
-        merchant_id: zp.merchant,
-        amount: Number(charge.total_amount),
-        currency: 'IRT',
-        description: `شارژ ${String(charge.period)}`,
-        callback_url: callbackUrl,
-      })
-      const authority = reply.data?.authority
-      if (reply.data?.code !== 100 || !authority) {
-        this.logger.warn(`زرین‌پال درخواست را نپذیرفت: ${JSON.stringify(reply.errors ?? reply.data)}`)
-        throw new BadGatewayException('درگاه پرداخت درخواست را نپذیرفت؛ دوباره تلاش کنید')
-      }
-
-      const res = await client.query(
-        `INSERT INTO finance.payments (id, tenant_id, monthly_charge_id, amount, gateway, gateway_ref_id, status, idempotency_key)
-         VALUES ($1, $2, $3, $4, 'zarinpal', $5, 'initiated', $6) RETURNING *`,
-        [paymentId, tenantId, body.chargeId, charge.total_amount, authority, key],
+      const ins = await client.query(
+        `INSERT INTO finance.payments (tenant_id, monthly_charge_id, amount, gateway, status, idempotency_key, method)
+         VALUES ($1, $2, $3, $4, 'initiated', $5, 'online') RETURNING *`,
+        [tenantId, charge.id, charge.total_amount, gw.name, key],
       )
-      return { ...res.rows[0], redirectUrl: `${zp.host}/pg/StartPay/${authority}` }
+      const payment = ins.rows[0]
+      const base = (process.env.PAYMENT_CALLBACK_BASE ?? '').replace(/\/$/, '')
+      if (!base) throw new ServiceUnavailableException('آدرس بازگشت درگاه (PAYMENT_CALLBACK_BASE) تنظیم نشده است')
+      try {
+        const r = await gw.request({
+          amount: charge.total_amount,
+          description: `شارژ ${periodLabel(charge.period)}`,
+          callbackUrl: `${base}/payments/callback/${gw.name}/${tenantId}/${payment.id}`,
+          metadata: { charge_id: charge.id },
+        })
+        await client.query(`UPDATE finance.payments SET gateway_ref_id = $2 WHERE id = $1`, [payment.id, r.authority])
+        return { ...payment, gateway_ref_id: r.authority, redirectUrl: r.redirectUrl }
+      } catch (e) {
+        this.log.warn(`gateway request failed: ${(e as Error).message}`)
+        await client.query(`UPDATE finance.payments SET status = 'failed' WHERE id = $1`, [payment.id])
+        throw new BadGatewayException('اتصال به درگاه پرداخت برقرار نشد؛ کمی بعد دوباره تلاش کنید')
+      }
     })
   }
 
-  /**
-   * برگشت کاربر از درگاه زرین‌پال (GET، بدون JWT چون مرورگر کاربر از درگاه برمی‌گردد).
-   * اعتبار پرداخت فقط با «verify» خود زرین‌پال (authority + مبلغ ذخیره‌شده در دیتابیس) تأیید می‌شود،
-   * نه با پارامترهای URL. سپس کاربر به صفحه‌ی شارژها هدایت می‌شود.
-   */
+  /** بازگشت کاربر از درگاه (GET) — بدون JWT؛ تأیید با verify درگاه و سپس ریدایرکت به UI */
   @Public()
-  @Get('callback/zarinpal/:tenantId/:paymentId')
-  async zarinpalCallback(
+  @Get('callback/:gateway/:tenantId/:paymentId')
+  async callback(
+    @Param('gateway') gateway: string,
     @Param('tenantId', ParseUUIDPipe) tenantId: string,
     @Param('paymentId', ParseUUIDPipe) paymentId: string,
     @Query('Authority') authority: string | undefined,
     @Query('Status') status: string | undefined,
     @Res() res: Response,
   ) {
-    const zp = this.zarinpal()
-    const back = (result: 'success' | 'failed') => res.redirect(302, `${(process.env.APP_PUBLIC_URL ?? zp.callbackBase.replace(/\/api\/.*$/, '')).replace(/\/$/, '')}/resident/charges?payment=${result}`)
-
-    const verdict = await this.db.withTenant(tenantId, async (client) => {
-      const payment = (await client.query(`SELECT * FROM finance.payments WHERE id = $1 AND gateway = 'zarinpal' FOR UPDATE`, [paymentId])).rows[0]
-      if (!payment) throw new NotFoundException('پرداخت یافت نشد')
-      if (payment.status === 'success') return 'success' as const
-      if (payment.status === 'failed') return 'failed' as const
-      if (status !== 'OK' || !authority || authority !== payment.gateway_ref_id) {
-        await client.query(`UPDATE finance.payments SET status = 'failed' WHERE id = $1`, [paymentId])
-        return 'failed' as const
-      }
-      const v = await this.zpCall<{ code: number; ref_id?: number }>(zp.host, 'verify', { merchant_id: zp.merchant, amount: Number(payment.amount), authority })
-      if (v.data?.code !== 100 && v.data?.code !== 101) {
-        await client.query(`UPDATE finance.payments SET status = 'failed' WHERE id = $1`, [paymentId])
-        return 'failed' as const
-      }
-      await client.query(`UPDATE finance.payments SET status = 'success', paid_at = now(), gateway_ref_id = COALESCE($2, gateway_ref_id) WHERE id = $1`, [paymentId, authority])
-      await client.query(`UPDATE finance.monthly_charges SET status = 'paid', paid_at = now(), pay_method = 'درگاه آنلاین' WHERE id = $1`, [payment.monthly_charge_id])
-      this.events.publish('payment.succeeded', { paymentId, chargeId: payment.monthly_charge_id, refId: v.data?.ref_id ?? null }, tenantId)
-      return 'success' as const
-    })
-    return back(verdict)
+    const back = process.env.PAYMENT_RETURN_URL ?? '/resident/charges'
+    const redirect = (ok: boolean) => res.redirect(302, `${back}${back.includes('?') ? '&' : '?'}pay=${ok ? 'success' : 'failed'}`)
+    const gw = resolveGateway(gateway)
+    if (!gw) return redirect(false)
+    try {
+      const ok = await this.db.withTenant(tenantId, async (client) => {
+        const p = await client.query(`SELECT * FROM finance.payments WHERE id = $1 FOR UPDATE`, [paymentId])
+        const payment = p.rows[0]
+        if (!payment || payment.gateway !== gw.name || !authority || payment.gateway_ref_id !== authority) return false
+        if (payment.status === 'success') return true
+        if (status !== 'OK') {
+          await client.query(`UPDATE finance.payments SET status = 'failed' WHERE id = $1 AND status = 'initiated'`, [paymentId])
+          return false
+        }
+        const v = await gw.verify({ authority, amount: payment.amount })
+        if (!v.ok) {
+          await client.query(`UPDATE finance.payments SET status = 'failed' WHERE id = $1 AND status = 'initiated'`, [paymentId])
+          return false
+        }
+        await this.payments.settle(client, tenantId, paymentId, { method: 'online', refId: v.refId })
+        return true
+      })
+      return redirect(ok)
+    } catch (e) {
+      this.log.warn(`callback failed: ${(e as Error).message}`)
+      return redirect(false)
+    }
   }
 
   /**
-   * Webhook/callback درگاه — بدون JWT کاربر (خود درگاه صدا می‌زند).
-   *
-   * دو باگ نسخه‌ی قبل برطرف شده:
-   *  ۱) امنیتی: هیچ امضایی بررسی نمی‌شد؛ هر کسی با داشتن paymentId می‌توانست شارژ را «پرداخت‌شده» کند.
-   *     اکنون هدر X-Webhook-Signature = HMAC-SHA256(PAYMENT_WEBHOOK_SECRET, "<tenantId>:<paymentId>:<success>")
-   *     الزامی است و بدون تنظیم PAYMENT_WEBHOOK_SECRET این Endpoint کلاً غیرفعال است.
-   *  ۲) عملکردی: جستجو با withPlatformAccess روی نقش app_user انجام می‌شد که RLS برایش FORCE است؛
-   *     پس پرداخت هیچ‌وقت پیدا نمی‌شد (همیشه 404). اکنون tenantId در مسیر callback می‌آید و
-   *     جستجو داخل withTenant انجام می‌شود.
-   *
-   * این مسیر برای اطلاع‌رسانی امضاشده‌ی سرور به سرور (درگاه‌های دیگر) است؛ مسیر زرین‌پال همان callback بالاست.
+   * Webhook امضادار برای درگاه‌هایی که server-to-server اعلام می‌کنند.
+   * X-Webhook-Signature = HMAC-SHA256(PAYMENT_WEBHOOK_SECRET, "<tenantId>:<paymentId>:<success>")؛
+   * بدون تنظیم PAYMENT_WEBHOOK_SECRET کل endpoint غیرفعال است.
    */
   @Public()
   @Post('webhook/:gateway/:tenantId')
@@ -184,40 +155,21 @@ export class PaymentsController {
   ) {
     const secret = process.env.PAYMENT_WEBHOOK_SECRET
     if (!secret) throw new ServiceUnavailableException('webhook پرداخت پیکربندی نشده است')
-    const expected = createHmac('sha256', secret)
-      .update(`${tenantId}:${body?.paymentId}:${body?.success === true}`)
-      .digest('hex')
+    const expected = createHmac('sha256', secret).update(`${tenantId}:${body?.paymentId}:${body?.success === true}`).digest('hex')
     const given = Buffer.from(signature ?? '', 'utf8')
     const want = Buffer.from(expected, 'utf8')
-    if (given.length !== want.length || !timingSafeEqual(given, want)) {
-      throw new UnauthorizedException('امضای webhook نامعتبر است')
-    }
+    if (given.length !== want.length || !timingSafeEqual(given, want)) throw new UnauthorizedException('امضای webhook نامعتبر است')
 
     return this.db.withTenant(tenantId, async (client) => {
-      const paymentRes = await client.query(`SELECT * FROM finance.payments WHERE id = $1 FOR UPDATE`, [
-        body.paymentId,
-      ])
+      const paymentRes = await client.query(`SELECT * FROM finance.payments WHERE id = $1 FOR UPDATE`, [body.paymentId])
       const payment = paymentRes.rows[0]
       if (!payment || payment.gateway !== gateway) throw new NotFoundException('پرداخت یافت نشد')
-
-      // idempotent: فراخوانی تکراری درگاه وضعیت نهایی را عوض نمی‌کند
-      if (payment.status === 'success' || payment.status === 'failed') {
-        return { status: payment.status }
-      }
-
+      if (payment.status === 'success' || payment.status === 'failed') return { status: payment.status }
       if (body.success !== true) {
         await client.query(`UPDATE finance.payments SET status = 'failed' WHERE id = $1`, [body.paymentId])
         return { status: 'failed' }
       }
-
-      await client.query(`UPDATE finance.payments SET status = 'success', paid_at = now() WHERE id = $1`, [
-        body.paymentId,
-      ])
-      await client.query(`UPDATE finance.monthly_charges SET status = 'paid', paid_at = now(), pay_method = 'درگاه آنلاین' WHERE id = $1`, [
-        payment.monthly_charge_id,
-      ])
-
-      this.events.publish('payment.succeeded', { paymentId: payment.id, chargeId: payment.monthly_charge_id }, tenantId)
+      await this.payments.settle(client, tenantId, body.paymentId, { method: 'online' })
       return { status: 'success' }
     })
   }

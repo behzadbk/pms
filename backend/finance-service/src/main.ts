@@ -1,10 +1,13 @@
 import { HttpAdapterHost, NestFactory } from '@nestjs/core'
 import { ValidationPipe, Logger } from '@nestjs/common'
+import { NestExpressApplication } from '@nestjs/platform-express'
 import { AppModule } from './app.module'
 import { PgExceptionFilter } from './common/pg-exception.filter'
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule)
+  const app = await NestFactory.create<NestExpressApplication>(AppModule)
+  // پیوست فاکتور به‌صورت base64 در JSON می‌آید (حداکثر ۳ مگابایت فایل)
+  app.useBodyParser('json', { limit: '6mb' })
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }))
   // خطاهای ورودی نامعتبر دیتابیس (UUID/تاریخ غلط، تکراری، …) → 4xx به‌جای 500
   app.useGlobalFilters(new PgExceptionFilter(app.get(HttpAdapterHost).httpAdapter))

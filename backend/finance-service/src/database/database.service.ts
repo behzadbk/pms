@@ -18,6 +18,15 @@ types.setTypeParser(1082, (v: string) => v)
  * Engine binary (که در برخی محیط‌های محدود شبکه در دسترس نیست) قابل build و
  * اجرا باشد، مستقیماً از `pg` استفاده شده — منطق RLS دقیقاً یکسان است.
  */
+/**
+ * تاریخ‌های تقویمی (DATE) باید همان رشته‌ی 'YYYY-MM-DD' بمانند: پیش‌فرض node-pg آن را به Date در
+ * منطقه‌ی زمانی «سرور» تبدیل می‌کند و JSON آن را یک روز جابه‌جا می‌کند (باگ سررسید).
+ * NUMERIC (مبالغ تومان / متراژ) هم به number تبدیل می‌شود تا JSON عدد باشد نه رشته.
+ */
+types.setTypeParser(1082, (v: string) => v) // date
+types.setTypeParser(1700, (v: string) => Number(v)) // numeric
+types.setTypeParser(20, (v: string) => Number(v)) // int8 / count(*)
+
 @Injectable()
 export class DatabaseService implements OnModuleDestroy {
   private readonly pool: Pool

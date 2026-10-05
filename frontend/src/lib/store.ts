@@ -802,6 +802,17 @@ export function saveMenuItem(item: MenuItem) {
   })
 }
 
+/** اعلان «غذای روز» برای ساکنین (اعلان‌های برنامه هنوز در استور محلی‌اند) */
+export function announceDailySpecial(item: MenuItem, venueName: string) {
+  setState((s) => pushNotification(s, {
+    kind: 'announcement',
+    title: `غذای روز ${venueName}: ${item.name}`,
+    body: item.description || (item.price ? `${item.price.toLocaleString('fa-IR')} تومان` : 'همین حالا سفارش دهید'),
+    audience: ['all_residents'],
+    link: '/resident/food-order',
+  }))
+}
+
 export function deleteMenuItem(id: string) {
   setState((s) => ({ ...s, menu: s.menu.filter((m) => m.id !== id) }))
 }

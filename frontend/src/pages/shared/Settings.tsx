@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { KeyRound } from 'lucide-react'
+import { Sun, Moon, MonitorSmartphone, Check, Sparkles, Waves, RotateCcw, ChevronRight, BellRing, Send, KeyRound } from 'lucide-react'
+import { disablePush, enablePush, getPushState, sendTestPush, type PushState } from '../../lib/pushNotifications'
 import { useAuth } from '../../context/AuthContext'
 import { changePassword } from '../../lib/api/identity'
 import { ApiError } from '../../lib/api/client'
-import { Sun, Moon, MonitorSmartphone, Check, Sparkles, Waves, RotateCcw, ChevronRight } from 'lucide-react'
-import { PALETTES, useTheme, type ThemeMode, type Palette } from '../../context/ThemeContext'
+import { PALETTES, useTheme, type ThemeMode } from '../../context/ThemeContext'
 
 /**
  * صفحه‌ی «شخصی‌سازی» — بخش جدید طراحی Liquid Glass نسخه ۴ (Claude Design handoff).
@@ -19,14 +19,6 @@ const MODE_OPTIONS: { id: ThemeMode; label: string; icon: typeof Sun }[] = [
   { id: 'system', label: 'سیستم', icon: MonitorSmartphone },
 ]
 
-const PALETTE_SWATCH: Record<Palette, string> = {
-  teal: 'linear-gradient(150deg,#1a9a88,#0b5e54)',
-  blue: 'linear-gradient(150deg,#4a88ff,#2458d6)',
-  violet: 'linear-gradient(150deg,#8467f0,#4a2fb8)',
-  coral: 'linear-gradient(150deg,#f07650,#b83d1d)',
-  rose: 'linear-gradient(150deg,#e0559a,#9c2360)',
-  graphite: 'linear-gradient(150deg,#4d586e,#232a38)',
-}
 
 export function Settings() {
   const navigate = useNavigate()
@@ -91,7 +83,7 @@ export function Settings() {
       <section>
         <h2 className="text-sm font-bold mb-1">رنگ‌بندی</h2>
         <p className="text-xs text-muted mb-3">رنگ اصلی دکمه‌ها، کارت قهرمان و نوار تب را انتخاب کنید</p>
-        <div className="lg4-card p-4 grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
           {PALETTES.map((p) => {
             const active = palette === p.id
             return (
@@ -100,28 +92,29 @@ export function Settings() {
                 onClick={() => setPalette(p.id)}
                 aria-pressed={active}
                 aria-label={p.label}
-                className="flex flex-col items-center gap-2"
+                className={`lg4-card p-3 flex flex-col gap-3 text-right transition-transform active:scale-[0.98] ${
+                  active ? 'border-[var(--lg4-pri)] border-2' : ''
+                }`}
               >
                 <span
-                  className="relative w-14 h-14 rounded-full flex items-center justify-center transition-transform"
-                  style={{
-                    background: PALETTE_SWATCH[p.id],
-                    boxShadow: active ? '0 0 0 3px var(--lg-bg-elevated), 0 0 0 5px var(--lg4-pri)' : 'none',
-                    transform: active ? 'scale(1.06)' : 'scale(1)',
-                  }}
+                  className="relative h-14 rounded-2xl flex items-end justify-start gap-1.5 p-2"
+                  style={{ background: `linear-gradient(150deg, ${p.swatch[0]}, ${p.swatch[1]})` }}
                 >
+                  <span className="w-4 h-4 rounded-full border border-white/60" style={{ background: p.swatch[2] }} />
                   {active && (
-                    <span className="w-6 h-6 rounded-full bg-white/95 flex items-center justify-center">
-                      <Check size={16} className="text-[var(--lg4-pri)]" />
+                    <span className="absolute top-2 left-2 w-6 h-6 rounded-full bg-white flex items-center justify-center shadow">
+                      <Check size={14} style={{ color: p.swatch[1] }} />
                     </span>
                   )}
                 </span>
-                <span className={`text-xs ${active ? 'font-bold' : 'text-muted'}`}>{p.label}</span>
+                <span className={`text-sm ${active ? 'font-bold text-[var(--lg4-pri)]' : 'text-[var(--lg-text-secondary)]'}`}>{p.label}</span>
               </button>
             )
           })}
         </div>
       </section>
+
+      <NotificationsSection />
 
       {/* دسترسی‌پذیری */}
       <section>
@@ -193,7 +186,94 @@ function A11yToggle({
   )
 }
 
-/** تغییر رمز عبور — ساکن با رمز موقت اولیه وارد می‌شود و از همین‌جا رمز خودش را می‌گذارد */
+/** اعلان‌های گوشی (Web Push): روشن/خاموش برای همین دستگاه + ارسال آزمایشی */
+function NotificationsSection() {
+  const { user } = useAuth()
+  const [state, setState] = useState<PushState | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [msg, setMsg] = useState<{ ok: boolean; t: string } | null>(null)
+  useEffect(() => {
+    void getPushState().then(setState)
+  }, [])
+  if (!user || user.role === 'super_admin') return null
+
+  async function toggle() {
+    setBusy(true)
+    setMsg(null)
+    try {
+      if (state === 'on') {
+        await disablePush()
+        setMsg({ ok: true, t: 'اعلان‌ها روی این دستگاه خاموش شد.' })
+      } else {
+        await enablePush()
+        setMsg({ ok: true, t: 'اعلان‌ها فعال شد. یک اعلان آزمایشی بفرستید تا مطمئن شوید.' })
+      }
+      setState(await getPushState())
+    } catch (e) {
+      setMsg({ ok: false, t: e instanceof Error ? e.message : 'خطا' })
+      setState(await getPushState())
+    } finally {
+      setBusy(false)
+    }
+  }
+  async function test() {
+    setBusy(true)
+    setMsg(null)
+    try {
+      const n = await sendTestPush()
+      setMsg(n > 0 ? { ok: true, t: 'اعلان آزمایشی ارسال شد؛ باید تا چند ثانیه‌ی دیگر برسد.' } : { ok: false, t: 'اشتراکی برای این حساب پیدا نشد. یک‌بار خاموش و دوباره روشن کنید.' })
+    } catch {
+      setMsg({ ok: false, t: 'ارسال ناموفق بود.' })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const hint =
+    state === 'needs-install'
+      ? 'در آیفون ابتدا همین را به صفحه‌ی اصلی اضافه کنید (Share ← Add to Home Screen) و از همان آیکن باز کنید.'
+      : state === 'unsupported'
+        ? 'این مرورگر از اعلان پشتیبانی نمی‌کند.'
+        : state === 'blocked'
+          ? 'اعلان برای این سایت مسدود است. از تنظیمات مرورگر/گوشی اجازه‌ی اعلان را بدهید.'
+          : 'نتیجه‌ی رزرو، درخواست‌های جدید، مرسوله و پیام‌های مهم همان لحظه روی گوشی می‌آید.'
+  const disabled = busy || state === null || state === 'unsupported' || state === 'needs-install' || state === 'blocked'
+
+  return (
+    <section>
+      <h2 className="text-sm font-bold mb-1">اعلان‌ها</h2>
+      <p className="text-xs text-muted mb-3">برای همین دستگاه تنظیم می‌شود</p>
+      <div className="lg4-card p-4 space-y-3">
+        <div className="flex items-center gap-3">
+          <BellRing size={22} className="text-[var(--lg4-pri)] flex-none" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-bold">اعلان‌های گوشی</p>
+            <p className="text-xs text-muted mt-0.5 leading-6">{hint}</p>
+          </div>
+          <button
+            role="switch"
+            aria-checked={state === 'on'}
+            aria-label="اعلان‌های گوشی"
+            disabled={disabled}
+            onClick={toggle}
+            className="relative w-12 h-7 rounded-full flex-none transition-colors disabled:opacity-50"
+            style={{ background: state === 'on' ? 'var(--lg4-pri)' : 'var(--lg-border-hairline)' }}
+          >
+            <span className="absolute top-1 w-5 h-5 rounded-full bg-white shadow transition-all" style={{ right: state === 'on' ? '4px' : '28px' }} />
+          </button>
+        </div>
+        {state === 'on' && (
+          <button onClick={test} disabled={busy} className="inline-flex items-center gap-2 text-sm font-bold text-[var(--lg4-pri)] min-h-[44px] disabled:opacity-60">
+            <Send size={16} /> ارسال اعلان آزمایشی
+          </button>
+        )}
+        {msg && <p className={`text-xs leading-6 ${msg.ok ? 'text-[var(--lg-text-secondary)]' : 'text-bad'}`}>{msg.t}</p>}
+      </div>
+    </section>
+  )
+}
+
+/** تغییر رمز عبور — ساکن با رمز اولیه (شماره واحد) وارد می‌شود و از همین‌جا رمز خودش را می‌گذارد */
 function PasswordSection() {
   const { user, markPasswordChanged } = useAuth()
   const [cur, setCur] = useState('')
@@ -212,8 +292,8 @@ function PasswordSection() {
 
   async function submit() {
     setMsg(null)
-    if (next.length < 6) return setMsg({ ok: false, text: 'رمز جدید باید حداقل ۶ کاراکتر باشد' })
-    if (/^\d+$/.test(next) && next.length < 8) return setMsg({ ok: false, text: 'رمز فقط‌عددی باید حداقل ۸ رقم باشد (یا ترکیبی از حرف و عدد)' })
+    if (next.length < 8) return setMsg({ ok: false, text: 'رمز جدید باید حداقل ۸ کاراکتر باشد' })
+    if (/^\d+$/.test(next)) return setMsg({ ok: false, text: 'رمز نباید فقط عدد باشد؛ حرف و عدد را ترکیب کنید' })
     if (next !== again) return setMsg({ ok: false, text: 'تکرار رمز جدید یکسان نیست' })
     setBusy(true)
     try {
@@ -239,7 +319,7 @@ function PasswordSection() {
       </div>
       {must && <p className="text-xs leading-6 text-[var(--lg4-pri)] font-bold">رمز شما هنوز رمز موقت اولیه است؛ برای امنیت حساب لطفاً همین حالا رمز جدید بگذارید.</p>}
       <input className={input} type="password" autoComplete="current-password" placeholder="رمز فعلی" value={cur} onChange={(e) => setCur(e.target.value)} dir="ltr" />
-      <input className={input} type="password" autoComplete="new-password" placeholder="رمز جدید (حداقل ۶ کاراکتر)" value={next} onChange={(e) => setNext(e.target.value)} dir="ltr" />
+      <input className={input} type="password" autoComplete="new-password" placeholder="رمز جدید (حداقل ۸ کاراکتر)" value={next} onChange={(e) => setNext(e.target.value)} dir="ltr" />
       <input className={input} type="password" autoComplete="new-password" placeholder="تکرار رمز جدید" value={again} onChange={(e) => setAgain(e.target.value)} dir="ltr" />
       {msg && <p className={`text-xs font-bold ${msg.ok ? 'text-[var(--lg4-pri)]' : 'text-[var(--hm-bad)]'}`}>{msg.text}</p>}
       <button className="w-full h-11 rounded-full bg-[var(--lg4-pri)] text-white text-sm font-bold disabled:opacity-40" disabled={busy || !cur || !next || !again} onClick={() => void submit()}>

@@ -5,8 +5,69 @@
  * اصل طراحی: لاگ‌گیری هرگز نباید مسیر درخواست کاربر را کند یا fail کند —
  * enqueueClientLog هرگز throw نمی‌کند و ارسال fire-and-forget (بدون await) است.
  */
-import type { AuditLogEntry, AuditVolumePoint, LogLevel } from '../types'
 import { api, getSessionId } from './client'
+
+export type LogLevel = 'debug' | 'info' | 'warn' | 'error'
+
+/** یک ردیف لاگ (camelCase) — پاسخ خام audit-svc در mapLog تبدیل می‌شود */
+export interface AuditEntry {
+  id: string
+  occurredAt: string
+  sessionId: string
+  traceId: string | null
+  userId: string | null
+  actorName: string | null
+  actorRole: string | null
+  source: string
+  level: LogLevel
+  action: string
+  httpMethod: string | null
+  httpPath: string | null
+  statusCode: number | null
+  durationMs: number | null
+  device: { browser?: string; os?: string; isPwa?: boolean } | null
+  requestBody: Record<string, unknown> | null
+  errorStack: string | null
+}
+
+export interface AuditVolumePoint {
+  at: string
+  count: number
+  errorCount: number
+  warnCount: number
+}
+
+export interface AuditStats {
+  range: { from: string; to: string; bucket: 'hour' | 'day' }
+  total: number
+  byLevel: { level: LogLevel; count: number }[]
+  topErrors: { action: string; count: number }[]
+  sources: { source: string; count: number }[]
+  volume: AuditVolumePoint[]
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapLog(r: any): AuditEntry {
+  return {
+    id: String(r.id),
+    occurredAt: r.occurred_at,
+    sessionId: r.session_id,
+    traceId: r.trace_id ?? null,
+    userId: r.user_id ?? null,
+    actorName: r.actor_name ?? null,
+    actorRole: r.actor_role ?? null,
+    source: r.source,
+    level: r.level,
+    action: r.action,
+    httpMethod: r.http_method ?? null,
+    httpPath: r.http_path ?? null,
+    statusCode: r.status_code ?? null,
+    durationMs: r.duration_ms ?? null,
+    device: r.device ?? null,
+    requestBody: r.request_body ?? null,
+    errorStack: r.error_stack ?? null,
+  }
+}
 
 export interface AuditLogFilter {
   from?: string
@@ -24,40 +85,47 @@ export interface AuditLogFilter {
 }
 
 export interface AuditLogPage {
-  data: AuditLogEntry[]
+  data: AuditEntry[]
   meta: { total: number; page: number; limit: number }
 }
+
+const SNAKE: Record<string, string> = { userId: 'user_id', statusCode: 'status_code', deviceOs: 'device_os', deviceBrowser: 'device_browser' }
 
 function toQuery(filter: AuditLogFilter): string {
   const params = new URLSearchParams()
   for (const [k, v] of Object.entries(filter)) {
-    if (v !== undefined && v !== '') params.set(k, String(v))
+    if (v !== undefined && v !== '') params.set(SNAKE[k] ?? k, String(v))
   }
   const qs = params.toString()
   return qs ? `?${qs}` : ''
 }
 
-export function searchLogs(filter: AuditLogFilter = {}) {
-  return api.get<AuditLogPage>(`/audit/logs${toQuery(filter)}`)
+export async function searchLogs(filter: AuditLogFilter = {}): Promise<AuditLogPage> {
+  const r = await api.get<{ data: unknown[]; meta: AuditLogPage['meta'] }>(`/audit/logs${toQuery(filter)}`)
+  return { data: r.data.map(mapLog), meta: r.meta }
 }
 
-export function getLog(id: string) {
-  return api.get<AuditLogEntry>(`/audit/logs/${id}`)
+export async function getLog(id: string) {
+  return mapLog(await api.get<unknown>(`/audit/logs/${id}`))
 }
 
 /** ★ Event Chaining — بازسازی زنجیره رویداد اطراف یک لاگ هدف (همان session_id) */
-export function getLogContext(id: string, before = 50, after = 20) {
-  return api.get<{ target: AuditLogEntry; before: AuditLogEntry[]; after: AuditLogEntry[]; sessionId: string }>(
-    `/audit/logs/${id}/context?before=${before}&after=${after}`,
+export async function getLogContext(id: string, before = 50, after = 20) {
+  const r = await api.get<{ session_id: string; target: unknown; before: unknown[]; after: unknown[] }>(`/audit/logs/${id}/context?before=${before}&after=${after}`)
+  return { sessionId: r.session_id, target: mapLog(r.target), before: r.before.map(mapLog), after: r.after.map(mapLog) }
+}
+
+export async function getSessionLogs(sessionId: string) {
+  return (await api.get<unknown[]>(`/audit/sessions/${sessionId}`)).map(mapLog)
+}
+
+export async function getStats(f: { from?: string; to?: string; bucket?: 'hour' | 'day' } = {}): Promise<AuditStats> {
+  const p = new URLSearchParams()
+  for (const [k, v] of Object.entries(f)) if (v) p.set(k, v)
+  const r = await api.get<{ range: AuditStats['range']; total: number; byLevel: AuditStats['byLevel']; topErrors: AuditStats['topErrors']; sources: AuditStats['sources']; volume: { at: string; count: number; error_count: number; warn_count: number }[] }>(
+    `/audit/stats${p.toString() ? `?${p}` : ''}`,
   )
-}
-
-export function getSessionLogs(sessionId: string) {
-  return api.get<AuditLogEntry[]>(`/audit/sessions/${sessionId}`)
-}
-
-export function getStats() {
-  return api.get<AuditVolumePoint[]>('/audit/stats')
+  return { ...r, volume: r.volume.map((v) => ({ at: v.at, count: v.count, errorCount: v.error_count, warnCount: v.warn_count })) }
 }
 
 /* ---------- بافر لاگ سمت کلاینت — بخش ۱.۲ سند ---------- */

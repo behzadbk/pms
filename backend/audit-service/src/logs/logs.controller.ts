@@ -1,11 +1,23 @@
 import { Body, Controller, Get, HttpCode, Param, Post, Query } from '@nestjs/common'
+import { randomUUID } from 'crypto'
 import { LogIngestService } from './log-ingest.service'
 import { LogQueryService } from './log-query.service'
 import { LogEntry } from './log-entry.interface'
 import { CurrentUser, JwtPayload } from '../auth/decorators/current-user.decorator'
 import { Roles } from '../auth/decorators/roles.decorator'
 
-@Controller('audit')
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+const uuidOr = (v: unknown): string => (typeof v === 'string' && UUID_RE.test(v) ? v : randomUUID())
+
+/** مرورگر/سیستم‌عامل از User-Agent (ساده؛ برای فیلتر و آمار دستگاه کافی است) */
+function deviceFromUa(ua?: string, isPwa?: boolean) {
+  const u = ua ?? ''
+  const browser = /Edg\//.test(u) ? 'Edge' : /OPR\//.test(u) ? 'Opera' : /Chrome\//.test(u) ? 'Chrome' : /Firefox\//.test(u) ? 'Firefox' : /Safari\//.test(u) ? 'Safari' : undefined
+  const os = /Android/.test(u) ? 'Android' : /iPhone|iPad|iPod/.test(u) ? 'iOS' : /Windows/.test(u) ? 'Windows' : /Mac OS X/.test(u) ? 'macOS' : /Linux/.test(u) ? 'Linux' : undefined
+  return { browser, os, is_pwa: !!isPwa }
+}
+
+@Controller()
 export class LogsController {
   constructor(
     private readonly ingest: LogIngestService,
@@ -18,13 +30,25 @@ export class LogsController {
    */
   @Post('client-batch')
   @HttpCode(202)
-  ingestClientBatch(@Body() body: { logs: Omit<LogEntry, 'tenant_id' | 'source'>[] }, @CurrentUser() user: JwtPayload) {
+  ingestClientBatch(@Body() body: { logs?: Record<string, any>[]; device?: { isPwa?: boolean; userAgent?: string } }, @CurrentUser() user: JwtPayload) {
+    const device = deviceFromUa(body.device?.userAgent, body.device?.isPwa)
     const entries: LogEntry[] = (body.logs ?? []).slice(0, 500).map((l) => ({
-      ...l,
       tenant_id: user.tenant_id!,
-      user_id: l.user_id ?? user.sub,
-      actor_role: l.actor_role ?? user.role,
+      // کلاینت camelCase می‌فرستد؛ هر دو شکل پذیرفته می‌شود
+      occurred_at: l.occurred_at ?? l.occurredAt,
+      session_id: uuidOr(l.session_id ?? l.sessionId),
+      trace_id: uuidOr(l.trace_id ?? l.traceId),
+      user_id: user.sub,
+      actor_role: user.role,
       source: 'client', // منبع همیشه سمت سرور تعیین می‌شود، نه از بدنه درخواست
+      level: ['debug', 'info', 'warn', 'error'].includes(l.level) ? l.level : 'info',
+      action: String(l.action ?? 'client.event').slice(0, 200),
+      http_method: l.http_method ?? l.httpMethod,
+      http_path: l.http_path ?? l.httpPath,
+      status_code: l.status_code ?? l.statusCode,
+      duration_ms: l.duration_ms ?? l.durationMs,
+      device,
+      request_body: l.request_body ?? l.extra,
     }))
     this.ingest.enqueue(entries)
     return { accepted: entries.length }
@@ -67,7 +91,7 @@ export class LogsController {
 
   @Roles('admin', 'super_admin')
   @Get('stats')
-  stats(@CurrentUser() user: JwtPayload, @Query('from') from?: string, @Query('to') to?: string) {
-    return this.query.getStats(user.tenant_id!, from, to)
+  stats(@CurrentUser() user: JwtPayload, @Query('from') from?: string, @Query('to') to?: string, @Query('bucket') bucket?: string) {
+    return this.query.getStats(user.tenant_id!, from, to, bucket)
   }
 }

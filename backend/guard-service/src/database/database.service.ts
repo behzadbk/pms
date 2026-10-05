@@ -18,6 +18,8 @@ types.setTypeParser(1082, (v: string) => v)
  * Engine binary (که در برخی محیط‌های محدود شبکه در دسترس نیست) قابل build و
  * اجرا باشد، مستقیماً از `pg` استفاده شده — منطق RLS دقیقاً یکسان است.
  */
+types.setTypeParser(1700, (v: string) => parseFloat(v))
+
 @Injectable()
 export class DatabaseService implements OnModuleDestroy {
   private readonly pool: Pool

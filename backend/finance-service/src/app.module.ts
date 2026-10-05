@@ -11,6 +11,8 @@ import { SettingsModule } from './settings/settings.module'
 import { InvoicesModule } from './invoices/invoices.module'
 import { SummaryModule } from './summary/summary.module'
 import { OverdueModule } from './overdue/overdue.module'
+import { BillingModule } from './billing/billing.module'
+import { ReportsModule } from './reports/reports.module'
 import { ReservationEventsConsumer } from './events-consumer/reservation-events.consumer'
 
 @Module({
@@ -27,6 +29,8 @@ import { ReservationEventsConsumer } from './events-consumer/reservation-events.
     InvoicesModule,
     SummaryModule,
     OverdueModule,
+    BillingModule,
+    ReportsModule,
   ],
   providers: [ReservationEventsConsumer],
 })

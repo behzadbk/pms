@@ -7,10 +7,11 @@ export interface JwtPayload {
   email: string
   /** 'access' | 'refresh' — توکن‌های قدیمی بدون این فیلد access در نظر گرفته می‌شوند */
   typ?: 'access' | 'refresh'
-  /** شخص (residency.users) — ساکن */
+  /** شناسه‌ی شخص (residency.users.id) برای ساکنین */
   pid?: string
+  perms?: string[]
   /** 'family' = نشست کودک با کد خانواده */
-  kind?: 'family'
+  kind?: string
   /** عضویت کودک در نشست خانواده */
   mid?: string
 }

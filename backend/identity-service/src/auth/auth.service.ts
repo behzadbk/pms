@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/common'
+import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common'
 import { JwtService } from '@nestjs/jwt'
 import * as bcrypt from 'bcrypt'
 import { DatabaseService } from '../database/database.service'
@@ -7,6 +7,8 @@ import { LoginDto } from './dto/login.dto'
 import { PlatformLoginDto } from './dto/platform-login.dto'
 import { JwtPayload } from './decorators/current-user.decorator'
 import { effectivePermissions } from '../users/staff.constants'
+import { LoginThrottleService } from './login-throttle.service'
+import { passwordPolicyError } from './password.util'
 import { toLatinDigits } from '../residents/phone'
 
 interface UserRow {
@@ -23,10 +25,11 @@ interface UserRow {
   department: string | null
   permissions: string[] | null
   is_active: boolean
+  must_change_password: boolean
 }
 
 // person_status/sessions_valid_after از حساب شخص (ماژول ساکنین) می‌آید: مسدودی/خروج از همه‌ی دستگاه‌ها
-const USER_COLUMNS = `id, full_name, email, username, role, department, permissions, is_active, person_id,
+const USER_COLUMNS = `id, full_name, email, username, role, department, permissions, is_active, person_id, must_change_password,
   (SELECT p.status FROM residency.users p WHERE p.id = identity.users.person_id) AS person_status,
   (SELECT t.name FROM identity.tenants t WHERE t.id = identity.users.tenant_id) AS tenant_name,
   must_change_password,
@@ -69,6 +72,7 @@ interface PlatformAdminRow {
   full_name: string
   password_hash: string
   is_active: boolean
+  must_change_password: boolean
 }
 
 export interface AuthResult {
@@ -80,10 +84,14 @@ export interface AuthResult {
     role: string
     /** برای سوپرادمین null است — این کاربر به هیچ مجتمعی تعلق ندارد */
     tenantId: string | null
+    mustChangePassword?: boolean
     department?: string | null
     permissions?: string[]
   }
 }
+
+// هش bcrypt یک رمز تصادفی دور ریخته‌شده — فقط برای یکسان‌سازی زمان پاسخ
+const DUMMY_HASH = '$2b$10$CwTycUXWue0Thq9StjUM0uJ8.7xq9Y8t3tqK5G6bN1dX7p8vWQJ9a'
 
 @Injectable()
 export class AuthService {
@@ -91,6 +99,7 @@ export class AuthService {
     private readonly jwt: JwtService,
     private readonly db: DatabaseService,
     private readonly events: EventsService,
+    private readonly throttle: LoginThrottleService,
   ) {}
 
   private issueTokens(payload: { sub: string; tenant_id: string | null; role: string; email: string | null; pid?: string; perms?: string[] }) {
@@ -99,7 +108,7 @@ export class AuthService {
     return { accessToken, refreshToken }
   }
 
-  async login(dto: LoginDto): Promise<AuthResult> {
+  async login(dto: LoginDto, ip = ''): Promise<AuthResult> {
     // ۱) پیدا کردن tenant از روی subdomain — این یک query عمومی (cross-tenant) است
     //    و باید با نقش دیتابیسی platform (بدون RLS محدود به یک tenant) اجرا شود،
     //    چون در این لحظه هنوز نمی‌دانیم کاربر متعلق به کدام tenant است.
@@ -117,6 +126,8 @@ export class AuthService {
     //    فیلد email هم ایمیل را می‌پذیرد و هم نام کاربری (کارکنانی که مدیر برایشان حساب ساخته).
     // ساکن با کیبورد فارسی هم می‌تواند وارد شود: ارقام فارسی/عربی نام کاربری (موبایل) به لاتین برمی‌گردد
     const identifier = toLatinDigits(dto.email.trim().toLowerCase())
+    const scope = `t:${tenant.id}`
+    await this.throttle.assertAllowed(scope, identifier, ip)
     const user = await this.db.withTenant(tenant.id, async (client) => {
       const res = await client.query(
         `SELECT ${USER_COLUMNS}, password_hash FROM identity.users
@@ -125,11 +136,16 @@ export class AuthService {
       )
       return res.rows[0] as (UserRow & { password_hash: string }) | undefined
     })
-    // رمز اولیه‌ی ساکن = شماره واحد (ارقام لاتین)؛ اگر با ارقام فارسی تایپ شد هم پذیرفته می‌شود
-    const passOk = !!user && ((await bcrypt.compare(dto.password, user.password_hash)) || (toLatinDigits(dto.password) !== dto.password && (await bcrypt.compare(toLatinDigits(dto.password), user.password_hash))))
-    if (!user || !user.is_active || !passOk) {
+    // برای کاربر ناموجود هم یک compare انجام می‌شود تا زمان پاسخ وجود حساب را لو ندهد
+    // رمز اولیه‌ی ساکن = شماره واحد؛ اگر با ارقام فارسی تایپ شد هم پذیرفته می‌شود
+    const latinPw = toLatinDigits(dto.password)
+    const passwordOk = (await bcrypt.compare(dto.password, user?.password_hash ?? DUMMY_HASH)) ||
+      (!!user && latinPw !== dto.password && (await bcrypt.compare(latinPw, user.password_hash)))
+    if (!user || !user.is_active || !passwordOk) {
+      await this.throttle.recordFailure(scope, identifier, ip)
       throw new UnauthorizedException('نام کاربری/ایمیل یا رمز عبور نادرست است')
     }
+    await this.throttle.recordSuccess(scope, identifier, ip)
     if (user.person_status === 'blocked') {
       throw new UnauthorizedException('این حساب توسط پشتیبانی مسدود شده است')
     }
@@ -156,34 +172,31 @@ export class AuthService {
    * دارد و نقش آن همیشه 'super_admin' است. این جدول RLS ندارد و جستجو با
    * withPlatformAccess انجام می‌شود (هیچ app.current_tenant_id‌ای در کار نیست).
    */
-  async platformLogin(dto: PlatformLoginDto): Promise<AuthResult> {
+  async platformLogin(dto: PlatformLoginDto, ip = ''): Promise<AuthResult> {
+    const username = dto.username.trim().toLowerCase()
+    await this.throttle.assertAllowed('platform', username, ip)
     const admin = await this.db.withPlatformAccess(async (client) => {
       const res = await client.query<PlatformAdminRow>(
-        'SELECT id, username, full_name, password_hash, is_active FROM identity.platform_admins WHERE username = $1',
-        [dto.username.trim().toLowerCase()],
+        'SELECT id, username, full_name, password_hash, is_active, must_change_password FROM identity.platform_admins WHERE username = $1',
+        [username],
       )
       return res.rows[0]
     })
 
     // پیام خطا عمداً یکسان است تا نشود وجود/عدم وجود یک نام کاربری را حدس زد
-    if (!admin || !admin.is_active || !(await bcrypt.compare(dto.password, admin.password_hash))) {
+    const ok = await bcrypt.compare(dto.password, admin?.password_hash ?? DUMMY_HASH)
+    if (!admin || !admin.is_active || !ok) {
+      await this.throttle.recordFailure('platform', username, ip)
       throw new UnauthorizedException('نام کاربری یا رمز عبور نادرست است')
     }
+    await this.throttle.recordSuccess('platform', username, ip)
 
     await this.db.withPlatformAccess(async (client) => {
       await client.query('UPDATE identity.platform_admins SET last_login_at = now() WHERE id = $1', [admin.id])
     })
 
-    const payload = { sub: admin.id, tenant_id: null, role: 'super_admin', email: admin.username }
-    const { accessToken, refreshToken } = this.issueTokens(payload)
-
     this.events.publish('platform_admin.logged_in', { userId: admin.id, username: admin.username })
-
-    return {
-      accessToken,
-      refreshToken,
-      user: { id: admin.id, fullName: admin.full_name, role: 'super_admin', tenantId: null },
-    }
+    return this.platformLoginResult(admin)
   }
 
   /** صدور accessToken جدید از روی یک refreshToken معتبر (بدون نیاز به ایمیل/رمز عبور دوباره) */
@@ -205,12 +218,7 @@ export class AuthService {
       if (!admin || !admin.is_active) {
         throw new UnauthorizedException('کاربر یافت نشد')
       }
-      const newPayload = { sub: admin.id, tenant_id: null, role: 'super_admin', email: admin.username }
-      const tokens = this.issueTokens(newPayload)
-      return {
-        ...tokens,
-        user: { id: admin.id, fullName: admin.full_name, role: 'super_admin', tenantId: null },
-      }
+      return this.platformLoginResult(admin)
     }
 
     // نشست کودک (کد خانواده): عضویت باید هنوز فعال باشد
@@ -245,36 +253,63 @@ export class AuthService {
     }
   }
 
-  /** تغییر رمز توسط خود کاربر (تنظیمات) — رمز فعلی لازم است و نشست‌های دیگرش قطع می‌شود */
-  async changePassword(current: JwtPayload, currentPassword: string, newPassword: string) {
-    if (current.role === 'super_admin' || !current.tenant_id || current.kind === 'family') {
-      throw new ForbiddenException('تغییر رمز برای این نوع حساب از اینجا ممکن نیست')
-    }
-    const tenantId = current.tenant_id
-    const row = await this.db.withTenant(tenantId, async (client) => {
-      const res = await client.query<{ password_hash: string; username: string | null }>(
-        `SELECT password_hash, username FROM identity.users WHERE id = $1`,
-        [current.sub],
+  /**
+   * تغییر رمز توسط خود کاربر (ورود با رمز موقت → تعویض اجباری). رمز فعلی لازم است؛ پس از تغییر،
+   * نشست‌های قبلی باطل و توکن تازه صادر می‌شود.
+   */
+  async changePassword(current: JwtPayload, oldPassword: string, newPassword: string, ip = ''): Promise<AuthResult> {
+    if (current.kind === 'family') throw new BadRequestException('این نشست رمز عبور ندارد')
+    const scope = current.tenant_id ? `chg:${current.tenant_id}` : 'chg:platform'
+    await this.throttle.assertAllowed(scope, current.sub, ip)
+    if (oldPassword === newPassword) throw new BadRequestException('رمز جدید باید با رمز فعلی متفاوت باشد')
+
+    if (!current.tenant_id) {
+      const admin = await this.fetchPlatformAdmin(current.sub)
+      if (!admin || !(await bcrypt.compare(oldPassword, admin.password_hash))) {
+        await this.throttle.recordFailure(scope, current.sub, ip)
+        throw new UnauthorizedException('رمز فعلی نادرست است')
+      }
+      const bad = passwordPolicyError(newPassword, [admin.username])
+      if (bad) throw new BadRequestException(bad)
+      const newHash = await bcrypt.hash(newPassword, 10)
+      await this.db.withPlatformAccess((c) =>
+        c.query('UPDATE identity.platform_admins SET password_hash = $2, must_change_password = false WHERE id = $1', [admin.id, newHash]),
       )
+      return this.platformLoginResult({ ...admin, must_change_password: false })
+    }
+
+    const user = await this.db.withTenant(current.tenant_id, async (client) => {
+      const res = await client.query<UserRow & { password_hash: string; phone: string | null }>(
+        `SELECT ${USER_COLUMNS}, password_hash, phone FROM identity.users WHERE id = $1`, [current.sub])
       return res.rows[0]
     })
-    if (!row || !((await bcrypt.compare(currentPassword, row.password_hash)) || (await bcrypt.compare(toLatinDigits(currentPassword), row.password_hash)))) {
+    if (!user || !user.is_active || !((await bcrypt.compare(oldPassword, user.password_hash)) || (await bcrypt.compare(toLatinDigits(oldPassword), user.password_hash)))) {
+      await this.throttle.recordFailure(scope, current.sub, ip)
       throw new UnauthorizedException('رمز فعلی نادرست است')
     }
-    if (newPassword === currentPassword) throw new BadRequestException('رمز جدید باید با رمز فعلی فرق کند')
-    if (/^\d+$/.test(newPassword) && newPassword.length < 8) {
-      throw new BadRequestException('رمز فقط‌عددی باید حداقل ۸ رقم باشد (یا ترکیبی از حرف و عدد)')
-    }
+    const bad = passwordPolicyError(newPassword, [user.username, user.email?.split('@')[0], user.phone])
+    if (bad) throw new BadRequestException(bad)
     const hash = await bcrypt.hash(newPassword, 10)
-    // نشست‌های قبلی (دستگاه‌های دیگر) باطل می‌شود؛ توکن تازه همین‌جا صادر می‌شود تا کاربر بیرون نیفتد
-    await this.db.withTenant(tenantId, async (client) => {
+    await this.db.withTenant(current.tenant_id, async (client) => {
       await client.query(
-        `UPDATE identity.users SET password_hash = $2, must_change_password = false, sessions_valid_after = now(), updated_at = now() WHERE id = $1`,
-        [current.sub, hash],
+        `UPDATE identity.users SET password_hash = $2, must_change_password = false, password_changed_at = now(),
+                sessions_valid_after = now(), updated_at = now() WHERE id = $1`,
+        [user.id, hash],
       )
     })
-    const { accessToken, refreshToken } = this.issueTokens({ sub: current.sub, tenant_id: tenantId, role: current.role, email: current.email, ...(current.pid ? { pid: current.pid } : {}), ...(current.perms ? { perms: current.perms } : {}) })
-    return { ok: true, accessToken, refreshToken }
+    await this.throttle.recordSuccess(scope, current.sub, ip)
+    this.events.publish('user.password_changed', { userId: user.id, tenantId: current.tenant_id })
+    const fresh = await this.fetchUser(current.tenant_id, user.id)
+    const payload = { sub: user.id, tenant_id: current.tenant_id, role: user.role, email: user.email ?? user.username, ...extraClaims(fresh!) }
+    return { ...this.issueTokens(payload), user: publicUser(fresh!, current.tenant_id) }
+  }
+
+  private platformLoginResult(admin: PlatformAdminRow): AuthResult {
+    const payload = { sub: admin.id, tenant_id: null, role: 'super_admin', email: admin.username }
+    return {
+      ...this.issueTokens(payload),
+      user: { id: admin.id, fullName: admin.full_name, role: 'super_admin', tenantId: null, ...(admin.must_change_password ? { mustChangePassword: true } : {}) },
+    }
   }
 
   /** پروفایل کاربر جاری — برای بازیابی نشست فرانت‌اند بعد از رفرش صفحه (GET /auth/me) */
@@ -284,7 +319,7 @@ export class AuthService {
       if (!admin || !admin.is_active) {
         throw new UnauthorizedException('کاربر یافت نشد')
       }
-      return { id: admin.id, fullName: admin.full_name, role: 'super_admin', tenantId: null }
+      return { id: admin.id, fullName: admin.full_name, role: 'super_admin', tenantId: null, ...(admin.must_change_password ? { mustChangePassword: true } : {}) }
     }
     if (current.kind === 'family') {
       const child = await this.fetchFamilyMember(current.tenant_id, current.mid, current.sub)
@@ -321,7 +356,7 @@ export class AuthService {
   private fetchPlatformAdmin(adminId: string): Promise<PlatformAdminRow | undefined> {
     return this.db.withPlatformAccess(async (client) => {
       const res = await client.query<PlatformAdminRow>(
-        'SELECT id, username, full_name, password_hash, is_active FROM identity.platform_admins WHERE id = $1',
+        'SELECT id, username, full_name, password_hash, is_active, must_change_password FROM identity.platform_admins WHERE id = $1',
         [adminId],
       )
       return res.rows[0]

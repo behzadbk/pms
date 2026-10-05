@@ -13,11 +13,11 @@ export interface AuthUser {
   tenantId: string | null
   /** نام ساختمان (برای سربرگ پنل‌ها) */
   tenantName?: string
-  /** رمز هنوز همان رمز موقت اولیه است؛ باید از تنظیمات عوض شود */
-  mustChangePassword?: boolean
   /** فقط برای کارکنان (role=staff): بخش و دسترسی‌های مؤثر — تعیین می‌کند کدام پنل‌ها باز شود */
   department?: string | null
   permissions?: string[]
+  /** حساب با رمز موقت/اولیه (مثلاً شماره واحد) — تا تعویض رمز، فقط فرم تغییر رمز نمایش داده می‌شود */
+  mustChangePassword?: boolean
 }
 
 export interface LoginResponse {

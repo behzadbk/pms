@@ -1,4 +1,6 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post } from '@nestjs/common'
+import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common'
+import { PlatformInsightsService } from './platform-insights.service'
+import { CreateInvoiceDto, GenerateInvoicesDto, InvoiceStatusDto } from './dto/invoice.dto'
 import { PlatformService } from './platform.service'
 import { CreateBuildingDto } from './dto/create-building.dto'
 import { UpdateBuildingDto } from './dto/update-building.dto'
@@ -12,7 +14,10 @@ import { Roles } from '../auth/decorators/roles.decorator'
 @Controller('platform')
 @Roles('super_admin')
 export class PlatformController {
-  constructor(private readonly platform: PlatformService) {}
+  constructor(
+    private readonly platform: PlatformService,
+    private readonly insights: PlatformInsightsService,
+  ) {}
 
   /** ماتریس سطوح (ساده/اقتصادی/حرفه‌ای) به‌همراه قابلیت‌های هر سطح */
   @Get('tiers')
@@ -46,5 +51,45 @@ export class PlatformController {
   @Patch('buildings/:id/settle')
   settle(@Param('id', ParseUUIDPipe) id: string) {
     return this.platform.settleBuilding(id)
+  }
+
+  /** KPIهای داشبورد پلتفرم (همه از DB) */
+  @Get('summary')
+  summary() {
+    return this.insights.summary()
+  }
+
+  /** مجتمع‌ها با شمارش واقعی واحد/ساکن و سقف قراردادی */
+  @Get('tenants')
+  tenants() {
+    return this.insights.listTenants()
+  }
+
+  /** فاکتورهای اشتراک ماهانه */
+  @Get('invoices')
+  invoices(@Query('tenantId') tenantId?: string, @Query('status') status?: string, @Query('period') period?: string) {
+    return this.insights.listInvoices({ tenantId, status, period })
+  }
+
+  @Post('invoices')
+  createInvoice(@Body() dto: CreateInvoiceDto) {
+    return this.insights.createInvoice(dto)
+  }
+
+  /** صدور گروهی فاکتور دوره برای همه‌ی مجتمع‌های فعال */
+  @Post('invoices/generate')
+  generateInvoices(@Body() dto: GenerateInvoicesDto) {
+    return this.insights.generateInvoices(dto.period)
+  }
+
+  @Patch('invoices/:id/status')
+  invoiceStatus(@Param('id', ParseUUIDPipe) id: string, @Body() dto: InvoiceStatusDto) {
+    return this.insights.setInvoiceStatus(id, dto.status)
+  }
+
+  /** خروجی کامل داده‌ی یک ساختمان (JSON) برای پشتیبان‌گیری/انتقال */
+  @Get('buildings/:id/export')
+  exportBuilding(@Param('id', ParseUUIDPipe) id: string) {
+    return this.insights.exportTenant(id)
   }
 }

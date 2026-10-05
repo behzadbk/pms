@@ -5,10 +5,9 @@ import {
 import { Card } from '../../components/ui/Card'
 import { StatCard } from '../../components/ui/StatCard'
 import { StatusPill } from '../../components/ui/StatusPill'
-import { toman } from '../../lib/mockData'
 import { tierById, tiers, type BuildingTier } from '../../lib/tiers'
 import { platformApi, ApiError } from '../../lib/api'
-import type { Building, BuildingsSummary, BillingStatus } from '../../lib/api/platform'
+import { fmtToman as toman, type Building, type BuildingsSummary, type BillingStatus } from '../../lib/api/platform'
 import { NewBuildingDialog } from './NewBuildingDialog'
 
 const billingLabels: Record<BillingStatus, { label: string; className: string }> = {

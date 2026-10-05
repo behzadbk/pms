@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import type { Role } from '../lib/types'
-import { roles } from '../lib/mockData'
+import { roles } from '../lib/roles'
 import { useAuth } from './AuthContext'
 
 interface RoleContextValue {

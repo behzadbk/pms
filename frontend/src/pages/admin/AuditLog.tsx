@@ -4,13 +4,15 @@
  * (Event Chaining، بخش ۳.۱: GET /audit/logs/:id/context) که با کلیک روی هر
  * ردیف باز می‌شود و تمام لاگ‌های همان session_id را حول رویداد هدف نشان می‌دهد.
  */
-import { useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis } from 'recharts'
 import { AnimatePresence, motion } from 'framer-motion'
-import { AlertCircle, AlertTriangle, Bug, Copy, Info, Search, X } from 'lucide-react'
+import { AlertCircle, AlertTriangle, Bug, Copy, Info, Loader2, Search, X } from 'lucide-react'
 import { GlassCard, GlassPill } from '../../components/ui/Glass'
-import { auditLogs, auditVolume } from '../../lib/mockData'
-import type { AuditLogEntry, LogLevel } from '../../lib/types'
+import { getLogContext, getStats, searchLogs, type AuditEntry, type AuditStats, type LogLevel } from '../../lib/api/audit'
+import { errText, fa } from '../../lib/api/residents'
+import { formatJalali } from '../../lib/jalali'
+import { tehranParts } from '../../lib/tehran'
 
 const LEVELS: { key: LogLevel | 'all'; label: string }[] = [
   { key: 'all', label: 'همه سطوح' },
@@ -20,6 +22,14 @@ const LEVELS: { key: LogLevel | 'all'; label: string }[] = [
   { key: 'debug', label: 'دیباگ' },
 ]
 
+const RANGES: { key: '24h' | '7d' | '30d'; label: string; ms: number }[] = [
+  { key: '24h', label: '۲۴ ساعت', ms: 86_400_000 },
+  { key: '7d', label: '۷ روز', ms: 7 * 86_400_000 },
+  { key: '30d', label: '۳۰ روز', ms: 30 * 86_400_000 },
+]
+
+const PAGE = 50
+
 const levelMeta: Record<LogLevel, { color: string; soft: string; icon: typeof Info }> = {
   error: { color: 'var(--lg-danger)', soft: 'var(--lg-danger-soft)', icon: AlertCircle },
   warn: { color: 'var(--lg-warning)', soft: 'var(--lg-warning-soft)', icon: AlertTriangle },
@@ -27,33 +37,95 @@ const levelMeta: Record<LogLevel, { color: string; soft: string; icon: typeof In
   debug: { color: 'var(--lg-text-tertiary)', soft: 'var(--lg-bg-base)', icon: Bug },
 }
 
+const clock = (iso: string) => {
+  const p = tehranParts(iso)
+  return fa(`${String(p.hour).padStart(2, '0')}:${String(p.minute).padStart(2, '0')}`)
+}
+const dayTime = (iso: string) => `${formatJalali(tehranParts(iso).date, false)} ${clock(iso)}`
+
 export function AdminAuditLog() {
   const [level, setLevel] = useState<LogLevel | 'all'>('all')
   const [source, setSource] = useState('all')
+  const [range, setRange] = useState<'24h' | '7d' | '30d'>('24h')
   const [q, setQ] = useState('')
-  const [selected, setSelected] = useState<AuditLogEntry | null>(null)
+  const [debouncedQ, setDebouncedQ] = useState('')
+  const [selected, setSelected] = useState<AuditEntry | null>(null)
 
-  const sources = useMemo(() => Array.from(new Set(auditLogs.map((l) => l.source))), [])
+  const [rows, setRows] = useState<AuditEntry[]>([])
+  const [total, setTotal] = useState(0)
+  const [page, setPage] = useState(1)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [stats, setStats] = useState<AuditStats | null>(null)
+  const [chain, setChain] = useState<AuditEntry[]>([])
+  const [chainLoading, setChainLoading] = useState(false)
 
-  const filtered = auditLogs.filter((l) => {
-    if (level !== 'all' && l.level !== level) return false
-    if (source !== 'all' && l.source !== source) return false
-    if (q && !l.action.toLowerCase().includes(q.toLowerCase()) && !l.httpPath?.toLowerCase().includes(q.toLowerCase())) return false
-    return true
-  })
+  useEffect(() => {
+    document.title = 'داشبورد لاگ · همین'
+    const t = window.setTimeout(() => setDebouncedQ(q.trim()), 300)
+    return () => window.clearTimeout(t)
+  }, [q])
 
-  const chain = useMemo(() => {
-    if (!selected) return []
-    return auditLogs
-      .filter((l) => l.sessionId === selected.sessionId)
-      .sort((a, b) => a.occurredAt.localeCompare(b.occurredAt))
+  const from = useMemo(() => new Date(Date.now() - RANGES.find((r) => r.key === range)!.ms).toISOString(), [range])
+
+  const load = useCallback(
+    async (p: number) => {
+      setLoading(true)
+      setError(null)
+      try {
+        const r = await searchLogs({ from, level: level === 'all' ? undefined : level, source: source === 'all' ? undefined : source, q: debouncedQ || undefined, page: p, limit: PAGE })
+        setRows((prev) => (p === 1 ? r.data : [...prev, ...r.data]))
+        setTotal(r.meta.total)
+        setPage(p)
+      } catch (e) {
+        setError(errText(e))
+      } finally {
+        setLoading(false)
+      }
+    },
+    [from, level, source, debouncedQ],
+  )
+
+  useEffect(() => {
+    void load(1)
+  }, [load])
+
+  useEffect(() => {
+    let live = true
+    getStats({ from }).then((s) => live && setStats(s)).catch(() => undefined)
+    return () => {
+      live = false
+    }
+  }, [from])
+
+  useEffect(() => {
+    if (!selected) return setChain([])
+    let live = true
+    setChainLoading(true)
+    getLogContext(selected.id)
+      .then((c) => live && setChain([...c.before, c.target, ...c.after]))
+      .catch(() => live && setChain([selected]))
+      .finally(() => live && setChainLoading(false))
+    return () => {
+      live = false
+    }
   }, [selected])
+
+  const sources = stats?.sources.map((s) => s.source) ?? []
+  const chart = (stats?.volume ?? []).map((v) => ({
+    label: stats?.range.bucket === 'day' ? formatJalali(tehranParts(v.at).date, false) : clock(v.at),
+    count: v.count,
+    errorCount: v.errorCount,
+  }))
 
   return (
     <div className="space-y-5">
       <div>
         <h1 className="text-xl font-bold">داشبورد لاگ</h1>
-        <p className="text-[var(--lg-text-secondary)] text-sm mt-1">جستجو، فیلتر و بازسازی زنجیره‌ی رویداد کاربر — منبع audit-svc</p>
+        <p className="text-[var(--lg-text-secondary)] text-sm mt-1">
+          جستجو، فیلتر و بازسازی زنجیره‌ی رویداد کاربر — منبع audit-svc
+          {stats ? ` · ${fa(stats.total)} رویداد در این بازه` : ''}
+        </p>
       </div>
 
       {/* نوار فیلتر چسبان */}
@@ -72,8 +144,17 @@ export function AdminAuditLog() {
           </button>
         ))}
         <select
+          value={range}
+          onChange={(e) => setRange(e.target.value as typeof range)}
+          aria-label="بازه‌ی زمانی"
+          className="px-3 py-2 rounded-xl text-xs font-bold border border-[var(--lg-border-hairline)] bg-[var(--lg-bg-elevated)] text-[var(--lg-text-secondary)]"
+        >
+          {RANGES.map((r) => <option key={r.key} value={r.key}>{r.label}</option>)}
+        </select>
+        <select
           value={source}
           onChange={(e) => setSource(e.target.value)}
+          aria-label="سرویس"
           className="px-3 py-2 rounded-xl text-xs font-bold border border-[var(--lg-border-hairline)] bg-[var(--lg-bg-elevated)] text-[var(--lg-text-secondary)]"
         >
           <option value="all">همه سرویس‌ها</option>
@@ -94,26 +175,31 @@ export function AdminAuditLog() {
       <GlassCard className="p-4">
         <p className="font-bold text-sm mb-3">حجم لاگ در زمان</p>
         <div className="h-32">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={auditVolume}>
-              <XAxis dataKey="label" tick={{ fontSize: 11, fill: 'var(--lg-text-tertiary)' }} axisLine={false} tickLine={false} />
-              <Tooltip
-                contentStyle={{ borderRadius: 12, border: '1px solid var(--lg-border-hairline)', fontSize: 12 }}
-                formatter={(value, name) => [value, name === 'count' ? 'کل لاگ‌ها' : 'خطاها']}
-              />
-              <Bar dataKey="count" fill="var(--lg-primary)" radius={[6, 6, 2, 2]} />
-              <Bar dataKey="errorCount" fill="var(--lg-danger)" radius={[6, 6, 2, 2]} />
-            </BarChart>
-          </ResponsiveContainer>
+          {chart.length === 0 ? (
+            <p className="text-center text-[var(--lg-text-tertiary)] text-sm pt-10">دیتایی در این بازه نیست</p>
+          ) : (
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={chart}>
+                <XAxis dataKey="label" tick={{ fontSize: 11, fill: 'var(--lg-text-tertiary)' }} axisLine={false} tickLine={false} />
+                <Tooltip
+                  contentStyle={{ borderRadius: 12, border: '1px solid var(--lg-border-hairline)', fontSize: 12 }}
+                  formatter={(value, name) => [value, name === 'count' ? 'کل لاگ‌ها' : 'خطاها']}
+                />
+                <Bar dataKey="count" fill="var(--lg-primary)" radius={[6, 6, 2, 2]} />
+                <Bar dataKey="errorCount" fill="var(--lg-danger)" radius={[6, 6, 2, 2]} />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
         </div>
       </GlassCard>
 
       {/* ردیف‌های لاگ */}
       <GlassCard className="p-2">
-        {filtered.length === 0 && (
+        {error && <p className="text-center text-[var(--lg-danger)] text-sm py-6">{error}</p>}
+        {!error && !loading && rows.length === 0 && (
           <p className="text-center text-[var(--lg-text-tertiary)] text-sm py-8">لاگی با این فیلتر یافت نشد</p>
         )}
-        {filtered.map((log) => {
+        {rows.map((log) => {
           const meta = levelMeta[log.level]
           const Icon = meta.icon
           return (
@@ -125,20 +211,33 @@ export function AdminAuditLog() {
               <span className="rounded-lg p-1.5 shrink-0" style={{ color: meta.color, background: meta.soft }}>
                 <Icon size={15} />
               </span>
-              <span className="text-xs text-[var(--lg-text-tertiary)] shrink-0 w-20" dir="ltr">{log.occurredAt}</span>
-              <span className="flex-1 min-w-0 text-sm font-semibold truncate">{log.action}</span>
-              {log.statusCode !== undefined && (
+              <span className="text-xs text-[var(--lg-text-tertiary)] shrink-0 w-24 sm:w-28">{dayTime(log.occurredAt)}</span>
+              <span className="flex-1 min-w-0">
+                <span className="block text-sm font-semibold truncate" dir="ltr" style={{ textAlign: 'right' }}>{log.action}</span>
+                {log.actorName && <span className="block text-[11px] text-[var(--lg-text-tertiary)] truncate">{log.actorName}</span>}
+              </span>
+              {log.statusCode != null && (
                 <GlassPill tone={log.statusCode >= 500 ? 'danger' : log.statusCode >= 400 ? 'warning' : 'success'}>
                   {log.statusCode}
                 </GlassPill>
               )}
-              {log.durationMs !== undefined && (
+              {log.durationMs != null && (
                 <span className="text-xs text-[var(--lg-text-tertiary)] shrink-0 hidden sm:inline">{log.durationMs}ms</span>
               )}
-              <span className="text-xs text-[var(--lg-text-tertiary)] shrink-0 hidden md:inline">{log.device?.browser}/{log.device?.os}</span>
+              <span className="text-xs text-[var(--lg-text-tertiary)] shrink-0 hidden md:inline">{log.device?.browser && `${log.device.browser}/${log.device.os ?? ''}`}</span>
             </button>
           )
         })}
+        {loading && (
+          <p className="text-center text-[var(--lg-text-tertiary)] text-sm py-4">
+            <Loader2 size={15} className="inline animate-spin ml-1" /> در حال بارگذاری…
+          </p>
+        )}
+        {!loading && rows.length < total && (
+          <button onClick={() => void load(page + 1)} className="w-full py-3 text-xs font-bold text-[var(--lg-primary)]">
+            نمایش بیشتر ({fa(total - rows.length)} مورد دیگر)
+          </button>
+        )}
       </GlassCard>
 
       {/* پنل جزئیات + زنجیره رویداد */}
@@ -168,22 +267,40 @@ export function AdminAuditLog() {
                 <Row k="سطح" v={selected.level} />
                 <Row k="سرویس" v={selected.source} />
                 {selected.httpPath && <Row k="مسیر" v={`${selected.httpMethod} ${selected.httpPath}`} />}
-                {selected.statusCode !== undefined && <Row k="کد پاسخ" v={String(selected.statusCode)} />}
-                {selected.durationMs !== undefined && <Row k="زمان پاسخ" v={`${selected.durationMs}ms`} />}
-                {selected.device && <Row k="دستگاه" v={`${selected.device.browser} · ${selected.device.os}`} />}
-                <div className="flex items-center justify-between pt-1">
-                  <span className="text-[var(--lg-text-secondary)] text-xs">trace_id</span>
-                  <button
-                    onClick={() => navigator.clipboard?.writeText(selected.traceId)}
-                    className="flex items-center gap-1 text-xs font-mono text-[var(--lg-primary)]"
-                  >
-                    <Copy size={12} />
-                    {selected.traceId}
-                  </button>
-                </div>
+                {selected.statusCode != null && <Row k="کد پاسخ" v={String(selected.statusCode)} />}
+                {selected.durationMs != null && <Row k="زمان پاسخ" v={`${selected.durationMs}ms`} />}
+                {selected.device?.browser && <Row k="دستگاه" v={`${selected.device.browser} · ${selected.device.os ?? ''}`} />}
+                {selected.actorName && <Row k="کاربر" v={`${selected.actorName}${selected.actorRole ? ` (${selected.actorRole})` : ''}`} />}
+                <Row k="زمان" v={dayTime(selected.occurredAt)} />
+                {selected.traceId && (
+                  <div className="flex items-center justify-between pt-1">
+                    <span className="text-[var(--lg-text-secondary)] text-xs">trace_id</span>
+                    <button
+                      onClick={() => navigator.clipboard?.writeText(selected.traceId!)}
+                      className="flex items-center gap-1 text-xs font-mono text-[var(--lg-primary)]"
+                    >
+                      <Copy size={12} />
+                      {selected.traceId.slice(0, 8)}…
+                    </button>
+                  </div>
+                )}
               </GlassCard>
 
-              <p className="font-bold text-sm mb-3">زنجیره رویداد نشست — {chain.length} لاگ</p>
+              {selected.requestBody && Object.keys(selected.requestBody).length > 0 && (
+                <GlassCard className="p-3.5 mb-4">
+                  <p className="text-xs text-[var(--lg-text-secondary)] mb-1.5">جزئیات</p>
+                  <pre className="text-[11px] leading-5 whitespace-pre-wrap break-all" dir="ltr">{JSON.stringify(selected.requestBody, null, 2)}</pre>
+                </GlassCard>
+              )}
+              {selected.errorStack && (
+                <GlassCard className="p-3.5 mb-4">
+                  <p className="text-xs text-[var(--lg-danger)] mb-1.5">stack</p>
+                  <pre className="text-[11px] leading-5 whitespace-pre-wrap break-all" dir="ltr">{selected.errorStack}</pre>
+                </GlassCard>
+              )}
+              <p className="font-bold text-sm mb-3">
+                زنجیره رویداد نشست — {fa(chain.length)} لاگ {chainLoading && <Loader2 size={13} className="inline animate-spin" />}
+              </p>
               <div>
                 {chain.map((c) => {
                   const isTarget = c.id === selected.id
@@ -200,9 +317,9 @@ export function AdminAuditLog() {
                       <div className={`flex-1 -mt-0.5 ${isTarget ? 'rounded-xl bg-[var(--lg-primary-soft)] p-2.5' : ''}`}>
                         <div className="flex items-center justify-between gap-2">
                           <span className={`text-sm ${isTarget ? 'font-extrabold text-[var(--lg-primary)]' : 'font-medium'}`}>{c.action}</span>
-                          <span className="text-xs text-[var(--lg-text-tertiary)]" dir="ltr">{c.occurredAt}</span>
+                          <span className="text-xs text-[var(--lg-text-tertiary)]">{clock(c.occurredAt)}</span>
                         </div>
-                        {c.statusCode !== undefined && (
+                        {c.statusCode != null && (
                           <span className="text-xs text-[var(--lg-text-tertiary)]">{c.httpMethod} · {c.statusCode}</span>
                         )}
                       </div>

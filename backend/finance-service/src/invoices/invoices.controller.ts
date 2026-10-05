@@ -1,152 +1,192 @@
-import { Body, Controller, Delete, Get, NotFoundException, Param, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common'
-import { Type } from 'class-transformer'
-import { ArrayMaxSize, IsArray, IsIn, IsISO8601, IsInt, IsNumber, IsOptional, IsString, Matches, Max, MaxLength, Min, MinLength, ValidateNested } from 'class-validator'
+import { Body, ConflictException, Controller, Delete, Get, NotFoundException, Param, ParseUUIDPipe, Patch, Post, Query, Res, StreamableFile } from '@nestjs/common'
+import type { Response } from 'express'
 import { DatabaseService } from '../database/database.service'
 import { CurrentUser, JwtPayload } from '../auth/decorators/current-user.decorator'
 import { Roles } from '../auth/decorators/roles.decorator'
-import { EventsService } from '../events/events.service'
+import { bad, isoDate, num, obj, str } from '../common/validate'
+import { tehranToday } from '../common/jalali'
 
-export class InvoiceItemDto {
-  @IsString() @MaxLength(120) title: string
-  @IsNumber() @Min(0) @Max(1e6) qty: number
-  @IsNumber() @Min(0) @Max(1e12) unitPrice: number
-}
+export const EXPENSE_CATEGORIES = [
+  'حقوق و دستمزد پرسنل',
+  'قبض برق و آب مشاعات',
+  'نظافت و مواد مصرفی',
+  'تعمیر و نگهداری',
+  'آسانسور و تأسیسات',
+  'امنیت و نگهبانی',
+  'بیمه و متفرقه',
+]
+const PAY_METHODS = ['bank_transfer', 'card_to_card', 'cheque', 'cash', 'online']
+const MAX_ATTACHMENT = 3 * 1024 * 1024
+const MIMES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf']
 
-export class CreateInvoiceDto {
-  @IsOptional() @IsString() @MaxLength(40) number?: string
-  @IsString() @MinLength(1) @MaxLength(120) vendor: string
-  @IsString() @MinLength(1) @MaxLength(80) category: string
-  @IsOptional() @IsString() @MaxLength(300) description?: string
-  @IsOptional() @IsArray() @ArrayMaxSize(100) @ValidateNested({ each: true }) @Type(() => InvoiceItemDto) items?: InvoiceItemDto[]
-  @IsNumber() @Min(0) @Max(1e13) amount: number
-  @IsISO8601() issuedAt: string
-  @IsOptional() @IsIn(['paid', 'pending']) status?: 'paid' | 'pending'
-  @IsOptional() @IsString() @MaxLength(60) method?: string
-  @IsOptional() @IsString() @MaxLength(200) attachmentName?: string
-  @IsOptional() @IsISO8601() paidAt?: string
-}
+const COLS = `id, number, vendor, category, description, items, amount, invoice_date, status, paid_on, pay_method,
+  attachment_name, attachment_mime, (attachment_data IS NOT NULL) AS has_attachment, registered_by_name, created_at`
 
-export class UpdateInvoiceDto {
-  @IsOptional() @IsString() @MinLength(1) @MaxLength(120) vendor?: string
-  @IsOptional() @IsString() @MinLength(1) @MaxLength(80) category?: string
-  @IsOptional() @IsString() @MaxLength(300) description?: string
-  @IsOptional() @IsArray() @ArrayMaxSize(100) @ValidateNested({ each: true }) @Type(() => InvoiceItemDto) items?: InvoiceItemDto[]
-  @IsOptional() @IsNumber() @Min(0) @Max(1e13) amount?: number
-  @IsOptional() @IsISO8601() issuedAt?: string
-  @IsOptional() @IsIn(['paid', 'pending']) status?: 'paid' | 'pending'
-  @IsOptional() @IsString() @MaxLength(60) method?: string
-  @IsOptional() @IsString() @MaxLength(200) attachmentName?: string
-  @IsOptional() @IsISO8601() paidAt?: string
-}
-
-export class ImportInvoicesDto {
-  @IsArray() @ArrayMaxSize(5000) @ValidateNested({ each: true }) @Type(() => CreateInvoiceDto) rows: CreateInvoiceDto[]
-}
-
-class ListQuery {
-  @IsOptional() @IsIn(['paid', 'pending']) status?: string
-  @IsOptional() @Matches(/^\d{4}-(0[1-9]|1[0-2])$/) month?: string
-  @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(2000) limit?: number
-}
-
-const COLS = `i.id, i.number, i.vendor, i.category, i.description, i.items, i.amount, i.issued_at, i.status, i.method,
-  i.attachment_name, i.paid_at, i.registered_by, i.created_at, u.full_name AS registered_by_name`
-const FROM = `finance.invoices i LEFT JOIN identity.users u ON u.id = i.registered_by`
-
-const genNumber = () => `F-${Date.now().toString(36).toUpperCase()}${Math.floor(Math.random() * 36).toString(36).toUpperCase()}`
-
-/**
- * فاکتور و هزینه‌های ساختمان — ثبت با حسابدار، مشاهده برای مدیر ساختمان.
- * پیش‌تر فقط در localStorage مرورگرِ حسابدار نگه‌داری می‌شد و برای مدیر دیده نمی‌شد.
- */
+/** فاکتور/هزینه‌های ساختمان — ثبت و پرداخت: حسابدار؛ مشاهده: مدیر و حسابدار */
 @Controller('invoices')
 export class InvoicesController {
-  constructor(
-    private readonly db: DatabaseService,
-    private readonly events: EventsService,
-  ) {}
+  constructor(private readonly db: DatabaseService) {}
+
+  @Roles('admin', 'accountant')
+  @Get('categories')
+  categories() {
+    return EXPENSE_CATEGORIES
+  }
 
   @Roles('admin', 'accountant')
   @Get()
-  list(@CurrentUser() user: JwtPayload, @Query() q: ListQuery) {
-    return this.db.withTenant(user.tenant_id!, async (c) =>
-      (await c.query(
-        `SELECT ${COLS} FROM ${FROM}
-          WHERE ($1::text IS NULL OR i.status = $1) AND ($2::text IS NULL OR to_char(i.issued_at, 'YYYY-MM') = $2)
-          ORDER BY i.issued_at DESC, i.created_at DESC LIMIT $3`,
-        [q.status ?? null, q.month ?? null, q.limit ?? 500],
-      )).rows,
-    )
+  list(@Query('category') category: string | undefined, @Query('status') status: string | undefined, @CurrentUser() user: JwtPayload) {
+    if (status && !['pending', 'paid'].includes(status)) bad('وضعیت نامعتبر است')
+    return this.db.withTenant(user.tenant_id!, async (client) => {
+      const r = await client.query(
+        `SELECT ${COLS} FROM finance.expense_invoices
+          WHERE ($1::text IS NULL OR category = $1) AND ($2::text IS NULL OR status = $2)
+          ORDER BY invoice_date DESC, created_at DESC LIMIT 500`,
+        [category ?? null, status ?? null],
+      )
+      return r.rows
+    })
+  }
+
+  @Roles('admin', 'accountant')
+  @Get(':id')
+  async get(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: JwtPayload) {
+    return this.db.withTenant(user.tenant_id!, async (client) => {
+      const r = await client.query(`SELECT ${COLS} FROM finance.expense_invoices WHERE id = $1`, [id])
+      if (!r.rows[0]) throw new NotFoundException('فاکتور یافت نشد')
+      return r.rows[0]
+    })
+  }
+
+  @Roles('admin', 'accountant')
+  @Get(':id/attachment')
+  async attachment(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: JwtPayload, @Res({ passthrough: true }) res: Response) {
+    const row = await this.db.withTenant(user.tenant_id!, async (client) => (await client.query(`SELECT attachment_name, attachment_mime, attachment_data FROM finance.expense_invoices WHERE id = $1`, [id])).rows[0])
+    if (!row?.attachment_data) throw new NotFoundException('پیوستی ثبت نشده است')
+    res.set({ 'Content-Type': row.attachment_mime ?? 'application/octet-stream', 'Content-Disposition': `inline; filename*=UTF-8''${encodeURIComponent(row.attachment_name ?? 'attachment')}` })
+    return new StreamableFile(row.attachment_data)
   }
 
   @Roles('accountant')
   @Post()
-  async create(@CurrentUser() user: JwtPayload, @Body() dto: CreateInvoiceDto) {
-    const row = await this.db.withTenant(user.tenant_id!, async (c) => {
-      const r = await c.query<{ id: string }>(
-        `INSERT INTO finance.invoices (tenant_id, number, vendor, category, description, items, amount, issued_at, status, method, attachment_name, paid_at, registered_by)
-         VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7, $8::date, $9, $10, $11, $12::timestamptz, $13) RETURNING id`,
-        [user.tenant_id, dto.number?.trim() || genNumber(), dto.vendor.trim(), dto.category.trim(), dto.description ?? '', JSON.stringify(dto.items ?? []), dto.amount,
-          dto.issuedAt.slice(0, 10), dto.status ?? 'pending', dto.method ?? null, dto.attachmentName ?? null,
-          (dto.status ?? 'pending') === 'paid' ? (dto.paidAt ?? new Date().toISOString()) : null, user.sub],
+  create(@Body() body: unknown, @CurrentUser() user: JwtPayload) {
+    const v = parseInvoice(body, true)
+    return this.db.withTenant(user.tenant_id!, async (client) => {
+      const who = await client.query<{ full_name: string }>(`SELECT full_name FROM identity.users WHERE id = $1`, [user.sub])
+      const number = v.number ?? `F-${String(Math.floor(Math.random() * 1e6)).padStart(6, '0')}`
+      const paidOn = v.status === 'paid' ? (v.paid_on ?? tehranToday()) : null
+      const r = await client.query(
+        `INSERT INTO finance.expense_invoices (tenant_id, number, vendor, category, description, items, amount, invoice_date, status, paid_on, pay_method,
+                                               attachment_name, attachment_mime, attachment_data, registered_by, registered_by_name)
+         VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7,$8::date,$9,$10::date,$11,$12,$13,$14,$15,$16) RETURNING ${COLS}`,
+        [user.tenant_id, number, v.vendor, v.category, v.description, JSON.stringify(v.items), v.amount, v.invoice_date, v.status, paidOn, v.pay_method ?? null,
+         v.attachment?.name ?? null, v.attachment?.mime ?? null, v.attachment?.data ?? null, user.sub, who.rows[0]?.full_name ?? 'حسابداری'],
       )
-      return (await c.query(`SELECT ${COLS} FROM ${FROM} WHERE i.id = $1`, [r.rows[0].id])).rows[0]
+      return r.rows[0]
     })
-    this.events.publish('invoice.created', { invoiceId: row.id, vendor: row.vendor, amount: Number(row.amount) }, user.tenant_id)
-    return row
+  }
+
+  /** ویرایش فقط تا قبل از پرداخت (پس از پرداخت، گردش صندوق تغییر نمی‌کند) */
+  @Roles('accountant')
+  @Patch(':id')
+  update(@Param('id', ParseUUIDPipe) id: string, @Body() body: unknown, @CurrentUser() user: JwtPayload) {
+    const v = parseInvoice(body, false)
+    return this.db.withTenant(user.tenant_id!, async (client) => {
+      const cur = (await client.query(`SELECT * FROM finance.expense_invoices WHERE id = $1 FOR UPDATE`, [id])).rows[0]
+      if (!cur) throw new NotFoundException('فاکتور یافت نشد')
+      if (cur.status === 'paid') throw new ConflictException('فاکتور پرداخت‌شده قابل ویرایش نیست')
+      const items = v.items.length ? v.items : cur.items
+      const amount = v.items.length ? v.amount : cur.amount
+      const r = await client.query(
+        `UPDATE finance.expense_invoices SET number = COALESCE($2, number), vendor = COALESCE($3, vendor), category = COALESCE($4, category),
+                description = COALESCE($5, description), items = $6::jsonb, amount = $7, invoice_date = COALESCE($8::date, invoice_date), updated_at = now()
+          WHERE id = $1 RETURNING ${COLS}`,
+        [id, v.number ?? null, v.vendor ?? null, v.category ?? null, v.description ?? null, JSON.stringify(items), amount, v.invoice_date ?? null],
+      )
+      return r.rows[0]
+    })
   }
 
   @Roles('accountant')
-  @Patch(':id')
-  update(@CurrentUser() user: JwtPayload, @Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateInvoiceDto) {
-    return this.db.withTenant(user.tenant_id!, async (c) => {
-      const r = await c.query(
-        `UPDATE finance.invoices SET
-           vendor = COALESCE($2, vendor), category = COALESCE($3, category), description = COALESCE($4, description),
-           items = COALESCE($5::jsonb, items), amount = COALESCE($6, amount), issued_at = COALESCE($7::date, issued_at),
-           status = COALESCE($8, status), method = COALESCE($9, method), attachment_name = COALESCE($10, attachment_name),
-           paid_at = CASE WHEN COALESCE($8, status) = 'paid' THEN COALESCE($11::timestamptz, paid_at, now()) ELSE NULL END,
-           updated_at = now()
-         WHERE id = $1 RETURNING id`,
-        [id, dto.vendor?.trim() ?? null, dto.category?.trim() ?? null, dto.description ?? null, dto.items ? JSON.stringify(dto.items) : null, dto.amount ?? null,
-          dto.issuedAt ? dto.issuedAt.slice(0, 10) : null, dto.status ?? null, dto.method ?? null, dto.attachmentName ?? null, dto.paidAt ?? null],
+  @Post(':id/pay')
+  pay(@Param('id', ParseUUIDPipe) id: string, @Body() body: unknown, @CurrentUser() user: JwtPayload) {
+    const b = obj(body ?? {})
+    const pay_method = str(b.pay_method, 'روش پرداخت') ?? 'bank_transfer'
+    if (!PAY_METHODS.includes(pay_method)) bad('روش پرداخت نامعتبر است')
+    const paid_on = isoDate(b.paid_on, 'تاریخ پرداخت') ?? tehranToday()
+    return this.db.withTenant(user.tenant_id!, async (client) => {
+      const r = await client.query(
+        `UPDATE finance.expense_invoices SET status = 'paid', paid_on = $2::date, pay_method = $3, updated_at = now()
+          WHERE id = $1 AND status = 'pending' RETURNING ${COLS}`,
+        [id, paid_on, pay_method],
       )
-      if (!r.rowCount) throw new NotFoundException('فاکتور یافت نشد')
-      return (await c.query(`SELECT ${COLS} FROM ${FROM} WHERE i.id = $1`, [id])).rows[0]
+      if (!r.rows[0]) {
+        const ex = await client.query(`SELECT status FROM finance.expense_invoices WHERE id = $1`, [id])
+        if (!ex.rows[0]) throw new NotFoundException('فاکتور یافت نشد')
+        throw new ConflictException('این فاکتور قبلاً پرداخت شده است')
+      }
+      return r.rows[0]
     })
   }
 
   @Roles('accountant')
   @Delete(':id')
-  remove(@CurrentUser() user: JwtPayload, @Param('id', ParseUUIDPipe) id: string) {
-    return this.db.withTenant(user.tenant_id!, async (c) => {
-      const r = await c.query(`DELETE FROM finance.invoices WHERE id = $1 RETURNING id`, [id])
-      if (!r.rowCount) throw new NotFoundException('فاکتور یافت نشد')
+  remove(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: JwtPayload) {
+    return this.db.withTenant(user.tenant_id!, async (client) => {
+      const cur = (await client.query(`SELECT status FROM finance.expense_invoices WHERE id = $1 FOR UPDATE`, [id])).rows[0]
+      if (!cur) throw new NotFoundException('فاکتور یافت نشد')
+      if (cur.status === 'paid') throw new ConflictException('فاکتور پرداخت‌شده از دفتر صندوق حذف نمی‌شود')
+      await client.query(`DELETE FROM finance.expense_invoices WHERE id = $1`, [id])
       return { ok: true }
     })
   }
+}
 
-  /** ورود فاکتورها از فایل حسابداری — شماره‌ی تکراری به‌روزرسانی می‌شود */
-  @Roles('accountant')
-  @Post('import')
-  async importRows(@CurrentUser() user: JwtPayload, @Body() dto: ImportInvoicesDto) {
-    const imported = await this.db.withTenant(user.tenant_id!, async (c) => {
-      let n = 0
-      for (const r of dto.rows) {
-        await c.query(
-          `INSERT INTO finance.invoices (tenant_id, number, vendor, category, description, items, amount, issued_at, status, method, attachment_name, paid_at, registered_by)
-           VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7, $8::date, $9, $10, $11, $12::timestamptz, $13)
-           ON CONFLICT (tenant_id, number) DO UPDATE SET vendor = EXCLUDED.vendor, category = EXCLUDED.category, description = EXCLUDED.description,
-             items = EXCLUDED.items, amount = EXCLUDED.amount, issued_at = EXCLUDED.issued_at, status = EXCLUDED.status,
-             method = EXCLUDED.method, paid_at = EXCLUDED.paid_at, updated_at = now()`,
-          [user.tenant_id, r.number?.trim() || genNumber(), r.vendor.trim(), r.category.trim(), r.description ?? '', JSON.stringify(r.items ?? []), r.amount,
-            r.issuedAt.slice(0, 10), r.status ?? 'pending', r.method ?? null, r.attachmentName ?? null,
-            (r.status ?? 'pending') === 'paid' ? (r.paidAt ?? new Date().toISOString()) : null, user.sub],
-        )
-        n++
+function parseInvoice(body: unknown, full: boolean) {
+  const b = obj(body)
+  const rawItems = b.items
+  let items: { title: string; qty: number; unit_price: number }[] = []
+  if (rawItems !== undefined || full) {
+    if (!Array.isArray(rawItems) || rawItems.length < 1 || rawItems.length > 100) bad('حداقل یک ردیف برای فاکتور لازم است')
+    items = (rawItems as unknown[]).map((i) => {
+      const o = obj(i)
+      return {
+        title: str(o.title, 'شرح ردیف', { required: true, max: 200 })!,
+        qty: num(o.qty, 'تعداد', { required: true, min: 0.001, max: 1e7 })!,
+        unit_price: num(o.unit_price ?? o.unitPrice, 'فی', { required: true, min: 0, max: 1e12 })!,
       }
-      return n
     })
-    return { imported }
+  }
+  const amount = Math.round(items.reduce((a, i) => a + i.qty * i.unit_price, 0))
+  if (items.length && amount <= 0) bad('مبلغ فاکتور باید بزرگ‌تر از صفر باشد')
+  const category = str(b.category, 'دسته‌ی هزینه', { required: full, max: 80 })
+  if (category && !EXPENSE_CATEGORIES.includes(category)) bad('دسته‌ی هزینه نامعتبر است')
+  const status = (str(b.status, 'وضعیت') ?? 'pending') as 'pending' | 'paid'
+  if (!['pending', 'paid'].includes(status)) bad('وضعیت نامعتبر است')
+  const pay_method = str(b.pay_method, 'روش پرداخت')
+  if (pay_method && !PAY_METHODS.includes(pay_method)) bad('روش پرداخت نامعتبر است')
+  if (full && status === 'paid' && !pay_method) bad('روش پرداخت را مشخص کنید')
+
+  let attachment: { name: string; mime: string; data: Buffer } | undefined
+  if (b.attachment) {
+    const a = obj(b.attachment)
+    const mime = str(a.mime, 'نوع پیوست', { required: true })!
+    if (!MIMES.includes(mime)) bad('فقط تصویر (JPG/PNG/WebP) یا PDF مجاز است')
+    const data = Buffer.from(str(a.base64, 'فایل پیوست', { required: true, max: 5_000_000 })!, 'base64')
+    if (!data.length || data.length > MAX_ATTACHMENT) bad('حجم پیوست باید کمتر از ۳ مگابایت باشد')
+    attachment = { name: str(a.name, 'نام پیوست', { max: 120 }) ?? 'attachment', mime, data }
+  }
+  return {
+    number: str(b.number, 'شماره فاکتور', { max: 40 }),
+    vendor: str(b.vendor, 'فروشنده', { required: full, max: 120 }),
+    category,
+    description: str(b.description, 'شرح', { required: full, max: 500 }),
+    items,
+    amount,
+    invoice_date: isoDate(b.invoice_date ?? b.invoiceDate, 'تاریخ فاکتور', full),
+    status,
+    paid_on: isoDate(b.paid_on, 'تاریخ پرداخت'),
+    pay_method,
+    attachment,
   }
 }

@@ -1,10 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { Hourglass, IdCard, Megaphone, Minus, MoonStar, Package, Phone, Plus, Clock, UtensilsCrossed, Waves, Wrench, CircleCheck, CircleX, type LucideIcon } from 'lucide-react'
-import { ApiError } from '../../lib/api/client'
+import { ApiError, api } from '../../lib/api/client'
 import { residentsApi, errText, fa, toman, type OwnChildRequest } from '../../lib/api/residents'
 import { usePermissions } from '../../context/PermissionsContext'
-import { useStore, placeFnbOrder, addTicket } from '../../lib/store'
 import { Cta, Loading, Seg, Sheet, useToast } from '../../components/hm'
 import { BookAmenity } from '../resident/Book'
 
@@ -27,11 +26,22 @@ export function useEmergency(toast: (m: string) => void) {
 export function ChildHome() {
   const { perms, refresh } = usePermissions()
   const navigate = useNavigate()
-  const { announcements } = useStore()
+  // آخرین اطلاعیه‌ی عمومی از سرور (نه نظرسنجی)
+  const [notice, setNotice] = useState<{ id: string; title: string } | undefined>()
   const [orderOpen, setOrderOpen] = useState(false)
   const [ticketOpen, setTicketOpen] = useState(false)
   const { toast, toastNode } = useToast()
   const sos = useEmergency(toast)
+
+  const noticeAllowed = perms ? perms.modules.notice !== 'hidden' : false
+  useEffect(() => {
+    if (!noticeAllowed) return
+    let alive = true
+    api.get<{ id: string; title: string; kind: string }[]>('/notification/announcements')
+      .then((rows) => alive && setNotice(rows.find((a) => a.kind !== 'poll')))
+      .catch(() => undefined)
+    return () => { alive = false }
+  }, [noticeAllowed])
 
   if (!perms) return <Loading />
   if (perms.quiet.active) return <ChildQuiet />
@@ -66,7 +76,6 @@ export function ChildHome() {
   if (m.parcel !== 'hidden') tiles.push({ icon: Package, t: 'مرسوله‌ها', d: 'در نگهبانی', tone: 'ok', on: () => toast('برای تحویل مرسوله به نگهبانی مراجعه کن') })
   tiles.push({ icon: Phone, t: 'تماس با نگهبانی', d: 'همیشه در دسترس', tone: 'bad', on: sos })
 
-  const notice = m.notice !== 'hidden' ? announcements.find((a) => a.audience.includes('all_residents')) : undefined
 
   return (
     <div className="flex flex-col gap-4 hm-fade-in">
@@ -117,8 +126,12 @@ export function ChildHome() {
             const r = await request('ticket', { text })
             setTicketOpen(false)
             if (r?.status === 'allowed') {
-              addTicket({ subject: text.slice(0, 60), body: text, unit: `واحد ${perms.unit?.no ?? ''}`, category: 'سایر', priority: 'normal', reporter: perms.name ?? 'کودک', kind: 'fault' } as Parameters<typeof addTicket>[0])
-              toast('درخواست تعمیر ثبت شد')
+              try {
+                await api.post('/facility/tickets', { kind: 'fault', subject: text.slice(0, 60), body: text, priority: 'normal' })
+                toast('درخواست تعمیر ثبت شد')
+              } catch (e) {
+                toast(errText(e))
+              }
             }
           }}
         />
@@ -152,37 +165,55 @@ function TicketForm({ onSubmit }: { onSubmit: (t: string) => Promise<void> }) {
 
 /** سفارش کودک از منوی رستوران/کافی‌شاپ — تا سقف ماهانه مستقیم، وگرنه درخواست برای والد */
 function ChildOrderSheet({ open, onClose, onDone }: { open: boolean; onClose: () => void; onDone: (msg?: string) => void }) {
-  const { menu } = useStore()
   const { perms } = usePermissions()
   const navigate = useNavigate()
-  const [venue, setVenue] = useState<'v1' | 'v2'>('v1')
+  const [venues, setVenues] = useState<VenueRow[]>([])
+  const [venue, setVenue] = useState('')
+  const [menu, setMenu] = useState<MenuRow[]>([])
   const [cart, setCart] = useState<Record<string, number>>({})
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   useEffect(() => {
-    if (open) {
-      setCart({})
-      setErr(null)
-    }
+    if (!open) return
+    setCart({})
+    setErr(null)
+    api.get<VenueRow[]>('/fnb/venues')
+      .then((v) => {
+        setVenues(v)
+        setVenue((cur) => (v.some((x) => x.id === cur) ? cur : v[0]?.id ?? ''))
+      })
+      .catch((e) => setErr(errText(e)))
   }, [open])
-  const items = menu.filter((x) => x.venueId === venue && x.availability !== 'hidden')
+  useEffect(() => {
+    if (!open || !venue) return
+    setCart({})
+    api.get<{ items: MenuRow[] }>(`/fnb/venues/${venue}/menu`)
+      .then((r) => setMenu(r.items.map((x) => ({ ...x, price: Number(x.price) }))))
+      .catch((e) => setErr(errText(e)))
+  }, [open, venue])
+  const items = menu.filter((x) => x.availability !== 'hidden')
   const lines = menu.filter((x) => cart[x.id])
   const total = lines.reduce((s, x) => s + x.price * cart[x.id], 0)
   const remaining = perms?.credit?.remaining ?? 0
-  const venueName = venue === 'v2' ? 'کافی‌شاپ ساختمان' : 'رستوران ساختمان'
+  const current = venues.find((v) => v.id === venue)
+  const venueName = current?.name ?? 'رستوران ساختمان'
+  const needsApproval = total > remaining || perms?.modules.food === 'approval'
 
   async function submit() {
     setBusy(true)
     setErr(null)
-    const payload = { venue: venueName, venueId: venue, destination: `${perms?.name ?? ''} · واحد ${fa(perms?.unit?.no ?? '')}`, items: lines.map((x) => ({ id: x.id, n: x.name, q: cart[x.id], p: x.price })) }
+    const payload = {
+      venue: venueName, venueId: venue, delivery_type: 'in_unit',
+      destination: `${perms?.name ?? ''} · واحد ${fa(perms?.unit?.no ?? '')}`,
+      items: lines.map((x) => ({ id: x.id, n: x.name, q: cart[x.id], p: x.price })),
+    }
     try {
+      if (!needsApproval) {
+        // سفارش مستقیم: اول سفارش واقعی (باز بودن مجموعه/موجودی را سرور می‌سنجد)، بعد کسر از سقف ماهانه
+        await api.post('/fnb/orders', { venue_id: venue, delivery_type: 'in_unit', items: lines.map((x) => ({ item_id: x.id, quantity: cart[x.id] })) }, { idempotencyKey: crypto.randomUUID() })
+      }
       const r = await residentsApi.childRequest({ type: 'order', amount: total, payload })
       if (r.status === 'placed') {
-        placeFnbOrder({
-          venueId: venue, venueName, deliveryType: 'in_unit', destinationLabel: payload.destination, billing: 'monthly_charge',
-          items: lines.map((x) => ({ itemId: x.id, name: x.name, quantity: cart[x.id], unitPrice: x.price, lineTotal: x.price * cart[x.id] })),
-          subtotal: total, total, prepTimeMinutes: 25,
-        })
         onDone(`سفارش ثبت شد · ${toman(total)} تومان`)
       } else if (r.request) {
         onDone()
@@ -202,11 +233,13 @@ function ChildOrderSheet({ open, onClose, onDone }: { open: boolean; onClose: ()
     <Sheet open={open} onClose={onClose} label="سفارش غذا">
       <div className="flex flex-col gap-3">
         <p className="mx-2 text-base font-bold">سفارش غذا</p>
-        <Seg<'v1' | 'v2'> options={[['v1', 'رستوران'], ['v2', 'کافی‌شاپ']]} value={venue} onChange={setVenue} />
+        {venues.length > 1 && <Seg<string> options={venues.map((v) => [v.id, v.name] as [string, string])} value={venue} onChange={setVenue} />}
+        {venues.length === 0 && !err && <p className="text-xs text-center text-[var(--hm-t2)]">مجموعه‌ای برای سفارش تعریف نشده است</p>}
+        {current && !current.open_now && <p className="text-xs text-center font-bold text-[var(--hm-warn)]">«{current.name}» الان بسته است</p>}
         <div className="flex flex-col gap-2 max-h-[42vh] overflow-y-auto">
           {items.map((x) => {
             const q = cart[x.id] ?? 0
-            const sold = x.availability === 'sold_out'
+            const sold = x.availability !== 'available'
             return (
               <div key={x.id} className="hm-row" style={{ opacity: sold ? 0.55 : 1 }}>
                 <span className="flex-1 min-w-0">
@@ -233,17 +266,20 @@ function ChildOrderSheet({ open, onClose, onDone }: { open: boolean; onClose: ()
         {total > 0 && (
           <p className="text-xs text-center text-[var(--hm-t2)]">
             جمع {toman(total)} تومان · مانده‌ی سقف این ماه {toman(remaining)}
-            {(total > remaining || perms?.modules.food === 'approval') && ' · برای بابا یا مامان فرستاده می‌شود'}
+            {needsApproval && ' · برای بابا یا مامان فرستاده می‌شود'}
           </p>
         )}
         {err && <p className="text-xs font-bold text-[var(--hm-bad)] text-center">{err}</p>}
         <Cta onClick={submit} busy={busy} disabled={total === 0}>
-          {total > remaining || perms?.modules.food === 'approval' ? 'ارسال برای تأیید' : 'ثبت سفارش'}
+          {needsApproval ? 'ارسال برای تأیید' : 'ثبت سفارش'}
         </Cta>
       </div>
     </Sheet>
   )
 }
+
+interface VenueRow { id: string; name: string; kind: string; open_now: boolean }
+interface MenuRow { id: string; name: string; price: number; availability: string }
 
 /** D2 — منتظر تأیید والد (هر ۵ ثانیه وضعیت را می‌پرسد) */
 export function ChildWaiting() {
