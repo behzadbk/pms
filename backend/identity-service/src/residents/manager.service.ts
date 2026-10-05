@@ -18,7 +18,7 @@ import { displayPhone, normalizePhone } from './phone'
 import { ensureLogin, resetToUnitPassword } from './credentials'
 import { formatJalali } from './jalali'
 import { RESIDENCY_LABEL, ROLE_LABEL, ageFromBirthYear, fa } from './residents.constants'
-import type { AddResidentDto, InviteDto, UpdateMembershipDto } from './dto/residents.dto'
+import type { AddResidentDto, CreateUnitsDto, InviteDto, UpdateMembershipDto } from './dto/residents.dto'
 
 export type Tone = 'pri' | 'ok' | 'warn' | 'bad' | 'acc' | 'mute'
 export interface Badge {
@@ -224,6 +224,54 @@ export class ManagerService {
       })),
       vehicles: [] as { plate: string }[],
     }
+  }
+
+  /* ───────────── ساخت دستی واحد ───────────── */
+
+  /**
+   * مدیر واحد(ها)ی ساختمان را دستی می‌سازد. شماره‌ها با فاصله/ویرگول جدا می‌شوند؛ واحدهای تکراری
+   * رد می‌شوند (نه خطا) مگر هیچ‌کدام جدید نباشد. اگر ساختمان هنوز ردیف property.buildings ندارد ساخته می‌شود.
+   */
+  async createUnits(tenantId: string, dto: CreateUnitsDto, ctx: RequestCtx) {
+    const nums = [
+      ...new Set(
+        dto.unit_numbers
+          .replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)))
+          .replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)))
+          .split(/[\s,،;؛\n]+/)
+          .map((x) => x.trim())
+          .filter(Boolean),
+      ),
+    ]
+    if (nums.length === 0) throw new BadRequestException('شماره‌ی واحد را وارد کنید')
+    if (nums.length > 200) throw new BadRequestException('حداکثر ۲۰۰ واحد در هر بار')
+    const bad = nums.find((n) => !/^[0-9A-Za-z\-]{1,10}$/.test(n))
+    if (bad) throw new BadRequestException(`شماره‌ی واحد «${bad}» نامعتبر است (فقط عدد، حرف انگلیسی و خط تیره، حداکثر ۱۰ نویسه)`)
+
+    return this.db.withTenant(tenantId, async (client) => {
+      let building = (await client.query<{ id: string }>(`SELECT id FROM property.buildings ORDER BY created_at LIMIT 1`)).rows[0]?.id
+      if (!building) {
+        const name = (await client.query<{ name: string }>(`SELECT name FROM identity.tenants WHERE id = $1`, [tenantId])).rows[0]?.name ?? 'ساختمان'
+        building = (await client.query<{ id: string }>(`INSERT INTO property.buildings (tenant_id, name) VALUES ($1, $2) RETURNING id`, [tenantId, name])).rows[0].id
+      }
+      const created: { id: string; no: string }[] = []
+      const skipped: string[] = []
+      for (const no of nums) {
+        // طبقه: اگر ندادند و شماره حداقل ۳ رقم عددی است، از شماره حدس زده می‌شود (۱۲۰۴ → ۱۲)
+        const floor = dto.floor ?? (/^\d{3,}$/.test(no) ? parseInt(no.slice(0, -2), 10) : null)
+        const r = await client.query<{ id: string }>(
+          `INSERT INTO property.units (tenant_id, building_id, unit_number, floor, area_sqm, parking_count, storage_no)
+           VALUES ($1, $2, $3, $4, $5, $6, $7)
+           ON CONFLICT (tenant_id, unit_number) DO NOTHING RETURNING id`,
+          [tenantId, building, no, floor, dto.area ?? null, nums.length === 1 ? dto.parking_count ?? 0 : 0, nums.length === 1 ? dto.storage_no ?? null : null],
+        )
+        if (r.rows[0]) created.push({ id: r.rows[0].id, no })
+        else skipped.push(no)
+      }
+      if (created.length === 0) throw new ConflictException(nums.length === 1 ? `واحد ${nums[0]} قبلاً ثبت شده است` : 'همه‌ی این واحدها قبلاً ثبت شده‌اند')
+      await writeAudit(client, tenantId, ctx, 'unit.created', { unit_numbers: created.map((c) => c.no), skipped })
+      return { created, skipped }
+    })
   }
 
   /* ───────────── A3 · ثبت ساکن ───────────── */

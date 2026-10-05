@@ -1,9 +1,8 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
-import { Check, Loader2, X } from 'lucide-react'
+import { Check, Copy, Loader2, X } from 'lucide-react'
 import { featureLabels, suggestMonthlyFee, tierById, tiers, type BuildingTier } from '../../lib/tiers'
-import { toman } from '../../lib/mockData'
 import { platformApi, ApiError } from '../../lib/api'
-import type { Building } from '../../lib/api/platform'
+import { fmtToman as toman, type Building, type CreatedBuilding } from '../../lib/api/platform'
 
 /**
  * فرم «تعریف برج / ساختمان جدید» — نکته‌ی اصلی این فرم انتخاب سطح سرویس است:
@@ -27,6 +26,8 @@ export function NewBuildingDialog({
   const [address, setAddress] = useState('')
   const [adminEmail, setAdminEmail] = useState('')
   const [adminPassword, setAdminPassword] = useState('')
+  const [created, setCreated] = useState<CreatedBuilding | null>(null)
+  const [copied, setCopied] = useState(false)
   const [status, setStatus] = useState<'trial' | 'active'>('trial')
   const [feeTouched, setFeeTouched] = useState(false)
   const [monthlyFee, setMonthlyFee] = useState('')
@@ -44,11 +45,11 @@ export function NewBuildingDialog({
   // بستن با Esc
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') onClose()
+      if (e.key === 'Escape' && !created) onClose()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
+  }, [onClose, created])
 
   const selectedTier = tierById[tier]
 
@@ -59,13 +60,13 @@ export function NewBuildingDialog({
       setError('تعداد واحد باید حداقل ۱ باشد')
       return
     }
-    if (adminEmail.trim() && adminPassword.length < 8) {
+    if (adminPassword && adminPassword.length < 8) {
       setError('رمز مدیر مجتمع باید حداقل ۸ کاراکتر باشد')
       return
     }
     setSubmitting(true)
     try {
-      const created = await platformApi.createBuilding({
+      const res = await platformApi.createBuilding({
         name: name.trim(),
         subdomain: subdomain.trim().toLowerCase(),
         tier,
@@ -77,10 +78,12 @@ export function NewBuildingDialog({
         monthlyFee: monthlyFee ? Number(monthlyFee) : undefined,
         status,
         adminEmail: adminEmail.trim() || undefined,
-        adminPassword: adminEmail.trim() ? adminPassword : undefined,
+        adminPassword: adminEmail.trim() && adminPassword ? adminPassword : undefined,
         adminFullName: managerName.trim() || undefined,
       })
-      onCreated(created)
+      // اعتبارنامه‌ی مدیر فقط همین یک‌بار برمی‌گردد؛ قبل از بستن فرم نشان داده می‌شود
+      if (res.adminCredentials) setCreated(res)
+      else onCreated(res)
     } catch (err) {
       setError(
         err instanceof ApiError ? err.message : 'ثبت ساختمان ناموفق بود — اتصال به بک‌اند را بررسی کنید.',
@@ -95,11 +98,43 @@ export function NewBuildingDialog({
       <div className="bg-card w-full sm:max-w-3xl max-h-[92vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl border border-line shadow-xl">
         <div className="flex items-center justify-between px-5 py-4 border-b border-line sticky top-0 bg-card z-10">
           <h2 className="font-semibold">تعریف برج / ساختمان جدید</h2>
-          <button onClick={onClose} className="text-muted hover:text-ink-text p-1" aria-label="بستن">
+          <button onClick={() => (created ? onCreated(created) : onClose())} className="text-muted hover:text-ink-text p-1" aria-label="بستن">
             <X size={18} />
           </button>
         </div>
 
+        {created?.adminCredentials ? (
+          <div className="p-5 space-y-4">
+            <div className="rounded-xl bg-good-soft text-good px-4 py-3 text-sm font-medium">
+              «{created.name}» ساخته شد. اطلاعات ورود مدیر را همین حالا برای او بفرستید.
+            </div>
+            <div className="rounded-xl border border-line bg-canvas p-4 space-y-2 text-sm" dir="ltr">
+              <p><span className="text-muted">subdomain:</span> <b className="font-mono">{created.subdomain}</b></p>
+              <p><span className="text-muted">email:</span> <b className="font-mono">{created.adminCredentials.email}</b></p>
+              <p><span className="text-muted">temporary password:</span> <b className="font-mono select-all">{created.adminCredentials.password}</b></p>
+            </div>
+            <p className="text-xs text-bad bg-bad-soft rounded-lg px-3 py-2">
+              {created.adminCredentials.note} این رمز در هیچ‌جا ذخیره یا لاگ نمی‌شود و بعد از بستن این پنجره قابل بازیابی نیست.
+            </p>
+            <div className="flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  const c = created.adminCredentials!
+                  const text = `ورود به پنل «همین»\nمجتمع: ${created.subdomain}\nایمیل: ${c.email}\nرمز موقت: ${c.password}`
+                  navigator.clipboard?.writeText(text).then(() => setCopied(true), () => undefined)
+                }}
+                className="flex items-center gap-2 border border-line px-4 py-2.5 rounded-xl text-sm hover:bg-canvas"
+              >
+                <Copy size={15} />
+                {copied ? 'کپی شد' : 'کپی اطلاعات ورود'}
+              </button>
+              <button type="button" onClick={() => onCreated(created)} className="bg-ink text-white px-5 py-2.5 rounded-xl text-sm font-medium">
+                رمز را ذخیره کردم
+              </button>
+            </div>
+          </div>
+        ) : (
         <form onSubmit={handleSubmit} className="p-5 space-y-6">
           {/* --- سطح سرویس --- */}
           <section className="space-y-3">
@@ -222,12 +257,11 @@ export function NewBuildingDialog({
               />
             </Field>
 
-            <Field label="رمز اولیه‌ی مدیر" hint="حداقل ۸ کاراکتر — بعد از اولین ورود تغییر دهد">
+            <Field label="رمز موقت مدیر (اختیاری)" hint="خالی بگذارید تا سامانه یک رمز تصادفی بسازد و یک‌بار نشان دهد؛ مدیر در اولین ورود رمز را عوض می‌کند">
               <input
                 type="password"
                 value={adminPassword}
                 onChange={(e) => setAdminPassword(e.target.value)}
-                required={!!adminEmail.trim()}
                 minLength={8}
                 dir="ltr"
                 autoComplete="new-password"
@@ -293,6 +327,7 @@ export function NewBuildingDialog({
             </button>
           </div>
         </form>
+        )}
       </div>
     </div>
   )

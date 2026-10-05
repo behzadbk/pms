@@ -18,7 +18,7 @@ export const ALL_PERMISSIONS: StaffPermission[] = ['lobby', 'amenity_desk', 'kit
 
 export const permissionInfo: Record<StaffPermission, { label: string; desc: string; icon: LucideIcon }> = {
   lobby: { label: 'پنل لابی (ورودی)', desc: 'پذیرش مهمان و بررسی کد، ثبت و تحویل مرسوله', icon: ConciergeBell },
-  amenity_desk: { label: 'پنل مسئول مشاعات', desc: 'تایید/رد رزروها، ثبت دستی رزرو، تقویم مشاعات', icon: CalendarRange },
+  amenity_desk: { label: 'پنل مسئول مشاعات', desc: 'تعریف مشاعات و تایم‌تیبل، تایید/رد رزروها، ثبت دستی', icon: CalendarRange },
   kitchen: { label: 'آشپزخانه / رستوران', desc: 'دریافت سفارش رستوران و مدیریت منوی رستوران', icon: ChefHat },
   cafe: { label: 'کافی‌شاپ', desc: 'دریافت سفارش کافی‌شاپ و مدیریت منوی کافی‌شاپ', icon: Coffee },
   security: { label: 'نگهبانی', desc: 'کنترل مهمان، مرسولات و تردد خودرو', icon: ShieldCheck },
@@ -63,7 +63,7 @@ export interface StaffNavItem {
  */
 export const staffNavItems: StaffNavItem[] = [
   { to: '/staff/lobby', label: 'میز لابی', icon: ConciergeBell, permission: 'lobby' },
-  { to: '/staff/amenity-desk', label: 'رزرو مشاعات', icon: CalendarRange, permission: 'amenity_desk' },
+  { to: '/staff/amenity-desk', label: 'مشاعات', icon: CalendarRange, permission: 'amenity_desk' },
   { to: '/staff/kitchen', label: 'سفارش‌های رستوران', icon: ChefHat, permission: 'kitchen' },
   { to: '/staff/menu/restaurant', label: 'منوی رستوران', icon: UtensilsCrossed, permission: 'kitchen' },
   { to: '/staff/cafe', label: 'سفارش‌های کافی‌شاپ', icon: Coffee, permission: 'cafe' },

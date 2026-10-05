@@ -248,6 +248,8 @@ export interface Amenity {
   max_hours: number
   capacity: number | null
   rule_text: string | null
+  description?: string | null
+  max_advance_days?: number
   /** مشاعِ بسته برای واحد بدهکار */
   locked?: boolean
 }
@@ -308,6 +310,9 @@ export const residentsApi = {
   // ── مدیر ──
   units: (buildingId: string, filter?: string, q?: string) => api.get<UnitsResponse>(`${I}/buildings/${buildingId}/units${qs({ filter, q })}`),
   unit: (id: string) => api.get<UnitFile>(sc(`${I}/units/${id}`)),
+  /** ساخت دستی واحد(ها): unit_numbers می‌تواند چند شماره با فاصله/ویرگول باشد */
+  createUnits: (buildingId: string, body: { unit_numbers: string; floor?: number; area?: number }) =>
+    api.post<{ created: { id: string; no: string }[]; skipped: string[] }>(`${I}/buildings/${buildingId}/units/multi`, body),
   addResident: (unitId: string, body: AddResidentBody) => api.post<{ membership_id: string; role: string; status: string; credentials?: LoginCreds | null }>(sc(`${I}/units/${unitId}/residents`), body),
   updateMembership: (id: string, body: Record<string, unknown>) => api.patch<UnitFile>(sc(`${I}/memberships/${id}`), body),
   invite: (unitId: string, phone: string) => api.post<{ membership_id: string; resent: boolean }>(sc(`${I}/units/${unitId}/invite`), { phone }),
@@ -394,7 +399,7 @@ export const residentsApi = {
 
   // ── رزرو مشاعات ──
   amenities: () => api.get<Amenity[]>(`${F}/amenities`),
-  slots: (amenityId: string, date: string) => api.get<{ amenity: Amenity; date: string; lock?: SlotLock | null; slots: Slot[] }>(`${F}/amenities/${amenityId}/slots${qs({ date })}`),
+  slots: (amenityId: string, date: string) => api.get<{ amenity: Amenity; date: string; closed: string | null; lock?: SlotLock | null; slots: Slot[] }>(`${F}/amenities/${amenityId}/slots${qs({ date })}`),
   book: (body: { amenity_id: string; start: string; hours?: number; unit_id?: string }) =>
     api.post<{ id: string; status: 'pending' | 'confirmed' | 'pending_parent'; amenity: string; start_at: string; end_at: string }>(`${F}/reservations`, body),
   myReservations: () => api.get<ReservationRow[]>(`${F}/me/reservations`),

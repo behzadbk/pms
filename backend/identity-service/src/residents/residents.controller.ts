@@ -15,7 +15,7 @@ import { AdminResidentsService } from './admin-residents.service'
 import { TowerService } from './tower.service'
 import { HousekeepingService } from './housekeeping.service'
 import {
-  AcceptInviteDto, AddMemberDto, AddResidentDto, BuildingRulesDto, BulkUnitsDto, ChildRequestDto, CreateUnitDto, UpdateUnitDto, DecideChildRequestDto, ExitUnlockDto, FamilyCodeLoginDto,
+  AcceptInviteDto, AddMemberDto, AddResidentDto, BuildingRulesDto, BulkUnitsDto, ChildRequestDto, CreateUnitDto, CreateUnitsDto, UpdateUnitDto, DecideChildRequestDto, ExitUnlockDto, FamilyCodeLoginDto,
   InviteDto, LobbyJoinDto, MergeDto, MoveOutDto, ParentControlDto, RejectDto, TransferDto, TransferHeadDto, UpdateMembershipDto,
 } from './dto/residents.dto'
 
@@ -52,6 +52,12 @@ export class ManagerResidentsController {
   @Post('buildings/:id/units')
   createUnit(@ReqCtx() ctx: RequestCtx, @Param('id', ParseUUIDPipe) id: string, @Body() dto: CreateUnitDto) {
     return this.tower.createUnit(scopeTenant(ctx.user, id), dto, ctx)
+  }
+
+  /** چند شماره‌ی واحد در یک درخواست («101, 102, 103») — از انتخاب‌گر واحد در فرم ساکنین */
+  @Post('buildings/:id/units/multi')
+  createUnits(@ReqCtx() ctx: RequestCtx, @Param('id', ParseUUIDPipe) id: string, @Body() dto: CreateUnitsDto) {
+    return this.manager.createUnits(scopeTenant(ctx.user, id), dto, ctx)
   }
 
   @Post('buildings/:id/units/bulk')

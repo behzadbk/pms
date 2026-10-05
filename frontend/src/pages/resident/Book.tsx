@@ -1,15 +1,15 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Clapperboard, Dumbbell, Info, Lock, Trees, Users, Waves, type LucideIcon } from 'lucide-react'
+import { CalendarX2, Info, Lock } from 'lucide-react'
 import { ApiError } from '../../lib/api/client'
 import { usePermissions } from '../../context/PermissionsContext'
 import { DebtorLock } from '../../components/DebtorLock'
 import { residentsApi, errText, fa, type Amenity, type ReservationRow, type Slot } from '../../lib/api/residents'
-import { formatJalali } from '../../lib/jalali'
-import { Badge, Cta, ErrorBlock, Loading, Seg, StickyCta, SuccessSheet, useLoad, useToast } from '../../components/hm'
+import { amenityIcon } from '../../lib/amenityIcons'
+import { amenitiesApi } from '../../lib/api/amenities'
+import { dayLabel as fullDayLabel, whenLabel, relDay } from '../../lib/tehran'
+import { Badge, Cta, ErrorBlock, Loading, Sheet, StickyCta, SuccessSheet, useLoad, useToast } from '../../components/hm'
 
-const ICONS: Record<string, LucideIcon> = { pool: Waves, groups: Users, deck: Trees, fitness_center: Dumbbell, movie: Clapperboard }
-const WEEKDAYS = ['یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنجشنبه', 'جمعه', 'شنبه']
 
 /** تاریخ امروز به وقت تهران + n روز (YYYY-MM-DD) */
 function tehranDate(plus: number) {
@@ -18,10 +18,9 @@ function tehranDate(plus: number) {
   d.setUTCDate(d.getUTCDate() + plus)
   return d.toISOString().slice(0, 10)
 }
-function dayLabel(i: number, iso: string) {
-  if (i === 0) return 'امروز'
-  if (i === 1) return 'فردا'
-  return WEEKDAYS[new Date(iso + 'T12:00:00Z').getUTCDay()]
+/** برچسب کوتاه روز برای چیپ: امروز / فردا / نام روز؛ زیرش تاریخ شمسی */
+function dayLabel(_i: number, iso: string) {
+  return relDay(iso)
 }
 const STATUS: Record<ReservationRow['status'], { t: string; tone: 'ok' | 'warn' | 'bad' | 'mute' }> = {
   confirmed: { t: 'قطعی', tone: 'ok' },
@@ -44,20 +43,27 @@ export function BookAmenity({ child = false }: { child?: boolean }) {
   const [slots, setSlots] = useState<Slot[] | null>(null)
   const [slot, setSlot] = useState<Slot | null>(null)
   const [busy, setBusy] = useState(false)
+  const [closed, setClosed] = useState<string | null>(null)
+  const [cancelFor, setCancelFor] = useState<ReservationRow | null>(null)
   const [success, setSuccess] = useState<{ title: string; sub: string; rows: { k: string; v: string }[] } | null>(null)
   const { toast, toastNode } = useToast()
   const { perms } = usePermissions()
-  const days = useMemo(() => [0, 1, 2, 3].map((i) => ({ i, iso: tehranDate(i) })), [])
   const a = amenities?.find((x) => x.id === am) ?? amenities?.[0]
+  const span = Math.min(14, Math.max(1, a?.max_advance_days ?? 4))
+  const days = useMemo(() => Array.from({ length: span }, (_, i) => ({ i, iso: tehranDate(i) })), [span])
   const locked = !!a?.locked || (!!a && !!perms?.locked_amenities?.includes(a.id))
 
   useEffect(() => {
     if (!a) return
     setSlot(null)
     setSlots(null)
+    setClosed(null)
     residentsApi
-      .slots(a.id, days[day].iso)
-      .then((r) => setSlots(r.slots))
+      .slots(a.id, days[Math.min(day, days.length - 1)].iso)
+      .then((r) => {
+        setSlots(r.slots)
+        setClosed(r.closed)
+      })
       .catch((e) => toast(errText(e)))
   }, [a, day, days, toast])
 
@@ -66,7 +72,7 @@ export function BookAmenity({ child = false }: { child?: boolean }) {
     setBusy(true)
     try {
       const r = await residentsApi.book({ amenity_id: a.id, start: slot.start })
-      const when = `${dayLabel(day, days[day].iso)} ${fa(slot.label)}`
+      const when = `${fullDayLabel(days[day].iso)} ${fa(slot.label)}`
       if (r.status === 'pending_parent') {
         navigate(`/child/waiting/${r.id}`, { state: { what: `${a.name} · ${when}` } })
         return
@@ -104,9 +110,9 @@ export function BookAmenity({ child = false }: { child?: boolean }) {
   return (
     <div className="flex flex-col gap-4 hm-fade-in">
       <p className="text-xl font-bold">رزرو مشاعات</p>
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
         {amenities.map((x) => {
-          const Icon = ICONS[x.icon ?? ''] ?? Waves
+          const Icon = amenityIcon(x.icon)
           return (
             <button key={x.id} className="hm-chip !min-h-[44px] inline-flex items-center justify-center gap-2" data-on={x.id === a?.id} onClick={() => setAm(x.id)}>
               {x.locked ? <Lock size={18} /> : <Icon size={18} />}
@@ -119,16 +125,29 @@ export function BookAmenity({ child = false }: { child?: boolean }) {
         <div className="hm-note hm-tone-pri" style={{ color: 'var(--hm-t1)', borderRadius: 16 }}>
           <Info size={18} className="shrink-0 text-[var(--hm-pri)]" />
           <p>
-            {a.rule_text ?? (a.needs_approval ? 'نیاز به تأیید مسئول مشاعات' : 'رزرو فوری، بدون نیاز به تأیید')}
+            {[a.description, a.rule_text ?? (a.needs_approval ? 'نیاز به تأیید مسئول مشاعات' : 'رزرو فوری، بدون نیاز به تأیید')].filter(Boolean).join(' — ')}
           </p>
         </div>
       )}
       {locked && <DebtorLock debtor={perms?.debtor} child={child} />}
-      <Seg<string> options={days.map((d) => [String(d.i), dayLabel(d.i, d.iso)])} value={String(day)} onChange={(v) => setDay(Number(v))} />
+      <div className="flex gap-2 overflow-x-auto pb-1 -mx-4 px-4 sm:mx-0 sm:px-0" role="radiogroup" aria-label="روز">
+        {days.map((d) => (
+          <button key={d.iso} role="radio" aria-checked={day === d.i} data-on={day === d.i} className="hm-chip !min-h-[52px] !px-4 flex flex-col items-center justify-center leading-5" onClick={() => setDay(d.i)}>
+            <span>{dayLabel(d.i, d.iso)}</span>
+            <span className="text-[11px] font-medium opacity-80">{fullDayLabel(d.iso).split(' ').slice(1).join(' ')}</span>
+          </button>
+        ))}
+      </div>
       <div className="hm-card p-4">
         <p className="mb-3 text-sm font-bold">ساعت‌های آزاد</p>
         {!slots ? (
           <Loading />
+        ) : closed ? (
+          <p className="flex items-center gap-2 text-sm text-[var(--hm-t2)] py-2">
+            <CalendarX2 size={18} /> این روز برای رزرو بسته است ({closed}). روز دیگری را انتخاب کنید.
+          </p>
+        ) : slots.length === 0 ? (
+          <p className="text-sm text-[var(--hm-t2)] py-2">برای این روز ساعتی تعریف نشده است.</p>
         ) : (
           <div className="grid grid-cols-3 gap-2">
             {slots.map((s) => {
@@ -162,22 +181,56 @@ export function BookAmenity({ child = false }: { child?: boolean }) {
         <>
           <p className="text-sm font-bold">رزروهای من</p>
           <div className="hm-card px-4 py-1 hm-divided">
-            {mine.slice(0, 8).map((r) => (
-              <div key={r.id} className="py-3 flex items-center gap-3">
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-bold">{r.amenity}</p>
-                  <p className="mt-0.5 text-xs text-[var(--hm-t2)]">
-                    {formatJalali(r.start_at, false)} ·{' '}
-                    {new Date(r.start_at).toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Tehran' })}
-                    {r.reject_reason ? ` · ${r.reject_reason}` : ''}
-                  </p>
+            {mine.slice(0, 8).map((r) => {
+              const upcoming = new Date(r.end_at).getTime() > Date.now() && (r.status === 'pending' || r.status === 'confirmed')
+              return (
+                <div key={r.id} className="py-3 flex items-center gap-3">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold">{r.amenity}</p>
+                    <p className="mt-0.5 text-xs text-[var(--hm-t2)]">
+                      {whenLabel(r.start_at, r.end_at)}
+                      {r.reject_reason ? ` · ${r.reject_reason}` : ''}
+                    </p>
+                  </div>
+                  <Badge tone={STATUS[r.status].tone}>{STATUS[r.status].t}</Badge>
+                  {upcoming && (
+                    <button className="text-xs font-bold text-[var(--hm-bad)] min-h-[44px] px-2" onClick={() => setCancelFor(r)}>
+                      لغو
+                    </button>
+                  )}
                 </div>
-                <Badge tone={STATUS[r.status].tone}>{STATUS[r.status].t}</Badge>
-              </div>
-            ))}
+              )
+            })}
           </div>
         </>
       )}
+
+      <Sheet open={!!cancelFor} onClose={() => setCancelFor(null)} label="لغو رزرو">
+        <p className="text-lg font-bold">لغو رزرو {cancelFor?.amenity}؟</p>
+        <p className="text-sm text-[var(--hm-t2)] mt-1">{cancelFor ? whenLabel(cancelFor.start_at, cancelFor.end_at) : ''}</p>
+        <div className="grid grid-cols-2 gap-2 mt-3">
+          <button className="min-h-[48px] rounded-full hm-tone-mute font-bold text-sm" onClick={() => setCancelFor(null)}>
+            نگه‌داشتن
+          </button>
+          <button
+            className="min-h-[48px] rounded-full hm-tone-bad font-bold text-sm"
+            onClick={async () => {
+              if (!cancelFor) return
+              try {
+                await amenitiesApi.cancelMine(cancelFor.id)
+                toast('رزرو لغو شد')
+                setCancelFor(null)
+                void reloadMine(true)
+                if (a) setSlots((await residentsApi.slots(a.id, days[day].iso)).slots)
+              } catch (e) {
+                toast(errText(e))
+              }
+            }}
+          >
+            بله، لغو شود
+          </button>
+        </div>
+      </Sheet>
 
       <StickyCta>
         <Cta onClick={submit} busy={busy} disabled={!slot || locked}>

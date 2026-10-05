@@ -1,169 +1,175 @@
 /**
- * کلاینت fnb-svc (پورت ۳۰۰۸) — منو، موجودی لحظه‌ای و سفارش غذای مشاعات.
- * مطابق docs/UPDATE-V2-AUDIT-FNB-DESIGN.md بخش ۳.۲ و ۳.۳.
- *
- * موجودی لحظه‌ای از طریق WebSocket (namespace /fnb-live) پخش می‌شود؛ اگر
- * کلاینت WebSocket را پشتیبانی نکند، fallback پولینگ با ?since= در سند آمده.
- * پیاده‌سازی WebSocket اینجا یک اتصال lazy با socket.io-client است — فقط
- * وقتی subscribeMenuUpdates فراخوانی شود متصل می‌شود.
+ * کلاینت fnb-svc (پورت ۳۰۰۸، مسیر /api/fnb) — رستوران/کافی‌شاپ، منو، مناطق تحویل و سفارش.
+ * همه‌ی داده‌ها از دیتابیس می‌آید؛ هیچ داده‌ی نمایشی در این لایه نیست.
  */
-import { io, type Socket } from 'socket.io-client'
-import type { DeliveryType, FnbOrder, FnbVenue, MenuItem, OrderStatus } from '../types'
 import { api } from './client'
 
-/* ---------- کاتالوگ مشترک (رستوران/کافی‌شاپ + منو) ---------- */
-
 export type VenueKind = 'restaurant' | 'cafe'
-/** شناسه‌ی پایدار سمت کلاینت: رستوران v1، کافی‌شاپ v2 (سفارش‌ها و صف آشپزخانه با همین کلید کار می‌کنند) */
-export const venueIdOfKind = (k: VenueKind) => (k === 'cafe' ? 'v2' : 'v1')
-export const kindOfVenueId = (id: string): VenueKind => (id === 'v2' ? 'cafe' : 'restaurant')
+export type Availability = 'available' | 'sold_out' | 'hidden'
+export type OrderStatus =
+  | 'placed' | 'accepted' | 'rejected' | 'preparing' | 'ready' | 'out_for_delivery' | 'delivered' | 'cancelled'
+export type DeliveryType = 'in_unit' | 'amenity_zone'
 
-interface CatalogVenueRow { id: string; name: string; kind: VenueKind; billing: FnbVenue['billing']; is_open: boolean; prep_time_minutes: number }
-interface CatalogItemRow {
-  id: string; venue_kind: VenueKind; category: string; name: string; description: string | null; image_url: string | null
-  price: number; availability: MenuItem['availability']; icon: string; color: string; is_daily_special: boolean
+export interface Venue {
+  id: string
+  name: string
+  kind: VenueKind
+  description: string | null
+  is_active: boolean
+  /** کلید دستی باز/بسته */
+  is_open: boolean
+  accepts_delivery: boolean
+  min_order: number
+  prep_time_minutes: number
+  opens_at: string | null
+  closes_at: string | null
+  /** با احتساب ساعت کاری (وقت تهران) و کلید دستی */
+  open_now: boolean
+  items_count?: number
+  active_orders?: number
 }
 
-export async function getCatalog(): Promise<{ venues: FnbVenue[]; menu: MenuItem[] }> {
-  const r = await api.get<{ venues: CatalogVenueRow[]; items: CatalogItemRow[] }>('/fnb/catalog')
-  const venues: FnbVenue[] = r.venues.map((v) => ({
-    id: venueIdOfKind(v.kind), name: v.name, icon: v.kind, isOpen: v.is_open, prepTimeMinutes: v.prep_time_minutes,
-    billing: v.billing, categories: ['همه'],
-  }))
-  const menu: MenuItem[] = r.items.map((i) => ({
-    id: i.id, venueId: venueIdOfKind(i.venue_kind), category: i.category, name: i.name, price: i.price, icon: i.icon, color: i.color,
-    availability: i.availability, image: i.image_url ?? undefined, description: i.description ?? undefined, isDailySpecial: i.is_daily_special,
-  }))
-  return { venues, menu }
+export interface VenueInput {
+  kind?: VenueKind
+  name?: string
+  description?: string | null
+  opens_at?: string | null
+  closes_at?: string | null
+  prep_time_minutes?: number
+  accepts_delivery?: boolean
+  min_order?: number
+  is_open?: boolean
+  is_active?: boolean
 }
 
-const itemBody = (m: MenuItem) => ({
-  venueKind: kindOfVenueId(m.venueId), category: m.category, name: m.name, description: m.description, imageUrl: m.image,
-  price: m.price, availability: m.availability, icon: m.icon, color: m.color, isDailySpecial: !!m.isDailySpecial,
-})
-
-export function createMenuItem(m: MenuItem) {
-  return api.post<{ id: string }>('/fnb/menu-items', itemBody(m))
-}
-export function updateMenuItem(m: MenuItem) {
-  return api.put<{ id: string }>(`/fnb/menu-items/${m.id}`, itemBody(m))
-}
-export function deleteMenuItemApi(id: string) {
-  return api.delete<{ deleted: boolean; hidden?: boolean }>(`/fnb/menu-items/${id}`)
+export interface MenuCategory {
+  id: string
+  venue_id: string
+  name: string
+  sort_order: number
 }
 
-/* ---------- سفارش‌ها (روی سرور) ---------- */
-
-interface OrderRow extends Omit<FnbOrder, 'venueId' | 'placedAt'> { venueKind: VenueKind; placedAt: string }
-const toOrder = (r: OrderRow): FnbOrder => {
-  const { venueKind, ...rest } = r
-  return { ...rest, venueId: venueIdOfKind(venueKind), ownerUnit: rest.ownerUnit ?? undefined, deliveryNote: rest.deliveryNote ?? undefined }
+export interface MenuItem {
+  id: string
+  venue_id: string
+  category_id: string | null
+  category_name: string | null
+  name: string
+  description: string | null
+  image_url: string | null
+  price: number
+  availability: Availability
+  stock_count: number | null
+  reserved_count: number
+  prep_time_minutes: number | null
+  is_daily_special: boolean
 }
 
-export interface PlaceOrderRequest {
-  venueId: string
-  unitId: string
-  deliveryType: DeliveryType
-  destinationLabel: string
-  ownerLabel?: string
-  deliveryNote?: string
-  items: { itemId: string; quantity: number }[]
+export interface ItemInput {
+  venue_id?: string
+  category_id?: string | null
+  name?: string
+  description?: string | null
+  image_url?: string | null
+  price?: number
+  availability?: Availability
+  stock_count?: number | null
+  prep_time_minutes?: number | null
+  is_daily_special?: boolean
 }
 
-/** ثبت سفارش روی سرور؛ id سفارش را برمی‌گرداند */
-export async function placeOrderOnServer(i: PlaceOrderRequest): Promise<string> {
-  const r = await api.post<{ id: string }>(
-    '/fnb/orders',
-    { venueKind: kindOfVenueId(i.venueId), unitId: i.unitId, deliveryType: i.deliveryType, destinationLabel: i.destinationLabel, ownerLabel: i.ownerLabel, deliveryNote: i.deliveryNote, items: i.items },
-    { idempotencyKey: crypto.randomUUID() },
-  )
-  return r.id
+export interface MenuResponse {
+  venue: Venue
+  categories: MenuCategory[]
+  items: MenuItem[]
+  server_time: string
 }
 
-export async function listMyOrders(): Promise<FnbOrder[]> {
-  return (await api.get<OrderRow[]>('/fnb/my-orders')).map(toOrder)
+export interface DeliveryZone {
+  id: string
+  name: string
+  zone_type: 'in_unit' | 'amenity_zone'
+  amenity_id: string | null
+  is_active: boolean
+  surcharge: number
+  sort_order: number
 }
 
-export async function listStaffOrders(venueId?: string): Promise<FnbOrder[]> {
-  const q = venueId ? `?venue=${kindOfVenueId(venueId)}` : ''
-  return (await api.get<OrderRow[]>(`/fnb/orders${q}`)).map(toOrder)
+export interface OrderLine {
+  item_id: string | null
+  name: string
+  quantity: number
+  unit_price: number
+  line_total: number
 }
 
-export function listVenues() {
-  return api.get<FnbVenue[]>('/fnb/venues')
+export interface Order {
+  id: string
+  order_number: string
+  venue_id: string
+  venue_name: string
+  venue_kind: VenueKind
+  prep_time_minutes: number
+  unit_id: string
+  unit_number: string | null
+  delivery_type: DeliveryType
+  delivery_zone_id: string | null
+  zone_name: string | null
+  delivery_note: string | null
+  status: OrderStatus
+  subtotal: number
+  surcharge: number
+  total: number
+  placed_at: string
+  ready_at: string | null
+  delivered_at: string | null
+  cancellation_reason: string | null
+  items: OrderLine[]
 }
 
-export function getVenueMenu(venueId: string) {
-  return api.get<MenuItem[]>(`/fnb/venues/${venueId}/menu`)
+export interface KitchenQueue {
+  orders: Order[]
+  delivered_today: number
+  server_time: string
 }
 
-export interface PlaceOrderInput {
-  venueId: string
-  unitId: string
-  deliveryType: DeliveryType
-  deliveryZoneId?: string
-  deliveryNote?: string
-  items: { itemId: string; quantity: number }[]
+const qs = (o: Record<string, string | undefined>) => {
+  const p = Object.entries(o).filter(([, v]) => v !== undefined && v !== '')
+  return p.length ? '?' + p.map(([k, v]) => `${k}=${encodeURIComponent(v!)}`).join('&') : ''
 }
 
-/** ثبت سفارش — Idempotency-Key اجباری تا دابل‌تپ موبایل باعث سفارش تکراری نشود */
-export function placeOrder(input: PlaceOrderInput) {
-  return api.post<FnbOrder>('/fnb/orders', input, { idempotencyKey: crypto.randomUUID() })
-}
+export const fnbApi = {
+  // مجموعه‌ها
+  venues: () => api.get<Venue[]>('/fnb/venues'),
+  manageVenues: (kind?: VenueKind) => api.get<Venue[]>(`/fnb/venues/manage${qs({ kind })}`),
+  createVenue: (b: VenueInput) => api.post<Venue>('/fnb/venues', b),
+  updateVenue: (id: string, b: VenueInput) => api.patch<Venue>(`/fnb/venues/${id}`, b),
+  deleteVenue: (id: string) => api.delete<{ deleted: boolean; deactivated: boolean }>(`/fnb/venues/${id}`),
 
-export function getOrder(orderId: string) {
-  return api.get<FnbOrder>(`/fnb/orders/${orderId}`)
-}
+  // منو
+  menu: (venueId: string, all = false) => api.get<MenuResponse>(`/fnb/venues/${venueId}/menu${all ? '?all=1' : ''}`),
+  createCategory: (venueId: string, name: string) => api.post<MenuCategory>(`/fnb/venues/${venueId}/categories`, { name }),
+  updateCategory: (id: string, b: { name?: string; sort_order?: number }) => api.patch<MenuCategory>(`/fnb/categories/${id}`, b),
+  deleteCategory: (id: string) => api.delete<{ deleted: boolean }>(`/fnb/categories/${id}`),
+  createItem: (b: ItemInput) => api.post<MenuItem>('/fnb/menu-items', b),
+  updateItem: (id: string, b: ItemInput) => api.patch<MenuItem>(`/fnb/menu-items/${id}`, b),
+  setAvailability: (id: string, availability: Availability) => api.patch<MenuItem>(`/fnb/menu-items/${id}/availability`, { availability }),
+  deleteItem: (id: string) => api.delete<{ deleted: boolean; hidden: boolean }>(`/fnb/menu-items/${id}`),
 
-export function getUnitOrders(unitId: string) {
-  return api.get<FnbOrder[]>(`/fnb/units/${unitId}/orders`)
-}
+  // مناطق تحویل
+  zones: (all = false) => api.get<DeliveryZone[]>(`/fnb/delivery-zones${all ? '?all=1' : ''}`),
+  createZone: (b: { name: string; surcharge: number }) => api.post<DeliveryZone>('/fnb/delivery-zones', b),
+  updateZone: (id: string, b: { name?: string; surcharge?: number; is_active?: boolean }) => api.patch<DeliveryZone>(`/fnb/delivery-zones/${id}`, b),
+  deleteZone: (id: string) => api.delete<{ deleted: boolean; deactivated: boolean }>(`/fnb/delivery-zones/${id}`),
 
-/** فقط تا پیش از وضعیت accepted قابل لغو است */
-export function cancelOrder(orderId: string) {
-  return api.post<FnbOrder>(`/fnb/orders/${orderId}/cancel`)
-}
+  // سفارش — ساکن
+  placeOrder: (b: { venue_id: string; delivery_type: DeliveryType; delivery_zone_id?: string; delivery_note?: string; items: { item_id: string; quantity: number }[] }) =>
+    api.post<Order>('/fnb/orders', b),
+  myOrders: () => api.get<Order[]>('/fnb/me/orders'),
+  order: (id: string) => api.get<Order>(`/fnb/orders/${id}`),
+  cancelOrder: (id: string) => api.post<Order>(`/fnb/orders/${id}/cancel`, {}),
 
-/** آشپزخانه: گذار وضعیت سفارش (Roles: staff, admin) */
-export function updateOrderStatus(orderId: string, status: OrderStatus) {
-  return api.patch<FnbOrder>(`/fnb/orders/${orderId}/status`, { status })
-}
-
-/** صف زنده آشپزخانه — پایه‌ی صفحه Kitchen Display (Roles: staff, admin) */
-export function getKitchenQueue() {
-  return api.get<FnbOrder[]>('/fnb/kitchen/queue')
-}
-
-export function setItemAvailability(itemId: string, availability: MenuItem['availability'], stockCount?: number) {
-  return api.patch<MenuItem>(`/fnb/menu-items/${itemId}/availability`, { availability, stockCount })
-}
-
-/* ---------- WebSocket زنده (namespace /fnb-live) ---------- */
-
-export type FnbLiveEvent =
-  | { type: 'menu.item.updated'; item: MenuItem }
-  | { type: 'venue.status.changed'; venueId: string; isOpen: boolean }
-  | { type: 'order.status.changed'; order: FnbOrder }
-
-let socket: Socket | null = null
-
-/** اتصال lazy به /fnb-live — فقط وقتی صفحه‌ای واقعاً به آپدیت زنده نیاز دارد */
-export function subscribeFnbLive(tenantId: string, onEvent: (e: FnbLiveEvent) => void): () => void {
-  if (!socket) {
-    const base = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? ''
-    socket = io(`${base}/fnb-live`, { transports: ['websocket'], autoConnect: true })
-  }
-  const room = `tenant:${tenantId}`
-  socket.emit('join', room)
-
-  const handler = (event: FnbLiveEvent) => onEvent(event)
-  socket.on('menu.item.updated', (item: MenuItem) => handler({ type: 'menu.item.updated', item }))
-  socket.on('venue.status.changed', (p: { venueId: string; isOpen: boolean }) => handler({ type: 'venue.status.changed', ...p }))
-  socket.on('order.status.changed', (order: FnbOrder) => handler({ type: 'order.status.changed', order }))
-
-  return () => {
-    socket?.off('menu.item.updated')
-    socket?.off('venue.status.changed')
-    socket?.off('order.status.changed')
-  }
+  // سفارش — آشپزخانه / کافی‌شاپ
+  queue: (kind?: VenueKind, venueId?: string) => api.get<KitchenQueue>(`/fnb/kitchen/queue${qs({ kind, venue_id: venueId })}`),
+  setStatus: (id: string, status: OrderStatus, reason?: string) => api.patch<Order>(`/fnb/orders/${id}/status`, { status, reason }),
 }

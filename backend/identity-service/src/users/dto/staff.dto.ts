@@ -38,7 +38,7 @@ export class CreateStaffDto {
   username: string
 
   @IsString()
-  @MinLength(6, { message: 'رمز عبور باید حداقل ۶ کاراکتر باشد' })
+  @MinLength(8, { message: 'رمز عبور باید حداقل ۸ کاراکتر باشد' })
   @MaxLength(128)
   password: string
 
@@ -84,7 +84,7 @@ export class UpdateStaffDto {
   })
   username?: string
 
-  @IsOptional() @IsString() @MinLength(6, { message: 'رمز عبور باید حداقل ۶ کاراکتر باشد' }) @MaxLength(128) password?: string
+  @IsOptional() @IsString() @MinLength(8, { message: 'رمز عبور باید حداقل ۸ کاراکتر باشد' }) @MaxLength(128) password?: string
 
   @IsOptional() @IsIn(STAFF_DEPARTMENTS as unknown as string[], { message: 'بخش نامعتبر است' }) department?: string
 

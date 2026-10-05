@@ -1,77 +1,165 @@
-import { BadRequestException, Body, Controller, Get, NotFoundException, Param, Post } from '@nestjs/common'
+import { Body, ConflictException, Controller, Delete, Get, NotFoundException, Param, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common'
 import { DatabaseService } from '../database/database.service'
 import { CurrentUser, JwtPayload } from '../auth/decorators/current-user.decorator'
 import { Roles } from '../auth/decorators/roles.decorator'
-import { PropertyClientService } from '../property-client/property-client.service'
 import { EventsService } from '../events/events.service'
-import { UNIT_ID_RE, assertUnitAccess } from '../common/unit-access'
+import { ChargeEngine } from '../billing/charge-engine.service'
+import { OverdueService } from '../billing/overdue.service'
+import { PaymentsService } from '../payments/payments.service'
+import { bad, bool, isoDate, num, obj, str } from '../common/validate'
+import { parsePeriod } from '../common/jalali'
 
-interface GenerateMonthlyBody {
-  period: string // 'YYYY-MM'
-  formulaId: string
-}
+const METHODS = ['cash', 'card_to_card', 'bank_transfer', 'cheque']
 
+const CHARGE_SELECT = `
+  SELECT c.id, c.unit_id, c.period, c.formula_id, c.base_amount, c.late_fee_amount, c.total_amount, c.due_date, c.status,
+         c.paid_at, c.pay_method, c.late_fee_waived, c.note, c.breakdown, c.created_at,
+         u.unit_number, u.floor,
+         (SELECT ru.name FROM residency.memberships m JOIN residency.users ru ON ru.id = m.user_id
+           WHERE m.unit_id = c.unit_id AND m.status = 'active' AND (m.pays_charge OR m.role = 'head')
+           ORDER BY m.pays_charge DESC, (m.role = 'head') DESC LIMIT 1) AS payer_name
+    FROM finance.monthly_charges c JOIN property.units u ON u.id = c.unit_id`
+
+/** شارژ و مطالبات — مدیر و حسابدار (صدور شارژ در UI هر دو نقش یکسان است) */
 @Controller()
 export class ChargesController {
   constructor(
     private readonly db: DatabaseService,
-    private readonly propertyClient: PropertyClientService,
+    private readonly engine: ChargeEngine,
+    private readonly overdue: OverdueService,
+    private readonly payments: PaymentsService,
     private readonly events: EventsService,
   ) {}
 
-  @Roles('resident', 'admin', 'accountant')
-  @Get('units/:unitId/charges')
-  async listForUnit(@Param('unitId') unitId: string, @CurrentUser() user: JwtPayload) {
-    if (!UNIT_ID_RE.test(unitId)) throw new BadRequestException('شناسه‌ی واحد نامعتبر است')
+  @Roles('admin', 'accountant')
+  @Get('charges')
+  list(@Query('period') period: string | undefined, @Query('status') status: string | undefined, @Query('unitId') unitId: string | undefined, @CurrentUser() user: JwtPayload) {
+    if (period && !parsePeriod(period)) bad('دوره نامعتبر است')
+    if (status && !['pending', 'paid', 'overdue'].includes(status)) bad('وضعیت نامعتبر است')
     return this.db.withTenant(user.tenant_id!, async (client) => {
-      await assertUnitAccess(client, user, unitId)
-      const res = await client.query(
-        `SELECT * FROM finance.monthly_charges WHERE unit_id = $1 ORDER BY period DESC`,
-        [unitId],
+      const r = await client.query(
+        `${CHARGE_SELECT}
+          WHERE ($1::text IS NULL OR c.period = $1) AND ($2::text IS NULL OR c.status = $2) AND ($3::uuid IS NULL OR c.unit_id = $3)
+          ORDER BY c.period DESC, u.floor NULLS LAST, u.unit_number LIMIT 1000`,
+        [period ?? null, status ?? null, unitId ?? null],
       )
-      return res.rows
+      return r.rows
+    })
+  }
+
+  @Roles('admin', 'accountant')
+  @Get('charges/periods')
+  periods(@CurrentUser() user: JwtPayload) {
+    return this.db.withTenant(user.tenant_id!, async (client) => {
+      const r = await client.query<{ period: string }>(`SELECT DISTINCT period FROM finance.monthly_charges ORDER BY period DESC`)
+      return r.rows.map((x) => x.period)
+    })
+  }
+
+  @Roles('admin', 'accountant')
+  @Get('units/:unitId/charges')
+  listForUnit(@Param('unitId', ParseUUIDPipe) unitId: string, @CurrentUser() user: JwtPayload) {
+    return this.db.withTenant(user.tenant_id!, async (client) => (await client.query(`${CHARGE_SELECT} WHERE c.unit_id = $1 ORDER BY c.period DESC`, [unitId])).rows)
+  }
+
+  /** پیش‌نمایش (dry-run) — هیچ چیزی ذخیره نمی‌شود */
+  @Roles('accountant')
+  @Post('charges/preview')
+  preview(@Body() body: unknown, @CurrentUser() user: JwtPayload) {
+    const b = parseIssue(body)
+    return this.db.withTenant(user.tenant_id!, (client) => this.engine.plan(client, user.tenant_id!, b))
+  }
+
+  /** صدور شارژ ماهانه با فرمول فعال. idempotent برای (واحد، دوره). */
+  @Roles('accountant')
+  @Post(['charges/generate', 'charges/generate-monthly'])
+  async generate(@Body() body: unknown, @CurrentUser() user: JwtPayload) {
+    const b = parseIssue(body)
+    const result = await this.db.withTenant(user.tenant_id!, (client) => this.engine.issue(client, user.tenant_id!, b))
+    this.events.publish('charge.generated', { period: result.period, count: result.generatedCount }, user.tenant_id)
+    return result
+  }
+
+  /** اجرای دستی بررسی معوقات/جریمه (همان کاری که job روزانه می‌کند) */
+  @Roles('accountant')
+  @Post('charges/run-overdue')
+  runOverdue(@CurrentUser() user: JwtPayload) {
+    return this.db.withTenant(user.tenant_id!, (client) => this.overdue.runForTenant(client, user.tenant_id!))
+  }
+
+  /** اصلاح یک شارژ (مبلغ پایه/سررسید/معافیت از جریمه/یادداشت) — فقط تا قبل از پرداخت */
+  @Roles('accountant')
+  @Patch('charges/:id')
+  update(@Param('id', ParseUUIDPipe) id: string, @Body() body: unknown, @CurrentUser() user: JwtPayload) {
+    const b = obj(body)
+    return this.db.withTenant(user.tenant_id!, async (client) => {
+      const cur = (await client.query(`SELECT * FROM finance.monthly_charges WHERE id = $1 FOR UPDATE`, [id])).rows[0]
+      if (!cur) throw new NotFoundException('شارژ یافت نشد')
+      if (cur.status === 'paid') throw new ConflictException('شارژ پرداخت‌شده قابل ویرایش نیست')
+      const base = num(b.base_amount, 'مبلغ پایه', { min: 0, max: 1e12 }) ?? cur.base_amount
+      const waive = bool(b.waive_late_fee, 'معافیت از جریمه') ?? cur.late_fee_waived
+      let fee = cur.late_fee_amount
+      if (waive && !cur.late_fee_waived) fee = 0
+      const due = isoDate(b.due_date, 'سررسید') ?? cur.due_date
+      const note = b.note === undefined ? cur.note : (str(b.note, 'یادداشت', { max: 300 }) ?? null)
+      await client.query(
+        `UPDATE finance.monthly_charges SET base_amount = $2, late_fee_amount = $3, total_amount = $2 + $3, due_date = $4::date,
+                late_fee_waived = $5, note = $6, updated_at = now() WHERE id = $1`,
+        [id, base, fee, due, waive, note],
+      )
+      // اگر سررسید به آینده برگشت، وضعیت به «در انتظار» برگردد؛ job امروز دوباره معوق می‌کند اگر لازم باشد
+      await client.query(`UPDATE finance.monthly_charges SET status = 'pending' WHERE id = $1 AND status = 'overdue' AND due_date >= (now() AT TIME ZONE 'Asia/Tehran')::date`, [id])
+      return (await client.query(`${CHARGE_SELECT} WHERE c.id = $1`, [id])).rows[0]
+    })
+  }
+
+  /** ابطال شارژ اشتباه — فقط اگر پرداخت موفقی نداشته باشد */
+  @Roles('accountant')
+  @Delete('charges/:id')
+  remove(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: JwtPayload) {
+    return this.db.withTenant(user.tenant_id!, async (client) => {
+      const cur = (await client.query(`SELECT status FROM finance.monthly_charges WHERE id = $1 FOR UPDATE`, [id])).rows[0]
+      if (!cur) throw new NotFoundException('شارژ یافت نشد')
+      const paid = await client.query(`SELECT 1 FROM finance.payments WHERE monthly_charge_id = $1 AND status = 'success'`, [id])
+      if (cur.status === 'paid' || paid.rowCount) throw new ConflictException('شارژ پرداخت‌شده قابل ابطال نیست')
+      await client.query(`DELETE FROM finance.payments WHERE monthly_charge_id = $1`, [id])
+      await client.query(`DELETE FROM finance.monthly_charges WHERE id = $1`, [id])
+      return { ok: true }
     })
   }
 
   /**
-   * پیاده‌سازی واقعی سناریوی «صدور شارژ ماهانه» (docs/SPEC.md بخش ۴.۱ اول)
-   * — لیست واحدها را از property-svc از طریق gRPC می‌گیرد (نه از دیتابیس محلی)
-   * و بر اساس فرمول محاسبه، برای هر واحد یک monthly_charges می‌سازد.
+   * «ثبت پرداخت» دستی (نقدی / کارت‌به‌کارت / حواله / چک) — جایگزین درگاه وقتی درگاه آنلاین فعال نیست.
+   * مبلغ همیشه کل شارژ (با جریمه‌ی فعلی) است؛ در گردش صندوق با روش و شماره پیگیری دیده می‌شود.
    */
-  // صدور شارژ مسئولیت حسابداری است؛ مدیر ساختمان فقط گزارش را می‌بیند
   @Roles('accountant')
-  @Post('charges/generate-monthly')
-  async generateMonthly(@Body() body: GenerateMonthlyBody, @CurrentUser() user: JwtPayload) {
-    const tenantId = user.tenant_id!
-    if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(body?.period ?? '')) {
-      throw new BadRequestException('دوره باید به شکل YYYY-MM باشد')
-    }
-    if (!UNIT_ID_RE.test(body?.formulaId ?? '')) throw new BadRequestException('شناسه‌ی فرمول نامعتبر است')
-
-    return this.db.withTenant(tenantId, async (client) => {
-      const formulaRes = await client.query(`SELECT * FROM finance.charge_formulas WHERE id = $1`, [body.formulaId])
-      const formula = formulaRes.rows[0]
-      if (!formula) throw new NotFoundException('فرمول شارژ یافت نشد')
-
-      const units = await this.propertyClient.listUnitsByTenant(tenantId)
-
-      const created = []
-      for (const unit of units) {
-        const amount =
-          Number(formula.base_amount) + Number(formula.amount_per_sqm) * (unit.areaSqm ?? 0)
-
-        const res = await client.query(
-          `INSERT INTO finance.monthly_charges (tenant_id, unit_id, period, formula_id, base_amount, total_amount, due_date, status)
-           VALUES ($1, $2, $3::date, $4, $5, $5, (date_trunc('month', $3::date) + interval '9 days')::date, 'pending')
-           ON CONFLICT (unit_id, period) DO NOTHING
-           RETURNING *`,
-          [tenantId, unit.id, `${body.period}-01`, body.formulaId, amount],
-        )
-        if (res.rows[0]) created.push(res.rows[0])
-      }
-
-      this.events.publish('charge.generated', { period: body.period, count: created.length }, tenantId)
-      return { generatedCount: created.length, period: body.period }
+  @Post('charges/:id/payments/manual')
+  manualPayment(@Param('id', ParseUUIDPipe) id: string, @Body() body: unknown, @CurrentUser() user: JwtPayload) {
+    const b = obj(body)
+    const method = str(b.method, 'روش پرداخت', { required: true })!
+    if (!METHODS.includes(method)) bad('روش پرداخت نامعتبر است')
+    const reference = str(b.reference, 'شماره پیگیری', { max: 80 }) ?? null
+    const note = str(b.note, 'یادداشت', { max: 300 }) ?? null
+    return this.db.withTenant(user.tenant_id!, async (client) => {
+      const charge = (await client.query(`SELECT * FROM finance.monthly_charges WHERE id = $1 FOR UPDATE`, [id])).rows[0]
+      if (!charge) throw new NotFoundException('شارژ یافت نشد')
+      if (charge.status === 'paid') throw new ConflictException('این شارژ قبلاً پرداخت شده است')
+      const ins = await client.query(
+        `INSERT INTO finance.payments (tenant_id, monthly_charge_id, amount, gateway, status, method, reference, gateway_ref_id, recorded_by, note, idempotency_key)
+         VALUES ($1, $2, $3, 'manual', 'initiated', $4, $5, $5, $6, $7, $8) RETURNING id`,
+        [user.tenant_id, id, charge.total_amount, method, reference, user.sub, note, `manual-${id}`],
+      )
+      await this.payments.settle(client, user.tenant_id!, ins.rows[0].id, { method, refId: reference })
+      return (await client.query(`${CHARGE_SELECT} WHERE c.id = $1`, [id])).rows[0]
     })
   }
+}
+
+function parseIssue(body: unknown): { period: string; formulaId?: string; dueDate?: string } {
+  const b = obj(body)
+  const period = str(b.period, 'دوره', { required: true })!
+  if (!parsePeriod(period)) bad('دوره باید شمسی و به شکل YYYY-MM باشد (مثلاً 1405-07)')
+  const formulaId = str(b.formulaId ?? b.formula_id, 'فرمول')
+  if (formulaId && !/^[0-9a-f-]{36}$/i.test(formulaId)) bad('شناسه‌ی فرمول نامعتبر است')
+  return { period, formulaId, dueDate: isoDate(b.dueDate ?? b.due_date, 'سررسید') }
 }

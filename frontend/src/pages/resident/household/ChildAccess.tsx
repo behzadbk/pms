@@ -4,7 +4,7 @@ import { QRCodeSVG } from 'qrcode.react'
 import { CircleCheckBig, RefreshCw, TriangleAlert } from 'lucide-react'
 import { residentsApi, ago, errText, fa, toman, type ChildRequest } from '../../../lib/api/residents'
 import { formatJalali } from '../../../lib/jalali'
-import { placeFnbOrder } from '../../../lib/store'
+import { api } from '../../../lib/api/client'
 import { Avatar, EmptyState, ErrorBlock, Loading, PageHeader, useLoad, useToast } from '../../../components/hm'
 
 /** C4 — ورود کودک روی گوشی/تبلت خودش با QR یا کد ۶ رقمی (یک‌بارمصرف، ۵ دقیقه) */
@@ -98,19 +98,18 @@ export function ResidentChildRequests() {
     try {
       await residentsApi.decideChild(r.id, approve)
       if (approve && r.type === 'order' && r.payload.items?.length) {
-        // سفارش تأییدشده وارد صف آشپزخانه/کافی‌شاپ می‌شود
-        const items = r.payload.items.map((i, k) => ({ itemId: i.id ?? `child-${k}`, name: i.n, quantity: i.q, unitPrice: i.p ?? 0, lineTotal: (i.p ?? 0) * i.q }))
-        placeFnbOrder({
-          venueId: r.payload.venueId ?? 'v1',
-          venueName: r.payload.venue ?? 'رستوران ساختمان',
-          deliveryType: 'in_unit',
-          destinationLabel: r.payload.destination ?? `${r.child_name} · واحد`,
-          billing: 'monthly_charge',
-          items,
-          subtotal: r.amount ?? 0,
-          total: r.amount ?? 0,
-          prepTimeMinutes: 25,
-        })
+        // سفارش تأییدشده وارد صف واقعی آشپزخانه/کافی‌شاپ می‌شود (اگر مجموعه بسته یا موجودی تمام شده باشد خطا می‌دهد)
+        const venueId = r.payload.venueId
+        if (venueId && /^[0-9a-f-]{36}$/i.test(venueId)) {
+          await api.post(
+            '/fnb/orders',
+            { venue_id: venueId, delivery_type: 'in_unit', items: r.payload.items.filter((i) => i.id).map((i) => ({ item_id: i.id, quantity: i.q })) },
+            { idempotencyKey: crypto.randomUUID() },
+          )
+        }
+      } else if (approve && r.type === 'ticket') {
+        const text = String((r.payload as { text?: string }).text ?? '').trim()
+        if (text) await api.post('/facility/tickets', { kind: 'fault', subject: text.slice(0, 60), body: `${text}\n(درخواست ${r.child_name} — تأییدشده توسط والد)`, priority: 'normal' })
       }
       toast(approve ? (r.type === 'order' ? 'سفارش تأیید شد و به آشپزخانه رفت' : 'درخواست تأیید شد') : `درخواست رد شد · به ${r.child_name} اطلاع داده شد`)
       await reload(true)

@@ -67,6 +67,25 @@ html {
   scroll-behavior: smooth;
 }
 
+/* حس اپ نیتیو: در PWA/گوشی، نگه‌داشتن انگشت نباید انتخاب متن، منوی لینک/تصویر یا هایلایت باز کند.
+   فیلدهای ورودی و محتوایی که صراحتاً data-selectable دارند استثنا هستند. */
+@media (hover: none) and (pointer: coarse), (display-mode: standalone) {
+  body {
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+  }
+  img, a, svg, button {
+    -webkit-user-drag: none;
+    -webkit-touch-callout: none;
+  }
+  input, textarea, select, [contenteditable="true"], [data-selectable], [data-selectable] * {
+    -webkit-user-select: text;
+    user-select: text;
+    -webkit-touch-callout: default;
+  }
+}
+
 /* اسکرول‌بار نازک‌تر برای پنل‌ها روی دسکتاپ (اختیاری، اسکرول موبایل دست‌نخورده می‌ماند) */
 @media (min-width: 1024px) {
   ::-webkit-scrollbar { width: 8px; height: 8px; }

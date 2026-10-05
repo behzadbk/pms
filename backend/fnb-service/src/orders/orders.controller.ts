@@ -1,61 +1,55 @@
-import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common'
+import { BadRequestException, Body, Controller, Get, HttpCode, Param, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common'
 import { OrdersService, PlaceOrderDto } from './orders.service'
 import { CurrentUser, JwtPayload } from '../auth/decorators/current-user.decorator'
 import { Roles } from '../auth/decorators/roles.decorator'
 import { OrderStatus } from './order-status'
 
-@Controller('fnb')
+const STATUSES = ['accepted', 'rejected', 'preparing', 'ready', 'out_for_delivery', 'delivered', 'cancelled']
+
+@Controller()
 export class OrdersController {
   constructor(private readonly orders: OrdersService) {}
 
+  @Roles('resident', 'child')
   @Post('orders')
   place(@CurrentUser() user: JwtPayload, @Body() dto: PlaceOrderDto) {
-    // نکته Production: هدر Idempotency-Key باید اینجا بررسی شود تا دابل‌تپ موبایل
-    // دو سفارش نسازد (همان الگوی استفاده‌شده در finance-svc برای پرداخت).
-    return this.orders.place(user.tenant_id!, user.sub, dto, user.role)
+    return this.orders.place(user, dto)
   }
 
-  /** سفارش‌های ساکن/کودکِ واردشده */
-  @Get('my-orders')
+  /** سفارش‌های واحد من */
+  @Roles('resident', 'child')
+  @Get('me/orders')
   mine(@CurrentUser() user: JwtPayload) {
-    return this.orders.list(user.tenant_id!, { userId: user.sub })
-  }
-
-  /** صف و سفارش‌های امروز برای کارکنان (فیلتر اختیاری: restaurant | cafe) */
-  @Roles('admin', 'staff')
-  @Get('orders')
-  all(@CurrentUser() user: JwtPayload, @Query('venue') venue?: string) {
-    return this.orders.list(user.tenant_id!, { venueKind: venue })
+    return this.orders.listMine(user)
   }
 
   @Get('orders/:id')
-  findOne(@CurrentUser() user: JwtPayload, @Param('id') id: string) {
-    return this.orders.findOne(user.tenant_id!, id)
+  findOne(@CurrentUser() user: JwtPayload, @Param('id', ParseUUIDPipe) id: string) {
+    return this.orders.findOne(user, id)
   }
 
-  @Get('units/:unitId/orders')
-  listByUnit(@CurrentUser() user: JwtPayload, @Param('unitId') unitId: string) {
-    return this.orders.listByUnit(user.tenant_id!, unitId)
-  }
-
+  @Roles('resident', 'child')
   @Post('orders/:id/cancel')
-  cancel(@CurrentUser() user: JwtPayload, @Param('id') id: string, @Body() body: { reason?: string }) {
-    return this.orders.changeStatus(user.tenant_id!, id, 'cancelled', user.sub, body?.reason, !['admin', 'staff'].includes(user.role))
+  @HttpCode(200)
+  cancel(@CurrentUser() user: JwtPayload, @Param('id', ParseUUIDPipe) id: string, @Body() body: { reason?: string }) {
+    return this.orders.changeStatus(user, id, 'cancelled', body?.reason, true)
   }
 
   @Roles('admin', 'staff')
   @Patch('orders/:id/status')
   changeStatus(
     @CurrentUser() user: JwtPayload,
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() body: { status: OrderStatus; reason?: string },
   ) {
-    return this.orders.changeStatus(user.tenant_id!, id, body.status, user.sub, body.reason)
+    if (!STATUSES.includes(body?.status)) throw new BadRequestException('وضعیت نامعتبر است')
+    return this.orders.changeStatus(user, id, body.status, body.reason)
   }
 
+  /** صف زنده آشپزخانه (?kind=restaurant|cafe &venue_id=) */
   @Roles('admin', 'staff')
   @Get('kitchen/queue')
-  kitchenQueue(@CurrentUser() user: JwtPayload) {
-    return this.orders.kitchenQueue(user.tenant_id!)
+  kitchenQueue(@CurrentUser() user: JwtPayload, @Query('kind') kind?: string, @Query('venue_id') venueId?: string) {
+    return this.orders.kitchenQueue(user, kind, venueId)
   }
 }

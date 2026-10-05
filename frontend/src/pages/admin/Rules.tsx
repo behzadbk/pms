@@ -1,32 +1,29 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { Link, Navigate, useSearchParams } from 'react-router-dom'
 import { ShieldAlert, Info } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { residentsApi, errText, fa, type BuildingRules } from '../../lib/api/residents'
 import { Badge, Cta, ErrorBlock, Loading, Note, PageTitle, Seg, StickyCta, useLoad, useToast } from '../../components/hm'
-import { AdminAmenityRules } from './AmenityRules'
 
-type Tab = 'tower' | 'amenities'
 type Mode = 'free' | 'locked'
 const PRESETS = [7, 15, 30, 60]
 
 /**
  * «قوانین و برج» — پنل یکپارچه‌ی مدیر:
  *  • قوانین برج: مهلت بدهکاری + برای هر بخش/مشاع «آزاد / بسته برای واحد بدهکار»
- *  • رزرو هوشمند مشاعات: ویرایشگر قبلی سقف و سانس‌ها (همین‌جا ادغام شد)
+ *  • قوانین رزرو هر مشاع (سقف، پیش‌رزرو، تایم‌تیبل) در صفحه‌ی «مشاعات» تنظیم می‌شود
  */
 export function AdminRules() {
-  const [sp, setSp] = useSearchParams()
-  const tab: Tab = sp.get('tab') === 'amenities' ? 'amenities' : 'tower'
+  const [sp] = useSearchParams()
+  // لینک‌های قدیمی تب «رزرو هوشمند» → صفحه‌ی مشاعات
+  if (sp.get('tab') === 'amenities') return <Navigate to="/admin/reservations?tab=setup" replace />
   return (
     <div className="flex flex-col gap-4 hm-fade-in">
       <PageTitle kicker="مدیریت ساختمان" title="قوانین و برج" />
-      <Seg<Tab>
-        options={[['tower', 'قوانین برج'], ['amenities', 'رزرو هوشمند مشاعات']]}
-        value={tab}
-        onChange={(t) => setSp(t === 'tower' ? {} : { tab: t }, { replace: true })}
-      />
-      {tab === 'tower' ? <TowerRules /> : <AdminAmenityRules />}
+      <TowerRules />
+      <p className="text-xs text-[var(--hm-t2)]">
+        سقف رزرو، حداکثر ساعت و تایم‌تیبل هر مشاع در <Link to="/admin/reservations?tab=setup" className="font-bold underline">صفحه‌ی مشاعات</Link> تنظیم می‌شود.
+      </p>
     </div>
   )
 }

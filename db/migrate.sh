@@ -51,7 +51,16 @@ MIGRATIONS=(
   "backend/identity-service/prisma/migrations/006_building_rules.sql"
   "backend/identity-service/prisma/migrations/007_initial_password.sql"
   "backend/audit-service/prisma/migrations/002_partition_maintenance.sql"
+  "backend/facility-service/prisma/migrations/003_amenity_management.sql"
+  "backend/notification-service/prisma/migrations/003_push.sql"
+  "backend/identity-service/prisma/migrations/006_security_and_platform_billing.sql"
   "backend/fnb-service/prisma/migrations/002_menu_sync.sql"
+  "backend/fnb-service/prisma/migrations/002_venue_management.sql"
+  "backend/fnb-service/prisma/migrations/003_reconcile_menu_sync.sql"
+  "backend/guard-service/prisma/migrations/003_vehicles_and_traffic.sql"
+  "backend/facility-service/prisma/migrations/004_maintenance.sql"
+  "backend/notification-service/prisma/migrations/004_announcements.sql"
+  "backend/finance-service/prisma/migrations/002_charge_engine.sql"
 )
 
 SEEDS=(
@@ -59,6 +68,7 @@ SEEDS=(
   "backend/identity-service/prisma/seed-platform-admins.sql"
   "db/seeds/003_demo_operational_data.sql"
   "db/seeds/004_residents_demo.sql"
+  "db/seeds/maint_notices_demo.sql"
 )
 
 log() { printf '%s\n' "$*"; }

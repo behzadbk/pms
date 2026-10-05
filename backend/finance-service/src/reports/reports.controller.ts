@@ -1,0 +1,109 @@
+import { Controller, Get, Query } from '@nestjs/common'
+import { DatabaseService } from '../database/database.service'
+import { CurrentUser, JwtPayload } from '../auth/decorators/current-user.decorator'
+import { Roles } from '../auth/decorators/roles.decorator'
+import { SettingsService } from '../billing/settings.service'
+import { FINANCE_ACCESS_SQL } from '../billing/notify'
+import { bad, num } from '../common/validate'
+import { parsePeriod, periodOfIso, periodRange, shiftPeriod, tehranToday } from '../common/jalali'
+
+/** گزارش‌های تجمیعی واقعی (جایگزین financeSummary/monthlyTrend ساختگی) */
+@Controller()
+export class ReportsController {
+  constructor(private readonly db: DatabaseService, private readonly settings: SettingsService) {}
+
+  @Roles('admin', 'accountant')
+  @Get('summary')
+  summary(@Query('months') monthsQ: string | undefined, @Query('period') periodQ: string | undefined, @CurrentUser() user: JwtPayload) {
+    const months = num(monthsQ, 'تعداد ماه', { min: 1, max: 24, int: true }) ?? 6
+    if (periodQ && !parsePeriod(periodQ)) bad('دوره نامعتبر است')
+    const today = tehranToday()
+    const current = periodOfIso(today)
+    return this.db.withTenant(user.tenant_id!, async (client) => {
+      const s = await this.settings.get(client, user.tenant_id!)
+      const first = shiftPeriod(current, -(months - 1))
+      const from = periodRange(first).start
+      const to = periodRange(current).end
+
+      const tot = (await client.query(
+        `SELECT (SELECT coalesce(sum(amount),0) FROM finance.payments WHERE status = 'success') AS income_total,
+                (SELECT coalesce(sum(amount),0) FROM finance.expense_invoices WHERE status = 'paid') AS expense_total,
+                (SELECT count(*)::int FROM finance.expense_invoices WHERE status = 'pending') AS unpaid_count,
+                (SELECT coalesce(sum(amount),0) FROM finance.expense_invoices WHERE status = 'pending') AS unpaid_total,
+                (SELECT max(period) FROM finance.monthly_charges WHERE period <= $1) AS latest_period`, [current],
+      )).rows[0]
+
+      const inc = await client.query<{ d: string; amt: number }>(
+        `SELECT (paid_at AT TIME ZONE 'Asia/Tehran')::date::text AS d, sum(amount) AS amt FROM finance.payments
+          WHERE status = 'success' AND (paid_at AT TIME ZONE 'Asia/Tehran')::date BETWEEN $1::date AND $2::date GROUP BY 1`, [from, to])
+      const exp = await client.query<{ d: string; amt: number }>(
+        `SELECT paid_on::text AS d, sum(amount) AS amt FROM finance.expense_invoices
+          WHERE status = 'paid' AND paid_on BETWEEN $1::date AND $2::date GROUP BY 1`, [from, to])
+      const monthly = Array.from({ length: months }, (_, i) => ({ period: shiftPeriod(first, i), income: 0, expense: 0 }))
+      const idx = new Map(monthly.map((m, i) => [m.period, i]))
+      for (const r of inc.rows) { const i = idx.get(periodOfIso(r.d)); if (i !== undefined) monthly[i].income += r.amt }
+      for (const r of exp.rows) { const i = idx.get(periodOfIso(r.d)); if (i !== undefined) monthly[i].expense += r.amt }
+
+      const byCat = await client.query<{ category: string; amount: number }>(
+        `SELECT category, sum(amount) AS amount FROM finance.expense_invoices
+          WHERE status = 'paid' AND paid_on BETWEEN $1::date AND $2::date GROUP BY category ORDER BY amount DESC`, [from, to])
+
+      const collectPeriod = periodQ ?? tot.latest_period ?? current
+      const col = (await client.query(
+        `SELECT count(*)::int AS count, coalesce(sum(total_amount),0) AS total,
+                coalesce(sum(total_amount) FILTER (WHERE status = 'paid'),0) AS paid,
+                count(*) FILTER (WHERE status = 'pending')::int AS pending_count,
+                count(*) FILTER (WHERE status = 'overdue')::int AS overdue_count,
+                coalesce(sum(total_amount) FILTER (WHERE status = 'overdue'),0) AS overdue_total
+           FROM finance.monthly_charges WHERE period = $1`, [collectPeriod])).rows[0]
+
+      const overdue = await client.query(
+        `SELECT c.id, c.period, c.total_amount, c.late_fee_amount, c.due_date, u.unit_number
+           FROM finance.monthly_charges c JOIN property.units u ON u.id = c.unit_id
+          WHERE c.status = 'overdue' ORDER BY c.due_date, u.unit_number LIMIT 100`)
+      const overdueAll = (await client.query(`SELECT count(*)::int AS count, coalesce(sum(total_amount),0) AS total FROM finance.monthly_charges WHERE status = 'overdue'`)).rows[0]
+
+      const recent = await client.query(
+        `SELECT p.id, p.amount, p.method, p.paid_at, c.period, u.unit_number
+           FROM finance.payments p JOIN finance.monthly_charges c ON c.id = p.monthly_charge_id JOIN property.units u ON u.id = c.unit_id
+          WHERE p.status = 'success' ORDER BY p.paid_at DESC NULLS LAST LIMIT 8`)
+
+      const thisMonth = monthly[monthly.length - 1]
+      return {
+        current_period: current,
+        opening_balance: s.opening_balance,
+        income_total: tot.income_total,
+        expense_total: tot.expense_total,
+        fund_balance: s.opening_balance + tot.income_total - tot.expense_total,
+        month_income: thisMonth.income,
+        month_expense: thisMonth.expense,
+        collection: { period: collectPeriod, ...col, rate: col.total ? Math.round((col.paid / col.total) * 100) : 0, outstanding: col.total - col.paid },
+        overdue: { ...overdueAll, units: overdue.rows },
+        unpaid_invoices: { count: tot.unpaid_count, total: tot.unpaid_total },
+        monthly,
+        expense_by_category: byCat.rows,
+        recent_payments: recent.rows,
+      }
+    })
+  }
+
+  /** گردش صندوق: وصولی‌های شارژ (+) و فاکتورهای پرداخت‌شده (−) به ترتیب تاریخ */
+  @Roles('admin', 'accountant')
+  @Get('ledger')
+  ledger(@Query('limit') limitQ: string | undefined, @CurrentUser() user: JwtPayload) {
+    const limit = num(limitQ, 'تعداد', { min: 1, max: 500, int: true }) ?? 100
+    return this.db.withTenant(user.tenant_id!, async (client) => {
+      const r = await client.query(
+        `SELECT * FROM (
+           SELECT 'p-' || p.id AS id, 'income' AS type, p.amount, (p.paid_at AT TIME ZONE 'Asia/Tehran')::date::text AS date, p.paid_at AS sort_at,
+                  p.method, p.reference, u.unit_number, c.period, NULL::text AS vendor, NULL::text AS description, NULL::uuid AS invoice_id
+             FROM finance.payments p JOIN finance.monthly_charges c ON c.id = p.monthly_charge_id JOIN property.units u ON u.id = c.unit_id
+            WHERE p.status = 'success'
+           UNION ALL
+           SELECT 'i-' || i.id, 'expense', i.amount, i.paid_on::text, i.updated_at, i.pay_method, i.number, NULL, NULL, i.vendor, i.description, i.id
+             FROM finance.expense_invoices i WHERE i.status = 'paid'
+         ) t ORDER BY date DESC, sort_at DESC LIMIT $1`, [limit])
+      return r.rows
+    })
+  }
+}
