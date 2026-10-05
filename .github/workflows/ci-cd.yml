@@ -18,7 +18,7 @@ jobs:
   # می‌سازد تا Jobهای بعدی با یک GitHub Actions Matrix پویا (fromJSON) فقط همان‌ها را
   # پردازش کنند — به‌جای کپی ۶ بلوک تقریباً یکسان برای هر سرویس.
   detect-changes:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     outputs:
       services_matrix: ${{ steps.build-matrix.outputs.services_matrix }}
       has_backend_changes: ${{ steps.build-matrix.outputs.has_backend_changes }}
@@ -68,7 +68,7 @@ jobs:
   test-backend:
     needs: detect-changes
     if: needs.detect-changes.outputs.has_backend_changes == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     strategy:
       fail-fast: false
       matrix:
@@ -88,7 +88,7 @@ jobs:
   test-frontend:
     needs: detect-changes
     if: needs.detect-changes.outputs.frontend == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     defaults:
       run:
         working-directory: frontend
@@ -107,7 +107,7 @@ jobs:
   build-push-backend:
     needs: [detect-changes, test-backend]
     if: github.event_name == 'push' && needs.detect-changes.outputs.has_backend_changes == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     strategy:
       fail-fast: false
       matrix:
@@ -145,7 +145,7 @@ jobs:
   build-push-frontend:
     needs: [detect-changes, test-frontend]
     if: github.event_name == 'push' && needs.detect-changes.outputs.frontend == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     permissions:
       contents: read
       packages: write
@@ -179,7 +179,7 @@ jobs:
     needs: [detect-changes, build-push-backend]
     # فقط وقتی کلاستر Kubernetes دارید: Settings → Variables → K8S_DEPLOY=true و Secret به نام KUBE_CONFIG_B64
     if: github.event_name == 'push' && vars.K8S_DEPLOY == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     environment: production
     strategy:
       fail-fast: false
@@ -203,7 +203,7 @@ jobs:
     needs: [detect-changes, build-push-backend, migrate-backend]
     # فقط وقتی کلاستر Kubernetes دارید: Settings → Variables → K8S_DEPLOY=true و Secret به نام KUBE_CONFIG_B64
     if: github.event_name == 'push' && vars.K8S_DEPLOY == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     environment: production
     strategy:
       fail-fast: false
@@ -225,7 +225,7 @@ jobs:
     needs: build-push-frontend
     # فقط وقتی کلاستر Kubernetes دارید: Settings → Variables → K8S_DEPLOY=true و Secret به نام KUBE_CONFIG_B64
     if: github.event_name == 'push' && vars.K8S_DEPLOY == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     environment: production
     steps:
       - uses: azure/setup-kubectl@v4
