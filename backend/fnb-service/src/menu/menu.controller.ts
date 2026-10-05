@@ -1,4 +1,5 @@
-import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common'
+import { Body, Controller, Delete, Get, NotFoundException, Param, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common'
+import { ArrayMaxSize, IsArray, IsInt, IsNumber, IsOptional, IsString, IsUUID, Max, MaxLength, Min, MinLength } from 'class-validator'
 import { DatabaseService } from '../database/database.service'
 import { CurrentUser, JwtPayload } from '../auth/decorators/current-user.decorator'
 import { Roles } from '../auth/decorators/roles.decorator'
@@ -6,6 +7,27 @@ import { EventsService } from '../events/events.service'
 import { FnbGateway } from '../realtime/fnb.gateway'
 
 type Availability = 'available' | 'sold_out' | 'hidden'
+
+export class MenuItemDto {
+  @IsUUID() venueId: string
+  @IsOptional() @IsUUID() categoryId?: string
+  @IsString() @MinLength(1) @MaxLength(100) name: string
+  @IsOptional() @IsString() @MaxLength(400) description?: string
+  @IsOptional() @IsString() @MaxLength(500) imageUrl?: string
+  @IsNumber() @Min(0) @Max(1e9) price: number
+  @IsOptional() @IsInt() @Min(0) @Max(100000) stockCount?: number
+  @IsOptional() @IsArray() @ArrayMaxSize(20) @IsString({ each: true }) dietaryTags?: string[]
+}
+
+export class UpdateMenuItemDto {
+  @IsOptional() @IsString() @MinLength(1) @MaxLength(100) name?: string
+  @IsOptional() @IsString() @MaxLength(400) description?: string | null
+  @IsOptional() @IsString() @MaxLength(500) imageUrl?: string | null
+  @IsOptional() @IsNumber() @Min(0) @Max(1e9) price?: number
+  @IsOptional() @IsUUID() categoryId?: string | null
+  @IsOptional() @IsInt() @Min(0) @Max(100000) stockCount?: number | null
+  @IsOptional() @IsArray() @ArrayMaxSize(20) @IsString({ each: true }) dietaryTags?: string[]
+}
 
 @Controller('fnb')
 export class MenuController {
@@ -107,18 +129,59 @@ export class MenuController {
 
   @Roles('admin', 'staff')
   @Post('menu-items')
-  create(@CurrentUser() user: JwtPayload, @Body() body: Record<string, unknown>) {
+  create(@CurrentUser() user: JwtPayload, @Body() body: MenuItemDto) {
     return this.db.withTenant(user.tenant_id!, async (c) => {
       const r = await c.query(
         `INSERT INTO fnb.menu_items
            (tenant_id, venue_id, category_id, name, description, image_url, price, availability, stock_count, dietary_tags)
          VALUES ($1,$2,$3,$4,$5,$6,$7,'available',$8,$9) RETURNING *`,
         [
-          user.tenant_id, body.venueId, body.categoryId, body.name, body.description ?? null,
+          user.tenant_id, body.venueId, body.categoryId ?? null, body.name.trim(), body.description ?? null,
           body.imageUrl ?? null, body.price, body.stockCount ?? null, body.dietaryTags ?? [],
         ],
       )
       return r.rows[0]
+    })
+  }
+
+  /** ویرایش مشخصات آیتم منو (نام، قیمت، دسته، موجودی…) */
+  @Roles('admin', 'staff')
+  @Patch('menu-items/:id')
+  async update(@CurrentUser() user: JwtPayload, @Param('id', ParseUUIDPipe) id: string, @Body() body: UpdateMenuItemDto) {
+    const tenantId = user.tenant_id!
+    const item = await this.db.withTenant(tenantId, async (c) => {
+      const r = await c.query(
+        `UPDATE fnb.menu_items SET
+           name = COALESCE($2, name), description = CASE WHEN $3::boolean THEN $4 ELSE description END,
+           image_url = CASE WHEN $5::boolean THEN $6 ELSE image_url END, price = COALESCE($7, price),
+           category_id = CASE WHEN $8::boolean THEN $9::uuid ELSE category_id END,
+           stock_count = CASE WHEN $10::boolean THEN $11::int ELSE stock_count END,
+           dietary_tags = COALESCE($12, dietary_tags), updated_at = now()
+         WHERE id = $1 RETURNING *`,
+        [id, body.name?.trim() ?? null, body.description !== undefined, body.description ?? null, body.imageUrl !== undefined, body.imageUrl ?? null, body.price ?? null,
+          body.categoryId !== undefined, body.categoryId ?? null, body.stockCount !== undefined, body.stockCount ?? null, body.dietaryTags ?? null],
+      )
+      return r.rows[0]
+    })
+    if (!item) throw new NotFoundException('آیتم یافت نشد')
+    this.gateway.broadcast(tenantId, 'menu.item.updated', { id: item.id, availability: item.availability, stock_count: item.stock_count })
+    return item
+  }
+
+  /** آیتمی که در سفارشی بوده مخفی می‌شود (سابقه‌ی سفارش‌ها می‌ماند)، وگرنه حذف می‌شود */
+  @Roles('admin', 'staff')
+  @Delete('menu-items/:id')
+  remove(@CurrentUser() user: JwtPayload, @Param('id', ParseUUIDPipe) id: string) {
+    return this.db.withTenant(user.tenant_id!, async (c) => {
+      const used = await c.query(`SELECT 1 FROM fnb.order_items WHERE item_id = $1 LIMIT 1`, [id])
+      if (used.rowCount) {
+        const r = await c.query(`UPDATE fnb.menu_items SET availability = 'hidden', updated_at = now() WHERE id = $1 RETURNING id`, [id])
+        if (!r.rowCount) throw new NotFoundException('آیتم یافت نشد')
+        return { ok: true, hidden: true }
+      }
+      const r = await c.query(`DELETE FROM fnb.menu_items WHERE id = $1 RETURNING id`, [id])
+      if (!r.rowCount) throw new NotFoundException('آیتم یافت نشد')
+      return { ok: true, hidden: false }
     })
   }
 }

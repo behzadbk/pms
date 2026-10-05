@@ -41,3 +41,17 @@ export function buildSlots(date: string, hours: number[], busy: Busy[], now = ne
     }
   })
 }
+
+/** ساعت و دقیقه‌ی یک لحظه به وقت تهران (UTC+03:30) */
+export function tehranClock(d: Date): { hour: number; minute: number } {
+  const parts = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Tehran', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(d)
+  return { hour: Number(parts.find((p) => p.type === 'hour')?.value ?? 0), minute: Number(parts.find((p) => p.type === 'minute')?.value ?? 0) }
+}
+
+/** آیا بازه‌ی [start, start+hours) دقیقاً از ساعت‌های قابل رزرو مشاع تشکیل شده و از نیمه‌شب نمی‌گذرد؟ */
+export function fitsSlotHours(start: Date, hours: number, slotHours: number[]): boolean {
+  const { hour, minute } = tehranClock(start)
+  if (minute !== 0 || hour + hours > 24) return false
+  for (let h = hour; h < hour + hours; h++) if (!slotHours.includes(h)) return false
+  return true
+}

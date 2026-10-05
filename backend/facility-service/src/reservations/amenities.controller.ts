@@ -18,6 +18,10 @@ interface AmenityBody {
   capacity?: number | null
   requiresApproval?: boolean
   ruleText?: string | null
+  /** حداکثر ساعت قابل رزرو در یک نوبت (۱ تا ۱۲) */
+  maxHours?: number
+  /** ساعت‌های شروع قابل رزرو در شبانه‌روز (۰ تا ۲۳، به وقت تهران) */
+  slotHours?: number[]
 }
 
 /** نوع مشاع → آیکن صفحه‌ی رزرو ساکن */
@@ -25,7 +29,7 @@ const ICON_BY_TYPE: Record<string, string> = { pool: 'pool', hall: 'groups', roo
 const TYPES = Object.keys(ICON_BY_TYPE)
 
 function cleanAmenity(b: AmenityBody, partial: boolean) {
-  const out: { name?: string; type?: string; capacity?: number | null; requires_approval?: boolean; rule_text?: string | null } = {}
+  const out: { name?: string; type?: string; capacity?: number | null; requires_approval?: boolean; rule_text?: string | null; max_hours?: number; slot_hours?: number[] } = {}
   if (b.name !== undefined || !partial) {
     const name = String(b.name ?? '').trim()
     if (!name || name.length > 80) throw new BadRequestException('نام مشاع لازم است (حداکثر ۸۰ نویسه)')
@@ -42,6 +46,16 @@ function cleanAmenity(b: AmenityBody, partial: boolean) {
   }
   if (b.requiresApproval !== undefined) out.requires_approval = !!b.requiresApproval
   if (b.ruleText !== undefined) out.rule_text = b.ruleText ? String(b.ruleText).slice(0, 300) : null
+  if (b.maxHours !== undefined) {
+    if (!Number.isInteger(b.maxHours) || b.maxHours < 1 || b.maxHours > 12) throw new BadRequestException('حداکثر ساعت رزرو باید بین ۱ تا ۱۲ باشد')
+    out.max_hours = b.maxHours
+  }
+  if (b.slotHours !== undefined) {
+    if (!Array.isArray(b.slotHours) || b.slotHours.length === 0 || b.slotHours.length > 24 || !b.slotHours.every((h) => Number.isInteger(h) && h >= 0 && h <= 23)) {
+      throw new BadRequestException('ساعت‌های قابل رزرو باید فهرستی از اعداد ۰ تا ۲۳ باشد')
+    }
+    out.slot_hours = [...new Set(b.slotHours)].sort((x, y) => x - y)
+  }
   return out
 }
 
@@ -72,9 +86,9 @@ export class AmenitiesController {
     const a = cleanAmenity(body ?? {}, false)
     return this.db.withTenant(user.tenant_id!, async (client) => {
       const res = await client.query(
-        `INSERT INTO facility.amenities (tenant_id, name, type, capacity, requires_approval, icon, rule_text)
-         VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *, requires_approval AS needs_approval`,
-        [user.tenant_id, a.name, a.type, a.capacity ?? null, a.requires_approval ?? false, ICON_BY_TYPE[a.type!], a.rule_text ?? null],
+        `INSERT INTO facility.amenities (tenant_id, name, type, capacity, requires_approval, icon, rule_text, max_hours, slot_hours)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, COALESCE($8, 1), COALESCE($9::int[], '{8,9,10,11,16,17,18,19,20}'::int[])) RETURNING *, requires_approval AS needs_approval`,
+        [user.tenant_id, a.name, a.type, a.capacity ?? null, a.requires_approval ?? false, ICON_BY_TYPE[a.type!], a.rule_text ?? null, a.max_hours ?? null, a.slot_hours ?? null],
       )
       return res.rows[0]
     })
@@ -92,9 +106,11 @@ export class AmenitiesController {
            icon = COALESCE($4, icon),
            capacity = CASE WHEN $5::boolean THEN $6::int ELSE capacity END,
            requires_approval = COALESCE($7, requires_approval),
-           rule_text = CASE WHEN $8::boolean THEN $9 ELSE rule_text END
+           rule_text = CASE WHEN $8::boolean THEN $9 ELSE rule_text END,
+           max_hours = COALESCE($10, max_hours),
+           slot_hours = COALESCE($11::int[], slot_hours)
          WHERE id = $1 AND is_active RETURNING *, requires_approval AS needs_approval`,
-        [id, a.name ?? null, a.type ?? null, a.type ? ICON_BY_TYPE[a.type] : null, 'capacity' in a, a.capacity ?? null, a.requires_approval ?? null, 'rule_text' in a, a.rule_text ?? null],
+        [id, a.name ?? null, a.type ?? null, a.type ? ICON_BY_TYPE[a.type] : null, 'capacity' in a, a.capacity ?? null, a.requires_approval ?? null, 'rule_text' in a, a.rule_text ?? null, a.max_hours ?? null, a.slot_hours ?? null],
       )
       if (!res.rows[0]) throw new NotFoundException('مشاع یافت نشد')
       return res.rows[0]

@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common'
+import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common'
 import { OrdersService, PlaceOrderDto } from './orders.service'
 import { CurrentUser, JwtPayload } from '../auth/decorators/current-user.decorator'
 import { Roles } from '../auth/decorators/roles.decorator'
@@ -12,17 +12,17 @@ export class OrdersController {
   place(@CurrentUser() user: JwtPayload, @Body() dto: PlaceOrderDto) {
     // نکته Production: هدر Idempotency-Key باید اینجا بررسی شود تا دابل‌تپ موبایل
     // دو سفارش نسازد (همان الگوی استفاده‌شده در finance-svc برای پرداخت).
-    return this.orders.place(user.tenant_id!, user.sub, dto, user.role)
+    return this.orders.place(user.tenant_id!, user.sub, dto, user.role, user)
   }
 
   @Get('orders/:id')
   findOne(@CurrentUser() user: JwtPayload, @Param('id') id: string) {
-    return this.orders.findOne(user.tenant_id!, id)
+    return this.orders.findOne(user.tenant_id!, id, user)
   }
 
   @Get('units/:unitId/orders')
   listByUnit(@CurrentUser() user: JwtPayload, @Param('unitId') unitId: string) {
-    return this.orders.listByUnit(user.tenant_id!, unitId)
+    return this.orders.listByUnit(user.tenant_id!, unitId, user)
   }
 
   @Post('orders/:id/cancel')
@@ -38,6 +38,12 @@ export class OrdersController {
     @Body() body: { status: OrderStatus; reason?: string },
   ) {
     return this.orders.changeStatus(user.tenant_id!, id, body.status, user.sub, body.reason)
+  }
+
+  @Roles('admin', 'staff')
+  @Get('orders')
+  history(@CurrentUser() user: JwtPayload, @Query('status') status?: string) {
+    return this.orders.history(user.tenant_id!, status)
   }
 
   @Roles('admin', 'staff')

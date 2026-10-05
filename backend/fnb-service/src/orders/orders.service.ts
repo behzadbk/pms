@@ -3,6 +3,8 @@ import { DatabaseService } from '../database/database.service'
 import { EventsService } from '../events/events.service'
 import { FnbGateway } from '../realtime/fnb.gateway'
 import { canTransition, OrderStatus, RELEASES_STOCK } from './order-status'
+import type { JwtPayload } from '../auth/decorators/current-user.decorator'
+import { assertUnitAccess } from '../common/unit-access'
 
 export interface PlaceOrderDto {
   venueId: string
@@ -28,7 +30,7 @@ export class OrdersService {
    *    می‌شود تا دو سفارش هم‌زمان نتوانند آخرین موجودی را با هم بردارند.
    *  ۳ نام و قیمت هر آیتم snapshot می‌شود تا تغییر بعدی منو فاکتور گذشته را عوض نکند.
    */
-  async place(tenantId: string, userId: string, dto: PlaceOrderDto, role?: string) {
+  async place(tenantId: string, userId: string, dto: PlaceOrderDto, role?: string, user?: JwtPayload) {
     if (!dto.items?.length) throw new BadRequestException('سبد سفارش خالی است')
     // بدون این چک، تعداد منفی مبلغ سفارش را منفی و موجودی را افزایش می‌داد
     for (const line of dto.items) {
@@ -41,6 +43,7 @@ export class OrdersService {
     }
 
     return this.db.withTenant(tenantId, async (c) => {
+      if (user) await assertUnitAccess(c, user, dto.unitId)
       // قوانین برج: سفارش غذا برای واحد بدهکار بسته است (فقط سفارش خودِ ساکن/کودک؛ ثبت دستی کارکنان مستثناست)
       if ((role === 'resident' || role === 'child') && dto.unitId) {
         const lock = await c.query<{ r: boolean }>(`SELECT residency.unit_restricted($1, 'module:food') AS r`, [dto.unitId])
@@ -179,17 +182,19 @@ export class OrdersService {
     })
   }
 
-  async findOne(tenantId: string, id: string) {
+  async findOne(tenantId: string, id: string, user?: JwtPayload) {
     return this.db.withTenant(tenantId, async (c) => {
       const o = await c.query('SELECT * FROM fnb.orders WHERE id = $1', [id])
       if (!o.rows[0]) throw new NotFoundException('سفارش یافت نشد')
+      if (user) await assertUnitAccess(c, user, o.rows[0].unit_id)
       const items = await c.query('SELECT * FROM fnb.order_items WHERE order_id = $1', [id])
       return { ...o.rows[0], items: items.rows }
     })
   }
 
-  async listByUnit(tenantId: string, unitId: string) {
+  async listByUnit(tenantId: string, unitId: string, user?: JwtPayload) {
     return this.db.withTenant(tenantId, async (c) => {
+      if (user) await assertUnitAccess(c, user, unitId)
       const r = await c.query(
         'SELECT * FROM fnb.orders WHERE unit_id = $1 ORDER BY placed_at DESC NULLS LAST LIMIT 50',
         [unitId],
@@ -210,6 +215,24 @@ export class OrdersService {
          WHERE o.status IN ('placed','accepted','preparing','ready','out_for_delivery')
          GROUP BY o.id, z.name
          ORDER BY o.placed_at ASC`,
+      )
+      return r.rows
+    })
+  }
+
+  /** تاریخچه‌ی سفارش‌ها برای مدیر/پرسنل (با فیلتر وضعیت) — همراه با اقلام و منطقه‌ی تحویل */
+  async history(tenantId: string, status?: string, limit = 200) {
+    return this.db.withTenant(tenantId, async (c) => {
+      const r = await c.query(
+        `SELECT o.*, u.unit_number AS unit_no, z.name AS zone_name,
+                COALESCE((SELECT json_agg(json_build_object('name', oi.item_name_snapshot, 'qty', oi.quantity, 'price', oi.unit_price))
+                            FROM fnb.order_items oi WHERE oi.order_id = o.id), '[]'::json) AS items
+           FROM fnb.orders o
+           LEFT JOIN property.units u ON u.id = o.unit_id
+           LEFT JOIN fnb.delivery_zones z ON z.id = o.delivery_zone_id
+          WHERE ($1::text IS NULL OR o.status = $1)
+          ORDER BY o.placed_at DESC NULLS LAST LIMIT $2`,
+        [status ?? null, limit],
       )
       return r.rows
     })

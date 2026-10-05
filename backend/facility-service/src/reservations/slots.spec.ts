@@ -1,4 +1,4 @@
-import { buildSlots, tehranInstant, tehranToday } from './slots'
+import { fitsSlotHours, buildSlots, tehranInstant, tehranToday } from './slots'
 
 describe('buildSlots — ساعت پُر قابل انتخاب نیست', () => {
   const date = '2030-01-15'
@@ -29,5 +29,19 @@ describe('buildSlots — ساعت پُر قابل انتخاب نیست', () => 
   it('ساعت‌ها به وقت تهران ساخته می‌شوند', () => {
     expect(tehranInstant('2030-01-15', 17).toISOString()).toBe('2030-01-15T13:30:00.000Z')
     expect(tehranToday(new Date('2030-01-15T21:00:00Z'))).toBe('2030-01-16')
+  })
+})
+
+describe('fitsSlotHours', () => {
+  const at = (h: number, m = 0) => new Date(`2026-10-10T${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00+03:30`)
+  it('ساعت شروع و همه‌ی ساعت‌های نوبت باید در slot_hours باشد', () => {
+    expect(fitsSlotHours(at(16), 1, [16, 17, 18])).toBe(true)
+    expect(fitsSlotHours(at(16), 3, [16, 17, 18])).toBe(true)
+    expect(fitsSlotHours(at(17), 3, [16, 17, 18])).toBe(false)
+    expect(fitsSlotHours(at(15), 1, [16, 17, 18])).toBe(false)
+  })
+  it('دقیقه‌ی غیرصفر و عبور از نیمه‌شب رد می‌شود', () => {
+    expect(fitsSlotHours(at(16, 30), 1, [16, 17])).toBe(false)
+    expect(fitsSlotHours(at(23), 2, [23, 0])).toBe(false)
   })
 })

@@ -10,7 +10,7 @@ import { DatabaseService } from '../database/database.service'
 import { EventsService } from '../events/events.service'
 import { CurrentUser, JwtPayload } from '../auth/decorators/current-user.decorator'
 import { Roles } from '../auth/decorators/roles.decorator'
-import { buildSlots, tehranToday } from './slots'
+import { buildSlots, fitsSlotHours, tehranToday } from './slots'
 import { amenityLock, unitOfResident } from './debtor-lock'
 import { BookingValidationService } from './booking-validation.service'
 
@@ -85,6 +85,8 @@ export class BookingsController {
       const start = new Date(dto.start)
       const end = new Date(start.getTime() + hours * 3_600_000)
       if (start.getTime() <= Date.now()) throw new BadRequestException('این ساعت گذشته است')
+      // ساعت شروع و تمام ساعت‌های نوبت باید از ساعت‌های قابل رزرو همین مشاع باشد (slot_hours)
+      if (!fitsSlotHours(start, hours, a.slot_hours)) throw new BadRequestException('این ساعت برای رزرو این مشاع تعریف نشده است')
 
       const manual = user.role === 'admin' || user.role === 'staff'
       if (manual && !this.isDesk(user)) throw new ForbiddenException('ثبت دستی رزرو فقط برای مسئول مشاعات و مدیر است')
