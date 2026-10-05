@@ -15,7 +15,6 @@ interface UserRow {
   person_id: string | null
   person_status: string | null
   tenant_name?: string | null
-  must_change_password?: boolean
   sessions_valid_after: Date | null
   id: string
   full_name: string
@@ -32,7 +31,6 @@ interface UserRow {
 const USER_COLUMNS = `id, full_name, email, username, role, department, permissions, is_active, person_id, must_change_password,
   (SELECT p.status FROM residency.users p WHERE p.id = identity.users.person_id) AS person_status,
   (SELECT t.name FROM identity.tenants t WHERE t.id = identity.users.tenant_id) AS tenant_name,
-  must_change_password,
   GREATEST(sessions_valid_after,
            COALESCE((SELECT p.sessions_valid_after FROM residency.users p WHERE p.id = identity.users.person_id), '-infinity')) AS sessions_valid_after`
 

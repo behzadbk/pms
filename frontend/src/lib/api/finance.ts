@@ -153,6 +153,10 @@ export interface MonthExpenses {
 export interface Accountant { id: string; fullName: string; email: string | null; phone: string | null; isActive: boolean; lastLoginAt: string | null; createdAt: string; tempPassword?: string }
 export interface GatewayInfo { online: boolean; gateway: string | null; sandbox: boolean }
 
+export interface ImportChargeRow { line: number; unit_number: string; period: string; amount: number; status: ChargeStatus; due_date?: string; paid_on?: string }
+export interface ImportInvoiceRow { line: number; invoice_date: string; description: string; amount: number; vendor?: string; category?: string; status?: 'pending' | 'paid'; number?: string }
+export interface ImportResult { created: number; updated?: number; skipped: number; errors: { line: number; message: string }[] }
+
 const qs = (o: Record<string, string | number | undefined>) => {
   const p = Object.entries(o).filter(([, v]) => v !== undefined && v !== '') as [string, string | number][]
   return p.length ? '?' + p.map(([k, v]) => `${k}=${encodeURIComponent(String(v))}`).join('&') : ''
@@ -185,6 +189,10 @@ export const financeApi = {
   deleteInvoice: (id: string) => api.delete<{ ok: true }>(`${F}/invoices/${id}`),
   ledger: (limit = 100) => api.get<LedgerEntry[]>(`${F}/ledger${qs({ limit })}`),
   summary: (o: { months?: number; period?: string } = {}) => api.get<Summary>(`${F}/summary${qs(o)}`),
+
+  // ورود از فایل حسابداری (حسابدار)
+  importCharges: (rows: ImportChargeRow[]) => api.post<ImportResult>(`${F}/charges/import`, { rows }),
+  importInvoices: (rows: ImportInvoiceRow[]) => api.post<ImportResult>(`${F}/invoices/import`, { rows }),
 
   // ساکن
   myCharges: () => api.get<MyCharge[]>(`${F}/me/charges`),
@@ -235,6 +243,7 @@ export const PAY_METHOD_FA: Record<string, string> = {
   bank_transfer: 'واریز بانکی',
   cheque: 'چک',
   online: 'درگاه آنلاین',
+  import: 'ورود از فایل حسابداری',
 }
 export const methodFa = (m: string | null | undefined) => (m ? (PAY_METHOD_FA[m] ?? m) : '—')
 

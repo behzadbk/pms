@@ -1,12 +1,9 @@
 import { useRef, useState } from 'react'
-import { Download, FileUp, Wallet } from 'lucide-react'
+import { Download, FileUp } from 'lucide-react'
 import { Card, CardHeader } from '../ui/Card'
-import { Modal, PrimaryButton, GhostButton, SelectField, TextField } from '../ui/Modal'
-import { useAuth } from '../../context/AuthContext'
-import { importCharges, importInvoices, setOpeningBalance, useStore } from '../../lib/store'
-import { TEMPLATES, normDigits, parseAmount, parseCharges, parseExpenses, readTable, type ImportKind } from '../../lib/accountingImport'
-import { toman } from '../../lib/mockData'
-import type { ChargeRec, InvoiceRec } from '../../lib/store'
+import { Modal, PrimaryButton, GhostButton, SelectField } from '../ui/Modal'
+import { TEMPLATES, parseCharges, parseExpenses, readTable, type ImportKind } from '../../lib/accountingImport'
+import { financeApi, type ImportChargeRow, type ImportInvoiceRow, type ImportResult } from '../../lib/api/finance'
 
 const KINDS: { value: ImportKind; label: string }[] = [
   { value: 'charges', label: 'شارژ واحدها (واحد، دوره، مبلغ، وضعیت)' },
@@ -23,23 +20,19 @@ function download(name: string, text: string) {
 }
 
 /**
- * ساختمان تازه حسابداری خام (همه‌چیز ۰) دارد؛ این بخش سه راه ورود اطلاعات می‌دهد:
- * موجودی اولیه‌ی صندوق (دستی)، ورود از فایل حسابداری (اکسل/CSV)، و ثبت دستی در صفحه‌های شارژ و فاکتور.
+ * ورود اطلاعات از فایل حسابداری (اکسل/CSV): فایل در مرورگر خوانده و اعتبارسنجی می‌شود و ردیف‌های سالم
+ * به بک‌اند (finance-service) فرستاده و در دیتابیس ثبت می‌شوند. موجودی اولیه‌ی صندوق در «تنظیمات مالی» است.
  */
-export function AccountingTools() {
-  const { openingBalance, charges, invoices } = useStore()
-  const { user } = useAuth()
-  const [balOpen, setBalOpen] = useState(false)
-  const [bal, setBal] = useState('')
+export function AccountingTools({ onImported }: { onImported?: () => void }) {
   const [impOpen, setImpOpen] = useState(false)
   const [kind, setKind] = useState<ImportKind>('charges')
   const [fileName, setFileName] = useState('')
-  const [parsed, setParsed] = useState<{ charges?: Omit<ChargeRec, 'id'>[]; expenses?: Omit<InvoiceRec, 'id'>[]; errors: { line: number; message: string }[] } | null>(null)
+  const [parsed, setParsed] = useState<{ charges?: ImportChargeRow[]; expenses?: ImportInvoiceRow[]; errors: { line: number; message: string }[] } | null>(null)
   const [fatal, setFatal] = useState('')
   const [flash, setFlash] = useState('')
+  const [busy, setBusy] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
-  const empty = charges.length === 0 && invoices.length === 0 && openingBalance === 0
   const count = parsed ? (kind === 'charges' ? parsed.charges?.length : parsed.expenses?.length) ?? 0 : 0
 
   function resetImport() {
@@ -59,7 +52,7 @@ export function AccountingTools() {
         const r = parseCharges(table)
         setParsed({ charges: r.rows, errors: r.errors })
       } else {
-        const r = parseExpenses(table, user?.fullName ?? 'ورود از فایل')
+        const r = parseExpenses(table)
         setParsed({ expenses: r.rows, errors: r.errors })
       }
     } catch (e) {
@@ -67,65 +60,42 @@ export function AccountingTools() {
     }
   }
 
-  function confirmImport() {
-    if (!parsed || count === 0) return
-    if (kind === 'charges' && parsed.charges) importCharges(parsed.charges)
-    if (kind === 'expenses' && parsed.expenses) importInvoices(parsed.expenses)
-    setFlash(`${count.toLocaleString('fa-IR')} ردیف وارد شد${parsed.errors.length ? ` · ${parsed.errors.length.toLocaleString('fa-IR')} ردیف نادیده گرفته شد` : ''}`)
-    setImpOpen(false)
-    resetImport()
+  async function confirmImport() {
+    if (!parsed || count === 0 || busy) return
+    setBusy(true)
+    setFatal('')
+    try {
+      const res: ImportResult = kind === 'charges' ? await financeApi.importCharges(parsed.charges ?? []) : await financeApi.importInvoices(parsed.expenses ?? [])
+      const done = res.created + (res.updated ?? 0)
+      const bad = parsed.errors.length + res.errors.length
+      setFlash(`${done.toLocaleString('fa-IR')} ردیف ثبت شد${bad ? ` · ${bad.toLocaleString('fa-IR')} ردیف رد شد` : ''}${res.errors[0] ? ` (${res.errors[0].message})` : ''}`)
+      setImpOpen(false)
+      resetImport()
+      onImported?.()
+    } catch (e) {
+      setFatal(e instanceof Error ? e.message : 'ثبت اطلاعات ناموفق بود')
+    } finally {
+      setBusy(false)
+    }
   }
-
-  const balNum = parseAmount(normDigits(bal))
 
   return (
     <Card>
-      <CardHeader title="اطلاعات حسابداری" />
+      <CardHeader title="ورود از فایل حسابداری" />
       <div className="px-5 pb-5 space-y-3">
-        {empty && (
-          <p className="text-sm text-muted leading-7">
-            این ساختمان هنوز اطلاعات مالی ندارد و همه‌ی مبالغ ۰ است. موجودی اولیه را وارد کنید، فایل حسابداری (اکسل/CSV) را بارگذاری کنید یا شارژ و فاکتورها را دستی ثبت کنید.
-          </p>
-        )}
+        <p className="text-sm text-muted leading-7">
+          اگر قبلاً شارژ و هزینه‌ها را در اکسل نگه می‌داشتید، فایل را بارگذاری کنید تا در سامانه ثبت شود. موجودی اولیه‌ی صندوق را در «تنظیمات مالی» وارد کنید.
+        </p>
         {flash && <p className="text-sm font-medium text-ok">{flash}</p>}
-        <div className="flex flex-wrap gap-2">
-          <GhostButton
-            onClick={() => {
-              setBal(openingBalance ? String(openingBalance) : '')
-              setBalOpen(true)
-            }}
-          >
-            <Wallet size={16} /> موجودی اولیه صندوق: {toman(openingBalance)}
-          </GhostButton>
-          <PrimaryButton
-            onClick={() => {
-              resetImport()
-              setImpOpen(true)
-            }}
-          >
-            <FileUp size={16} /> ورود از فایل حسابداری
-          </PrimaryButton>
-        </div>
+        <PrimaryButton
+          onClick={() => {
+            resetImport()
+            setImpOpen(true)
+          }}
+        >
+          <FileUp size={16} /> ورود از فایل حسابداری
+        </PrimaryButton>
       </div>
-
-      <Modal
-        open={balOpen}
-        title="موجودی اولیه‌ی صندوق"
-        onClose={() => setBalOpen(false)}
-        footer={
-          <PrimaryButton
-            disabled={balNum === null || balNum < 0}
-            onClick={() => {
-              setOpeningBalance(balNum ?? 0)
-              setBalOpen(false)
-            }}
-          >
-            ذخیره
-          </PrimaryButton>
-        }
-      >
-        <TextField label="مبلغ (تومان)" inputMode="numeric" value={bal} onChange={(e) => setBal(e.target.value)} hint="موجودی صندوق در لحظه‌ی شروع استفاده از سامانه؛ ۰ یعنی صندوق خالی." />
-      </Modal>
 
       <Modal
         open={impOpen}
@@ -133,8 +103,8 @@ export function AccountingTools() {
         size="lg"
         onClose={() => setImpOpen(false)}
         footer={
-          <PrimaryButton disabled={count === 0} onClick={confirmImport}>
-            وارد کردن {count ? `${count.toLocaleString('fa-IR')} ردیف` : ''}
+          <PrimaryButton disabled={count === 0 || busy} onClick={() => void confirmImport()}>
+            {busy ? 'در حال ثبت…' : `وارد کردن ${count ? `${count.toLocaleString('fa-IR')} ردیف` : ''}`}
           </PrimaryButton>
         }
       >
@@ -162,7 +132,7 @@ export function AccountingTools() {
             />
           </div>
           <p className="text-xs text-muted leading-6">
-            ردیف اول عنوان ستون‌هاست. وضعیت شارژ: «پرداخت‌شده»، «در انتظار» یا «معوق». تاریخ‌ها جلالی (۱۴۰۵/۰۷/۱۰) یا میلادی. شارژ تکراری (همان واحد و دوره) جایگزین می‌شود.
+            ردیف اول عنوان ستون‌هاست. وضعیت شارژ: «پرداخت‌شده»، «در انتظار» یا «معوق». تاریخ‌ها جلالی (۱۴۰۵/۰۷/۱۰) یا میلادی. شماره‌ی واحد باید در ساختمان تعریف شده باشد. شارژ تکراری (همان واحد و دوره) جایگزین می‌شود مگر قبلاً پرداخت شده باشد؛ فاکتور با شماره‌ی تکراری دوباره ثبت نمی‌شود.
           </p>
           {fatal && <p className="text-sm font-medium text-bad">{fatal}</p>}
           {parsed && (

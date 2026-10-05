@@ -6,14 +6,10 @@ import { AuthModule } from './auth/auth.module'
 import { EventsModule } from './events/events.module'
 import { ChargesModule } from './charges/charges.module'
 import { PaymentsModule } from './payments/payments.module'
-import { FormulasModule } from './formulas/formulas.module'
-import { SettingsModule } from './settings/settings.module'
 import { InvoicesModule } from './invoices/invoices.module'
-import { SummaryModule } from './summary/summary.module'
-import { OverdueModule } from './overdue/overdue.module'
 import { BillingModule } from './billing/billing.module'
 import { ReportsModule } from './reports/reports.module'
-import { ReservationEventsConsumer } from './events-consumer/reservation-events.consumer'
+import { ImportsModule } from './imports/imports.module'
 
 @Module({
   imports: [
@@ -24,14 +20,10 @@ import { ReservationEventsConsumer } from './events-consumer/reservation-events.
     AuthModule,
     ChargesModule,
     PaymentsModule,
-    FormulasModule,
-    SettingsModule,
     InvoicesModule,
-    SummaryModule,
-    OverdueModule,
     BillingModule,
     ReportsModule,
+    ImportsModule,
   ],
-  providers: [ReservationEventsConsumer],
 })
 export class AppModule {}

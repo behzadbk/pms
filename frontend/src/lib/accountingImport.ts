@@ -1,5 +1,5 @@
-import type { ChargeRec, InvoiceRec } from './store'
-import { expenseCategories } from './store'
+import type { ImportChargeRow, ImportInvoiceRow } from './api/finance'
+import { JALALI_MONTHS } from './jalali'
 
 /**
  * ورود اطلاعات از فایل حسابداری (اکسل/CSV). ستون‌ها با عنوان فارسی یا انگلیسی شناخته می‌شوند و
@@ -18,9 +18,6 @@ const FA = '۰۱۲۳۴۵۶۷۸۹'
 const AR = '٠١٢٣٤٥٦٧٨٩'
 /** ارقام فارسی/عربی → انگلیسی */
 export const normDigits = (s: string) => s.replace(/[۰-۹]/g, (d) => String(FA.indexOf(d))).replace(/[٠-٩]/g, (d) => String(AR.indexOf(d)))
-
-/** ارقام انگلیسی → فارسی (برای نمایش دوره و سررسید مثل بقیه‌ی برنامه) */
-const toFa = (s: string) => s.replace(/\d/g, (d) => FA[Number(d)])
 
 const norm = (s: unknown) => normDigits(String(s ?? '')).replace(/[‌‏‎]/g, ' ').replace(/ي/g, 'ی').replace(/ك/g, 'ک').trim().toLowerCase()
 
@@ -129,7 +126,7 @@ function indexHeaders(header: Cell[]) {
   return idx
 }
 
-function chargeStatus(v: Cell): ChargeRec['status'] | null {
+function chargeStatus(v: Cell): ImportChargeRow['status'] | null {
   const t = norm(v)
   if (!t) return 'pending'
   if (['پرداخت شده', 'پرداخت‌شده', 'پرداختی', 'paid', 'تسویه'].some((x) => t.includes(norm(x)))) return 'paid'
@@ -138,8 +135,20 @@ function chargeStatus(v: Cell): ChargeRec['status'] | null {
   return null
 }
 
-export function parseCharges(table: Cell[][]): ParsedImport<Omit<ChargeRec, 'id'>> {
-  const out: ParsedImport<Omit<ChargeRec, 'id'>> = { rows: [], errors: [] }
+const isoOf = (v: Cell) => parseDateCell(v)?.slice(0, 10) ?? null
+
+/** دوره: «1405-07» / «۱۴۰۵/۷» / «مهر ۱۴۰۵» → 'YYYY-MM' (شمسی) */
+export function parsePeriodCell(v: Cell): string | null {
+  const t = norm(v).replace(/[/\s]+/g, '-')
+  let m = t.match(/^(\d{4})-(\d{1,2})$/)
+  if (m) return Number(m[2]) >= 1 && Number(m[2]) <= 12 ? `${m[1]}-${m[2].padStart(2, '0')}` : null
+  m = norm(v).match(/^(\S+)\s+(\d{4})$/)
+  const mi = m ? JALALI_MONTHS.findIndex((x) => norm(x) === m![1]) : -1
+  return m && mi >= 0 ? `${m[2]}-${String(mi + 1).padStart(2, '0')}` : null
+}
+
+export function parseCharges(table: Cell[][]): ParsedImport<ImportChargeRow> {
+  const out: ParsedImport<ImportChargeRow> = { rows: [], errors: [] }
   if (table.length < 2) return { rows: [], errors: [{ line: 1, message: 'فایل ردیف داده ندارد' }] }
   const ix = indexHeaders(table[0])
   const missing = (['unit', 'period', 'amount'] as const).filter((k) => ix[k] === undefined)
@@ -148,26 +157,26 @@ export function parseCharges(table: Cell[][]): ParsedImport<Omit<ChargeRec, 'id'
     const line = i + 2
     if (!r.some((c) => String(c ?? '').trim())) return
     const unit = normDigits(String(r[ix.unit] ?? '')).trim()
-    const period = toFa(normDigits(String(r[ix.period] ?? '')).trim())
+    const period = parsePeriodCell(r[ix.period])
     const amount = parseAmount(r[ix.amount])
     const status = chargeStatus(ix.status !== undefined ? r[ix.status] : '')
     if (!unit) return out.errors.push({ line, message: 'شماره‌ی واحد خالی است' })
-    if (!period) return out.errors.push({ line, message: 'دوره خالی است' })
+    if (!period) return out.errors.push({ line, message: 'دوره نامعتبر است (مثل مهر ۱۴۰۵ یا ۱۴۰۵-۰۷)' })
     if (amount === null || amount < 0) return out.errors.push({ line, message: 'مبلغ نامعتبر است' })
     if (!status) return out.errors.push({ line, message: 'وضعیت باید «پرداخت‌شده / در انتظار / معوق» باشد' })
-    const due = ix.due !== undefined ? parseDateCell(r[ix.due]) : null
-    if (ix.due !== undefined && String(r[ix.due] ?? '').trim() && !due) return out.errors.push({ line, message: 'تاریخ سررسید نامعتبر است' })
-    const paidAt = ix.paid !== undefined ? parseDateCell(r[ix.paid]) : null
-    out.rows.push({
-      unit, period, base: amount, lateFee: 0, total: amount, dueDate: ix.due !== undefined ? toFa(normDigits(String(r[ix.due] ?? '')).trim()) : '',
-      status, paidAt: status === 'paid' ? (paidAt ?? new Date().toISOString()) : undefined, payMethod: status === 'paid' ? 'ورود از فایل حسابداری' : undefined,
-    })
+    const dueRaw = ix.due !== undefined ? String(r[ix.due] ?? '').trim() : ''
+    const due = dueRaw ? isoOf(r[ix.due]) : null
+    if (dueRaw && !due) return out.errors.push({ line, message: 'تاریخ سررسید نامعتبر است' })
+    const paidRaw = ix.paid !== undefined ? String(r[ix.paid] ?? '').trim() : ''
+    const paidOn = paidRaw ? isoOf(r[ix.paid]) : null
+    if (paidRaw && !paidOn) return out.errors.push({ line, message: 'تاریخ پرداخت نامعتبر است' })
+    out.rows.push({ line, unit_number: unit, period, amount, status, ...(due ? { due_date: due } : {}), ...(status === 'paid' && paidOn ? { paid_on: paidOn } : {}) })
   })
   return out
 }
 
-export function parseExpenses(table: Cell[][], registeredBy: string): ParsedImport<Omit<InvoiceRec, 'id'>> {
-  const out: ParsedImport<Omit<InvoiceRec, 'id'>> = { rows: [], errors: [] }
+export function parseExpenses(table: Cell[][]): ParsedImport<ImportInvoiceRow> {
+  const out: ParsedImport<ImportInvoiceRow> = { rows: [], errors: [] }
   if (table.length < 2) return { rows: [], errors: [{ line: 1, message: 'فایل ردیف داده ندارد' }] }
   const ix = indexHeaders(table[0])
   const missing = (['date', 'desc', 'amount'] as const).filter((k) => ix[k] === undefined)
@@ -175,21 +184,20 @@ export function parseExpenses(table: Cell[][], registeredBy: string): ParsedImpo
   table.slice(1).forEach((r, i) => {
     const line = i + 2
     if (!r.some((c) => String(c ?? '').trim())) return
-    const issuedAt = parseDateCell(r[ix.date])
+    const date = isoOf(r[ix.date])
     const amount = parseAmount(r[ix.amount])
     const description = String(r[ix.desc] ?? '').trim()
-    if (!issuedAt) return out.errors.push({ line, message: 'تاریخ نامعتبر است (مثل ۱۴۰۵/۰۷/۱۰)' })
+    if (!date) return out.errors.push({ line, message: 'تاریخ نامعتبر است (مثل ۱۴۰۵/۰۷/۱۰)' })
     if (!description) return out.errors.push({ line, message: 'شرح خالی است' })
     if (amount === null || amount <= 0) return out.errors.push({ line, message: 'مبلغ نامعتبر است' })
-    const rawCat = ix.category !== undefined ? String(r[ix.category] ?? '').trim() : ''
-    const category = expenseCategories.find((c) => norm(c) === norm(rawCat)) ?? (rawCat || 'بیمه و متفرقه')
-    const st = ix.status !== undefined ? norm(r[ix.status]) : 'پرداخت شده'
-    const paid = !st || st.includes(norm('پرداخت شده')) || st.includes(norm('پرداخت‌شده')) || st === 'paid'
+    const st = ix.status !== undefined ? norm(r[ix.status]) : ''
+    const pending = ['در انتظار', 'پرداخت نشده', 'پرداخت‌نشده', 'pending'].some((x) => st.includes(norm(x)))
+    const num = ix.number !== undefined ? String(r[ix.number] ?? '').trim() : ''
     const vendor = ix.vendor !== undefined ? String(r[ix.vendor] ?? '').trim() : ''
+    const category = ix.category !== undefined ? String(r[ix.category] ?? '').trim() : ''
     out.rows.push({
-      number: ix.number !== undefined ? String(r[ix.number] ?? '').trim() || '—' : '—',
-      vendor: vendor || 'نامشخص', category, description, items: [{ title: description, qty: 1, unitPrice: amount }], amount, issuedAt,
-      status: paid ? 'paid' : 'pending', method: 'ورود از فایل حسابداری', registeredBy, paidAt: paid ? issuedAt : undefined,
+      line, invoice_date: date, description, amount, status: pending ? 'pending' : 'paid',
+      ...(num ? { number: num } : {}), ...(vendor ? { vendor } : {}), ...(category ? { category } : {}),
     })
   })
   return out

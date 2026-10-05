@@ -1,8 +1,11 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { FileText, Wallet } from 'lucide-react'
 import { FinanceOverview } from '../../components/finance/FinanceOverview'
+import { AccountingTools } from '../../components/finance/AccountingTools'
 
 export function AccountantDashboard() {
+  const [rev, setRev] = useState(0)
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -19,7 +22,8 @@ export function AccountantDashboard() {
           </Link>
         </div>
       </div>
-      <FinanceOverview />
+      <FinanceOverview key={rev} />
+      <AccountingTools onImported={() => setRev((n) => n + 1)} />
     </div>
   )
 }

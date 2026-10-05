@@ -59,9 +59,8 @@ MIGRATIONS=(
   "backend/fnb-service/prisma/migrations/003_reconcile_menu_sync.sql"
   "backend/guard-service/prisma/migrations/003_vehicles_and_traffic.sql"
   "backend/notification-service/prisma/migrations/004_announcements.sql"
-  "backend/finance-service/prisma/migrations/002_finance_v2.sql"
   "backend/finance-service/prisma/migrations/002_charge_engine.sql"
-  "backend/facility-service/prisma/migrations/003_maintenance.sql"
+  "backend/finance-service/prisma/migrations/003_settings_compat_and_import.sql"
   "backend/facility-service/prisma/migrations/004_maintenance.sql"
 )
 
