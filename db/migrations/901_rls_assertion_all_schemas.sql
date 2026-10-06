@@ -48,6 +48,8 @@ BEGIN
            SELECT 1 FROM pg_policy p
             WHERE p.polrelid = c.oid
               AND p.polpermissive
+              -- polcmd: '*' = policy برای همه‌ی دستورها، 'a' = فقط INSERT. policyِ ایمن باید حداقل درج را با WITH CHECK پوشش بدهد
+              -- (USING فقط خواندن/تغییر ردیف‌های موجود را فیلتر می‌کند و جلوی جعل tenant_id در INSERT را نمی‌گیرد).
               AND p.polcmd IN ('*', 'a')
               AND pg_get_expr(p.polwithcheck, p.polrelid) LIKE '%platform.current_tenant_id()%');
   IF no_policy IS NOT NULL THEN

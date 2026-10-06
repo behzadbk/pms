@@ -14,6 +14,8 @@ interface IssuePassBody {
   maxUses?: number
 }
 
+// وضعیت «expired» ذخیره نمی‌شود، هنگام خواندن محاسبه می‌شود: کدی که هنوز active است ولی valid_until گذشته منقضی
+// نشان داده می‌شود. پس برای انقضا هیچ job پس‌زمینه‌ای لازم نیست.
 const PASS_SELECT = `
   SELECT g.id, g.unit_id, u.unit_number, g.guest_name, g.code, g.valid_from, g.valid_until, g.max_uses, g.uses_count,
          CASE WHEN g.status = 'active' AND g.valid_until < now() THEN 'expired' ELSE g.status END AS status, g.created_at
@@ -44,6 +46,8 @@ export class GuestPassesController {
     }
     // کد ۶ رقمی یکتا در tenant (چند تلاش در صورت برخورد)
     for (let i = 0; i < 8; i++) {
+      // randomInt از crypto است (غیرقابل‌پیش‌بینی)، نه Math.random. یکتایی را به‌جای «اول SELECT بعد INSERT» (که با دو
+      // درخواست هم‌زمان می‌شکست) با ON CONFLICT DO NOTHING می‌گیریم: اگر کد تکراری بود ردیفی برنمی‌گردد و کد تازه امتحان می‌شود.
       const code = randomInt(100000, 999999).toString()
       const ins = await client.query(
         `INSERT INTO guard.guest_passes (tenant_id, unit_id, issued_by, guest_name, code, valid_until, max_uses)
@@ -153,6 +157,8 @@ export class GuestPassesController {
   @Get('guest-passes/verify')
   async verify(@Query('code') rawCode: string, @CurrentUser() user: JwtPayload) {
     assertDesk(user)
+    // محتوای QR با پیشوند «guest-pass:» می‌آید و کد دستی ممکن است با ارقام فارسی تایپ شود؛ هر دو به ۶ رقم لاتین نرمال می‌شوند.
+    // verify فقط می‌خواند و چیزی مصرف نمی‌کند؛ مصرف واقعی در check-in (با قفل) انجام می‌شود.
     const code = String(rawCode ?? '').replace(/^guest-pass:/, '').replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d))).trim()
     return this.db.withTenant(user.tenant_id!, async (client) => {
       const res = await client.query(`SELECT g.*, u.unit_number FROM guard.guest_passes g LEFT JOIN property.units u ON u.id = g.unit_id WHERE g.code = $1`, [code])
@@ -174,6 +180,8 @@ export class GuestPassesController {
     assertDesk(user)
     const tenantId = user.tenant_id!
     return this.db.withTenant(tenantId, async (client) => {
+      // FOR UPDATE ردیف کد را تا پایان تراکنش قفل می‌کند. اگر دو نگهبان هم‌زمان یک کد «تک‌بارمصرف» را اسکن کنند،
+      // دومی منتظر می‌ماند و بعد از commit اولی uses_count به‌روز را می‌بیند و رد می‌شود (بدون قفل هر دو وارد می‌شدند).
       const passRes = await client.query(`SELECT * FROM guard.guest_passes WHERE id = $1 FOR UPDATE`, [id])
       const pass = passRes.rows[0]
       if (!pass) throw new NotFoundException('کد مهمان یافت نشد')
@@ -188,6 +196,7 @@ export class GuestPassesController {
          VALUES ($1, $2, $3, $4, $5) RETURNING *`,
         [tenantId, pass.id, pass.unit_id, pass.guest_name, user.sub])
 
+      // وقتی آخرین استفاده‌ی مجاز مصرف شد وضعیت خودکار 'used' می‌شود؛ کدِ چندبارمصرف تا آن موقع active می‌ماند.
       const newUses = pass.uses_count + 1
       await client.query(`UPDATE guard.guest_passes SET uses_count = $1, status = $2 WHERE id = $3`, [
         newUses, newUses >= pass.max_uses ? 'used' : 'active', pass.id])

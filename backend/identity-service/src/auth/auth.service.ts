@@ -261,6 +261,7 @@ export class AuthService {
     await this.throttle.assertAllowed(scope, current.sub, ip)
     if (oldPassword === newPassword) throw new BadRequestException('رمز جدید باید با رمز فعلی متفاوت باشد')
 
+    // ادمین پلتفرم (سوپرادمین) tenant ندارد و در جدول جدا (platform_admins) است؛ مسیرش از کاربران ساختمان جداست.
     if (!current.tenant_id) {
       const admin = await this.fetchPlatformAdmin(current.sub)
       if (!admin || !(await bcrypt.compare(oldPassword, admin.password_hash))) {
@@ -281,12 +282,16 @@ export class AuthService {
         `SELECT ${USER_COLUMNS}, password_hash, phone FROM identity.users WHERE id = $1`, [current.sub])
       return res.rows[0]
     })
+    // رمز فعلی هم همان‌طور که تایپ شده و هم با ارقام فارسی/عربی‌تبدیل‌شده به لاتین امتحان می‌شود (کیبورد فارسی).
+    // رمز فعلیِ غلط به شمارنده‌ی قفل می‌رود تا با یک نشست دزدیده‌شده نشود رمز را حدس زد.
     if (!user || !user.is_active || !((await bcrypt.compare(oldPassword, user.password_hash)) || (await bcrypt.compare(toLatinDigits(oldPassword), user.password_hash)))) {
       await this.throttle.recordFailure(scope, current.sub, ip)
       throw new UnauthorizedException('رمز فعلی نادرست است')
     }
     const bad = passwordPolicyError(newPassword, [user.username, user.email?.split('@')[0], user.phone])
     if (bad) throw new BadRequestException(bad)
+    // پس از تغییر، sessions_valid_after = now() همه‌ی توکن‌های قدیمی (که iat دارند) را باطل می‌کند؛
+    // سپس توکن تازه برمی‌گردانیم تا همین دستگاه بیرون نیفتد.
     const hash = await bcrypt.hash(newPassword, 10)
     await this.db.withTenant(current.tenant_id, async (client) => {
       await client.query(

@@ -76,6 +76,8 @@ SEEDS=(
 
 log() { printf '%s\n' "$*"; }
 
+# جدول ردیابی اینجا هم ساخته می‌شود (نه فقط در 000_bootstrap) چون خود اجراکننده برای تشخیص «کدام مایگریشن اجرا شده»
+# پیش از اجرای 000 به آن نیاز دارد؛ IF NOT EXISTS آن را بی‌خطر می‌کند.
 ensure_tracking() {
   "${PSQL[@]}" -c "CREATE SCHEMA IF NOT EXISTS platform;
     CREATE TABLE IF NOT EXISTS platform.schema_migrations (
@@ -92,6 +94,8 @@ apply_one() {
   local recorded
   recorded="$("${PSQL[@]}" -tAc "SELECT checksum FROM platform.schema_migrations WHERE filename = '$rel'")"
   if [[ -n "$recorded" ]]; then
+    # مایگریشن‌های اجراشده «تغییرناپذیرند»: اگر فایلی بعد از اجرا ویرایش شود (checksum فرق کند) فقط هشدار می‌دهیم و
+    # دوباره اجرا نمی‌کنیم. برای تغییر اسکیما همیشه یک مایگریشن «جدید» اضافه کنید، نه ویرایش فایل قدیمی.
     if [[ "$recorded" != "$sum" ]]; then
       log "⚠  $rel از زمان اجرا تغییر کرده است (checksum متفاوت) — نادیده گرفته شد"
     else

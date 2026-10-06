@@ -51,6 +51,8 @@ export class OverdueService implements OnModuleInit, OnModuleDestroy {
   /** همه‌ی ساختمان‌های فعال — با قفل advisory */
   async runAll(today = tehranToday()) {
     await this.db.withPlatformAccess(async (lock) => {
+      // قفل advisory با کلید ثابت (۷۴۰۰۴۲) بین همه‌ی نمونه‌های سرویس مشترک است. «try» یعنی منتظر نمی‌ماند: اگر نمونه‌ی
+      // دیگری همین حالا job را اجرا می‌کند، این اجرا کنار می‌رود. قفل در سطح اتصال است؛ پس باید با همین اتصال (lock) آزاد شود (finally).
       const got = await lock.query<{ ok: boolean }>(`SELECT pg_try_advisory_lock(740042) AS ok`)
       if (!got.rows[0].ok) return
       try {
@@ -71,6 +73,8 @@ export class OverdueService implements OnModuleInit, OnModuleDestroy {
 
   async runForTenant(client: PoolClient, tenantId: string, today = tehranToday()): Promise<OverdueResult> {
     const rule = lateFeeRuleOf(await this.settings.get(client, tenantId))
+    // شارژهای گذشته از سررسید و هنوز پرداخت‌نشده. FOR UPDATE ردیف‌ها را قفل می‌کند تا هم‌زمان با ثبت یک پرداخت،
+    // جمع کل (total_amount) نادرست بازنویسی نشود.
     const due = await client.query<{ id: string; unit_id: string; period: string; status: string; due_date: string; base_amount: number; late_fee_amount: number; late_fee_waived: boolean; overdue_notified_at: string | null; total_amount: number }>(
       `SELECT id, unit_id, period, status, due_date, base_amount, late_fee_amount, late_fee_waived, overdue_notified_at, total_amount
          FROM finance.monthly_charges
@@ -81,9 +85,12 @@ export class OverdueService implements OnModuleInit, OnModuleDestroy {
     const res: OverdueResult = { marked: 0, feesUpdated: 0, notified: 0 }
     const toNotify: typeof due.rows = []
     for (const c of due.rows) {
+      // سه حالت جریمه: ۱) مدیر جریمه را بخشیده ⇒ مقدار فعلی ثابت می‌ماند؛ ۲) قاعده فعال است ⇒ جریمه‌ی تجمعی تا امروز
+      // دوباره از صفر حساب می‌شود (تابع خالص، نه افزایشی)؛ ۳) قاعده خاموش است ⇒ مقدار فعلی بدون تغییر.
       const fee = c.late_fee_waived ? c.late_fee_amount : rule.enabled ? computeLateFee(c.base_amount, c.due_date, today, rule) : c.late_fee_amount
       const feeChanged = fee !== c.late_fee_amount
       const statusChanged = c.status !== 'overdue'
+      // اگر هیچ‌چیز عوض نشده ننویس: اجرای چندباره‌ی job در یک روز هیچ UPDATE/اعلان اضافه‌ای نمی‌سازد (idempotent).
       if (!feeChanged && !statusChanged) continue
       await client.query(
         `UPDATE finance.monthly_charges
@@ -94,6 +101,7 @@ export class OverdueService implements OnModuleInit, OnModuleDestroy {
       )
       if (statusChanged) res.marked++
       if (feeChanged) res.feesUpdated++
+      // اعلان «سررسید گذشته» برای هر شارژ فقط یک‌بار در عمرش ارسال می‌شود (overdue_notified_at بعد از ارسال پر می‌شود).
       if (!c.overdue_notified_at) toNotify.push({ ...c, late_fee_amount: fee })
     }
 
@@ -122,6 +130,7 @@ export class OverdueService implements OnModuleInit, OnModuleDestroy {
       const tenants = await c.query<{ id: string }>(`SELECT id FROM identity.tenants`)
       for (const t of tenants.rows) {
         await this.db.withTenant(t.id, async (client) => {
+          // دوره‌های شمسی با 13xx/14xx شروع می‌شوند و میلادی با 19xx/20xx؛ این regex فقط میلادی‌های قدیمی را می‌گیرد.
           const legacy = await client.query<{ period: string }>(`SELECT DISTINCT period FROM finance.monthly_charges WHERE period ~ '^(19|2[0-9])[0-9]{2}-'`)
           for (const { period } of legacy.rows) {
             const [gy, gm] = period.split('-').map(Number)

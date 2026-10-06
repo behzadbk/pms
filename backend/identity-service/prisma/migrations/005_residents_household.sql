@@ -295,6 +295,8 @@ CREATE OR REPLACE FUNCTION residency.in_quiet_hours(p_membership uuid, p_at time
 LANGUAGE sql STABLE AS $fn$
   SELECT COALESCE((
     SELECT CASE
+             -- دو حالت: بازه‌ی هم‌روز (مثلاً ۱۲ تا ۱۴) ⇒ t در [from, to). بازه‌ی شبانه که از نیمه‌شب رد می‌شود (۲۲ تا ۰۷، چون from > to)
+             -- ⇒ t ≥ from «یا» t < to. t ساعتِ فعلی به وقت تهران است. بدون تنظیم ساعت سکوت ⇒ false.
              WHEN (q->>'from')::time <= (q->>'to')::time
                THEN t >= (q->>'from')::time AND t < (q->>'to')::time
              ELSE t >= (q->>'from')::time OR t < (q->>'to')::time

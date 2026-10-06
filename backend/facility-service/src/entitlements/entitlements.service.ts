@@ -192,6 +192,9 @@ export class EntitlementsService {
     const period = tehranPeriod(now)
     const year = period.slice(0, 4)
 
+    // مصرف دوره‌ی جاری هر خدمت. پنجره‌ی سهمیه به نوع خدمت بستگی دارد: خدمت ماهانه فقط رویدادهای همان
+    // دوره‌ی «YYYY-MM» را می‌شمرد، خدمت سالانه همه‌ی ماه‌های همان سال را (left(period,4) = سال).
+    // counted = فقط رویدادهایی که از سهمیه کم می‌شوند؛ total = همه (شامل رویدادهای کاملاً پولی).
     const agg = await client.query<{ service_id: string; counted: number; total: number; overage_qty: number; amount: number }>(
       `SELECT e.service_id,
               COALESCE(sum(e.quantity) FILTER (WHERE e.counts_toward_quota), 0)::float8 AS counted,
@@ -210,6 +213,8 @@ export class EntitlementsService {
         WHERE unit_id = $1 AND status = 'issued' AND valid_until > now() GROUP BY service_id`, [unitId])
     const openTickets = new Map(tk.rows.map((t) => [t.service_id, t.n]))
 
+    // this_period = مبلغ مصرف همین دوره؛ unbilled = مبلغی که هنوز روی هیچ شارژی نشسته (billed_charge_id خالی)
+    // و در صدور شارژ بعدی به صورتحساب واحد اضافه می‌شود.
     const totals = await client.query<{ this_period: number; unbilled: number }>(
       `SELECT COALESCE(sum(amount) FILTER (WHERE period = $2), 0)::float8 AS this_period,
               COALESCE(sum(amount) FILTER (WHERE billed_charge_id IS NULL), 0)::float8 AS unbilled
@@ -231,6 +236,8 @@ export class EntitlementsService {
         note: s.note,
         included,
         used,
+        // remaining فقط برای خدمت سهمیه‌ای معنا دارد (null = نامحدود/بدون سهمیه) و هرگز منفی نمی‌شود؛
+        // مصرف بیش از سهمیه در overage_qty/amount نشان داده می‌شود.
         remaining: included === null ? null : round2(Math.max(0, included - used)),
         overage_qty: round2(a?.overage_qty ?? 0),
         overage_amount: Math.round(a?.amount ?? 0),

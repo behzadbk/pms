@@ -44,10 +44,15 @@ export class ImportsController {
       const units = await client.query<{ id: string; unit_number: string }>(`SELECT id, unit_number FROM property.units WHERE unit_number = ANY($1::text[])`, [numbers])
       const unitId = new Map(units.rows.map((u) => [u.unit_number, u.id]))
       const result = { created: 0, updated: 0, skipped: 0, errors: [] as ImportError[] }
+      // کلیدهای «واحد|دوره»ی دیده‌شده در همین فایل: دو ردیف برای یک (واحد، دوره) در یک فایل خطا می‌شود تا ردیف دوم
+      // بی‌صدا روی اولی ننویسد.
       const seen = new Set<string>()
       for (let i = 0; i < rows.length; i++) {
         const r = rows[i]
         const line = Number(r.line) || i + 2
+        // هر ردیف داخل یک SAVEPOINT اجرا می‌شود. در PostgreSQL بعد از اولین خطای SQL کل تراکنش «aborted» می‌شود و هیچ
+        // دستوری دیگر اجرا نمی‌شود؛ با SAVEPOINT فقط همان ردیفِ خراب برگردانده می‌شود (ROLLBACK TO) و ردیف‌های سالم ثبت می‌مانند.
+        // خطاها با شماره‌ی خط فایل گزارش می‌شوند (line پیش‌فرض = اندیس+۲ چون ردیف ۱ سرستون است).
         await client.query('SAVEPOINT imp_row')
         let kind: 'created' | 'updated' = 'created'
         try {
@@ -65,6 +70,8 @@ export class ImportsController {
           if (seen.has(key)) bad('این واحد و دوره در همین فایل تکرار شده است')
           seen.add(key)
 
+          // ردیفِ همان (واحد، دوره) قفل می‌شود (FOR UPDATE) تا هم‌زمان با پرداخت آنلاین/ثبت دستی خراب نشود.
+          // شارژ «پرداخت‌شده» هرگز جایگزین نمی‌شود (skipped)؛ بقیه با مبلغ فایل بازنویسی و جریمه/اعلان‌شان صفر می‌شود.
           const cur = (await client.query<{ id: string; status: string }>(`SELECT id, status FROM finance.monthly_charges WHERE unit_id = $1 AND period = $2 FOR UPDATE`, [uid, period])).rows[0]
           if (cur?.status === 'paid') { result.skipped++; bad('این شارژ قبلاً پرداخت شده و جایگزین نمی‌شود') }
           let id: string
@@ -72,6 +79,8 @@ export class ImportsController {
             await client.query(
               `UPDATE finance.monthly_charges SET base_amount = $2, late_fee_amount = 0, total_amount = $2, due_date = $3::date, status = $4,
                       late_fee_through = NULL, overdue_notified_at = NULL, source = 'import', updated_at = now() WHERE id = $1`,
+              // ردیفِ «paid» ابتدا با وضعیت pending ثبت می‌شود و در بلوک پایین (همراه با ردیف payments) به paid می‌رسد؛
+              // تا وضعیت شارژ و پرداخت همیشه با هم و سازگار نوشته شوند.
               [cur.id, amount, due, status === 'paid' ? 'pending' : status],
             )
             id = cur.id
@@ -85,6 +94,8 @@ export class ImportsController {
           }
           if (status === 'paid') {
             // پرداخت‌شده: ردیف payments هم ثبت می‌شود تا در گردش صندوق و گزارش‌ها بیاید
+            // ساعت پرداخت در فایل نیست؛ ۱۲:۰۰ ظهر تهران فرض می‌شود تا تاریخ در تبدیل منطقه‌ی زمانی یک روز جابه‌جا نشود.
+            // idempotency_key = import-<chargeId> + ON CONFLICT DO NOTHING یعنی ورود دوباره، پرداخت تکراری نمی‌سازد.
             const paidAt = `($1::date + time '12:00') AT TIME ZONE 'Asia/Tehran'`
             await client.query(
               `INSERT INTO finance.payments (tenant_id, monthly_charge_id, amount, gateway, status, method, paid_at, idempotency_key, recorded_by, note)
@@ -119,11 +130,14 @@ export class ImportsController {
     return this.db.withTenant(tenantId, async (client) => {
       const who = await client.query<{ full_name: string }>(`SELECT full_name FROM identity.users WHERE id = $1`, [user.sub])
       const registeredBy = who.rows[0]?.full_name ?? 'حسابداری'
+      // اگر ردیفی شماره نداشته باشد شماره‌ی خودکار IMP-<batch>-<ردیف> ساخته می‌شود. batch از زمان اجراست؛ پس
+      // ورود دوباره‌ی همان فایلِ «بدون ستون شماره» فاکتور تکراری می‌سازد. ضدتکراری بودن فقط برای فایل‌های دارای شماره است.
       const batch = Date.now().toString(36)
       const result = { created: 0, skipped: 0, errors: [] as ImportError[] }
       for (let i = 0; i < rows.length; i++) {
         const r = rows[i]
         const line = Number(r.line) || i + 2
+        // همان الگوی SAVEPOINT-برای-هر-ردیف (بالا توضیح داده شده).
         await client.query('SAVEPOINT imp_row')
         try {
           const date = isoDate(r.invoice_date, 'تاریخ', true)!

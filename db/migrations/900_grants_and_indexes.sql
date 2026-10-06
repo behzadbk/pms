@@ -34,6 +34,8 @@ BEGIN
       FROM pg_class c
       JOIN pg_namespace n ON n.oid = c.relnamespace
      WHERE n.nspname IN ('identity','property','facility','finance','guard','notification','audit','fnb')
+       -- relkind 'r' = جدول عادی، 'p' = جدولِ مادرِ پارتیشن‌بندی‌شده (مثل audit.event_logs). خودِ پارتیشن‌های فرزند
+       -- (relispartition) حذف می‌شوند: ایندکس/RLS روی جدول مادر تعریف می‌شود و به همه‌ی پارتیشن‌ها (حتی آینده) منتقل می‌شود.
        AND c.relkind IN ('r','p')
        AND c.relispartition = false
        AND EXISTS (SELECT 1 FROM pg_attribute a
@@ -61,6 +63,8 @@ BEGIN
      AND c.relispartition = false
      AND EXISTS (SELECT 1 FROM pg_attribute a
                   WHERE a.attrelid = c.oid AND a.attname = 'tenant_id' AND NOT a.attisdropped)
+     -- ENABLE بدون FORCE کافی نیست: مالکِ جدول (و هر نقشی که مالک باشد) بدون FORCE از RLS معاف است.
+     -- پس هر دو لازم‌اند؛ اگر حتی یک جدول tenant‌دار یکی را نداشته باشد کل مایگریشن (و دیپلوی) شکست می‌خورد.
      AND (c.relrowsecurity = false OR c.relforcerowsecurity = false);
 
   IF missing IS NOT NULL THEN

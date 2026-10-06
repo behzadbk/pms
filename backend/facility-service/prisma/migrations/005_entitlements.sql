@@ -299,6 +299,8 @@ BEGIN
       INSERT INTO entitlement.tariffs (tenant_id, service_id, code, title, unit_price, step, counts_toward_quota, is_default, sort)
       VALUES (p_tenant, v_service, tf ->> 'code', tf ->> 'title', (tf ->> 'price')::numeric, COALESCE((tf ->> 'step')::numeric, 1),
               COALESCE((tf ->> 'counts')::boolean, true), COALESCE((tf ->> 'default')::boolean, false), idx)
+      -- الگوی p_overwrite در همه‌ی upsertهای این تابع: اگر false باشد ردیفِ موجود دست‌نخورده می‌ماند
+      -- (اعمال مجدد قالب، ویرایش‌های دستیِ مدیر را پاک نمی‌کند)؛ اگر true باشد مقدارِ قالب برنده است.
       ON CONFLICT (tenant_id, service_id, code) DO UPDATE
         SET title = CASE WHEN p_overwrite THEN EXCLUDED.title ELSE entitlement.tariffs.title END,
             unit_price = CASE WHEN p_overwrite THEN EXCLUDED.unit_price ELSE entitlement.tariffs.unit_price END,
@@ -309,6 +311,8 @@ BEGIN
       n_tariffs := n_tariffs + 1;
     END LOOP;
 
+    -- quotas در قالب یک آرایه‌ی «موقعیتی» است: عنصر i-ام سهمیه‌ی سطحِ i-ام از tpl.areas است
+    -- (idx از ۱ شروع می‌شود و با idx-1 به اندیس صفرمحور JSON نگاشت می‌شود)؛ پس ترتیب areas مهم است.
     IF s -> 'quotas' IS NOT NULL THEN
       idx := 0;
       FOR area IN SELECT (a)::numeric FROM jsonb_array_elements_text(tpl -> 'areas') AS a LOOP

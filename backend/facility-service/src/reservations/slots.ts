@@ -31,12 +31,17 @@ export function buildSlots(date: string, hours: number[], busy: Busy[], now = ne
   return [...hours].sort((a, b) => a - b).map((h) => {
     const start = tehranInstant(date, h)
     const end = tehranInstant(date, h + 1)
+    // شرط همپوشانیِ دو بازه‌ی نیمه‌باز [start, end): هر دو باید از انتهای دیگری زودتر شروع شده باشند.
+    // پس رزرو ۱۷–۱۸ و رزرو ۱۸–۱۹ با هم تداخل ندارند (end برابر با start بعدی تداخل نیست).
+    // فقط pending و confirmed ساعت را اشغال می‌کنند؛ rejected/cancelled آزاد حساب می‌شوند.
     const taken = busy.some((b) => ['pending', 'confirmed'].includes(b.status) && b.start < end && b.end > start)
     return {
       hour: h,
       label: `${String(h).padStart(2, '0')}:00`,
       start: start.toISOString(),
       end: end.toISOString(),
+      // اولویت: «taken» بر «past» می‌چربد (ساعت گذشته‌ی رزروشده همچنان رزروشده نشان داده شود)؛
+      // ساعتی که شروعش رسیده یا گذشته دیگر قابل رزرو نیست.
       status: taken ? 'taken' : start <= now ? 'past' : 'free',
     }
   })

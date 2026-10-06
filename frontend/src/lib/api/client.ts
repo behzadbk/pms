@@ -95,7 +95,10 @@ async function request<T>(path: string, method: string, options: ApiRequestOptio
     'X-Trace-Id': crypto.randomUUID(),
     ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    // کلید ایدمپوتنسی برای عملیات پولی/سفارش: یک کلید برای هر «قصد» کاربر ساخته می‌شود و اگر درخواست به‌خاطر قطعی شبکه
+    // دوباره ارسال شد همان کلید می‌رود؛ سرور (مثلاً initiate پرداخت) با آن جلوی ثبت دوباره را می‌گیرد.
     ...(idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : {}),
+    // آخرین spread: هدرهای فراخواننده بر پیش‌فرض‌های بالا (حتی Authorization) غالب می‌شوند.
     ...(headers as Record<string, string> | undefined),
   }
 
@@ -118,6 +121,8 @@ async function request<T>(path: string, method: string, options: ApiRequestOptio
   const data = isJson ? await res.json().catch(() => undefined) : await res.text().catch(() => undefined)
 
   if (!res.ok) {
+    // پیام خطا از بدنه‌ی JSON سرور می‌آید. ValidationPipe نست «آرایه‌ای از پیام‌ها» برمی‌گرداند که String() با ویرگول به
+    // هم می‌چسباند. کل پاسخ در ApiError.body می‌ماند تا کد ماشینی (مثل code: 'debtor_restricted') قابل بررسی باشد.
     const message = (isJson && data && typeof data === 'object' && 'message' in data)
       ? String((data as { message?: unknown }).message)
       : res.statusText || 'خطای غیرمنتظره از سرور'

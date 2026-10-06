@@ -10,6 +10,8 @@ import type { JwtPayload } from '../auth/decorators/current-user.decorator'
 /** واحد ساکن/کودک؛ برای مدیر و کارکنان null (آن‌ها تابع قفل نیستند) */
 export async function unitOfResident(client: PoolClient, user: JwtPayload): Promise<string | null> {
   if (user.role !== 'resident' && user.role !== 'child') return null
+  // انتخاب واحد ساکن: نشست خانوادگی با شناسه‌ی عضویت (mid)، نشست عادی با person_id؛ اگر چند واحد دارد اول سرپرست،
+  // بعد قدیمی‌ترین عضویت. (همان منطق myMembership در guard-service/fnb-service است.)
   const q =
     user.kind === 'family' && user.mid
       ? await client.query<{ unit_id: string }>(`SELECT unit_id FROM residency.memberships WHERE id = $1 AND status = 'active'`, [user.mid])

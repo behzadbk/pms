@@ -426,6 +426,9 @@ export class ManagerService {
           [before.unit_id, id],
         )
       }
+      // نقش (role) و نوع سکونت (residency) به‌هم وابسته‌اند و «مالکِ غایب» از هر دو فیلد قابل تنظیم است؛
+      // پس هر دو را با هم محاسبه می‌کنیم تا ناسازگار نشوند. خروج از «مالکِ غایب» با دادن نقش، سکونت را به 'owner' برمی‌گرداند.
+      // settings با عملگر || در jsonb «ادغام» می‌شود، نه جایگزین (کلیدهای دست‌نخورده می‌مانند).
       const residency = dto.role === 'owner_absent' ? 'owner_absent' : dto.residency ?? (before.role === 'owner_absent' && dto.role ? 'owner' : before.residency)
       const role = dto.residency === 'owner_absent' ? 'owner_absent' : dto.role ?? before.role
       const endDate = dto.end_date === undefined ? before.end_date : dto.end_date
@@ -442,14 +445,17 @@ export class ManagerService {
           WHERE id = $1`,
         [
           id, role, residency, dto.pays_charge ?? null, dto.start_date ?? null,
+          // هنگام پایان‌دادن به عضویت، اگر تاریخ پایان داده نشده باشد امروز ثبت می‌شود (و ended_at با now()).
           ending ? endDate ?? today() : endDate, dto.status ?? null,
           role === 'head' ? ROLE_LABEL.head : dto.title ?? null,
           dto.settings ? JSON.stringify(dto.settings) : null, ending,
         ],
       )
+      // مالک واحد در property.units هم نگه‌داری می‌شود؛ هر بار مالک (حاضر یا غایب) این عضویت شد، اشاره‌گر واحد را هم‌گام می‌کنیم.
       if (residency === 'owner' || role === 'owner_absent') {
         await client.query(`UPDATE property.units SET owner_user_id = $2 WHERE id = $1`, [before.unit_id, before.user_id])
       }
+      // فردی که از واحد خارج شده نباید با توکن‌های قبلی‌اش وارد بماند ⇒ همه‌ی نشست‌هایش باطل می‌شود.
       if (ending) await revokeSessions(client, [before.user_id])
 
       const after = await getMembershipOr404(client, id)

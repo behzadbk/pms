@@ -38,6 +38,9 @@ export class LogIngestService implements OnModuleDestroy {
 
   private async flush() {
     if (this.buffer.length === 0) return
+    // جابه‌جایی بافر: دسته‌ی فعلی برداشته و بافر تازه جایگزین می‌شود. چون Node تک‌نخی است قفل لازم نیست و درخواست‌هایی
+    // که هم‌زمان با نوشتنِ دیتابیس می‌رسند در بافر جدید جمع می‌شوند. اگر درج شکست بخورد این دسته دوباره امتحان نمی‌شود
+    // (انتخاب آگاهانه: از دست رفتن چند لاگ بهتر از انباشت بی‌پایان حافظه یا کندی سرویس است).
     const batch = this.buffer
     this.buffer = []
 
@@ -67,6 +70,8 @@ export class LogIngestService implements OnModuleDestroy {
               JSON.stringify(e.device ?? {}), JSON.stringify(e.request_body ?? null),
               JSON.stringify(e.response_body ?? null), e.error_stack ?? null,
             )
+            // درج چندردیفی با placeholderهای موقعیتی: ردیف i ستون c ⇒ $(i×تعداد‌ستون + c + 1). مثلاً ردیف دوم از $18 شروع می‌شود.
+            // سقف PostgreSQL ۶۵٬۵۳۵ پارامتر است؛ با حداکثر ۵۰۰ ردیف × ۱۷ ستون = ۸٬۵۰۰ فاصله‌ی زیادی تا سقف هست.
             return `(${cols.map((_, c) => `$${base + c + 1}`).join(',')})`
           })
           await client.query(

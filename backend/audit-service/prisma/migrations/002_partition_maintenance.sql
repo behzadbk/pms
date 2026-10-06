@@ -21,6 +21,8 @@ BEGIN
     SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
      WHERE n.nspname = 'audit' AND c.relname = part_name
   ) THEN
+    -- DDL پویا (نام پارتیشن متغیر است) با format: %I نام شناسه را امن quote می‌کند و %L مقدارها را؛ پس تزریق SQL ممکن نیست.
+    -- پارتیشن بازه‌ی [ابتدای ماه، ابتدای ماه بعد) را می‌گیرد؛ search_path تابع (بالا) ثابت شده تا SECURITY DEFINER قابل سوءاستفاده نباشد.
     EXECUTE format(
       'CREATE TABLE audit.%I PARTITION OF audit.event_logs FOR VALUES FROM (%L) TO (%L)',
       part_name, start_at, end_at);
