@@ -13,6 +13,10 @@ import { PALETTES, useTheme, type ThemeMode } from '../../context/ThemeContext'
  * مسن‌تر) و کاهش حرکت. برای هر نقشِ لاگین‌شده در /settings در دسترس است.
  */
 
+/** شناسه‌ی build (تاریخ/ساعت ساخت) — برای اینکه معلوم شود سرور کدام نسخه را سرو می‌کند */
+declare const __BUILD_ID__: string
+const BUILD_ID = typeof __BUILD_ID__ === 'string' ? __BUILD_ID__ : 'dev'
+
 const MODE_OPTIONS: { id: ThemeMode; label: string; icon: typeof Sun }[] = [
   { id: 'light', label: 'روشن', icon: Sun },
   { id: 'dark', label: 'تاریک', icon: Moon },
@@ -144,6 +148,10 @@ export function Settings() {
         <RotateCcw size={18} />
         بازگرداندن تنظیمات پیش‌فرض
       </button>
+
+      <p className="text-center text-[11px] text-[var(--lg-text-tertiary)]" dir="ltr" data-selectable>
+        همین · build {BUILD_ID}
+      </p>
     </div>
   )
 }
@@ -322,7 +330,7 @@ function PasswordSection() {
       <input className={input} type="password" autoComplete="new-password" placeholder="رمز جدید (حداقل ۸ کاراکتر)" value={next} onChange={(e) => setNext(e.target.value)} dir="ltr" />
       <input className={input} type="password" autoComplete="new-password" placeholder="تکرار رمز جدید" value={again} onChange={(e) => setAgain(e.target.value)} dir="ltr" />
       {msg && <p className={`text-xs font-bold ${msg.ok ? 'text-[var(--lg4-pri)]' : 'text-[var(--hm-bad)]'}`}>{msg.text}</p>}
-      <button className="w-full h-11 rounded-full bg-[var(--lg4-pri)] text-white text-sm font-bold disabled:opacity-40" disabled={busy || !cur || !next || !again} onClick={() => void submit()}>
+      <button className="lg4-capsule w-full h-11 text-sm font-bold" disabled={busy || !cur || !next || !again} onClick={() => void submit()}>
         {busy ? 'در حال ذخیره…' : 'ذخیره‌ی رمز جدید'}
       </button>
     </section>

@@ -10,6 +10,8 @@ import { staffNavItems } from './staff'
 export interface NavItem {
   to: string
   label: string
+  /** برچسب کوتاه برای نوار تب پایین (حداکثر ~۸ حرف) — اگر نباشد label استفاده می‌شود */
+  short?: string
   icon: typeof LayoutDashboard
   /** زیرعنوان در صفحه‌ی «بیشتر» */
   sub?: string
@@ -33,9 +35,9 @@ export const navByRole: Record<Role, NavItem[]> = {
     // ── «بیشتر» ──
     { to: '/admin/staff', label: 'کارکنان', icon: Contact, sub: 'افزودن کارمند، شیفت و دسترسی‌ها' },
     { to: '/admin/reservations', label: 'مشاعات', icon: CalendarRange, sub: 'تعریف مشاع، تایم‌تیبل و تأیید درخواست‌ها' },
-    { to: '/admin/finance', label: 'گزارش مالی', icon: Landmark, sub: 'خلاصه‌ی مالی، فاکتورها و وصول شارژ' },
-    { to: '/admin/rules', label: 'قوانین و برج', icon: SlidersHorizontal, sub: 'مهلت بدهکاری، محدودیت مشاعات و رزرو هوشمند' },
-    { to: '/admin/logs', label: 'داشبورد لاگ', icon: ScrollText, sub: 'لاگ متمرکز رفتار کاربران و خطاها' },
+    { to: '/admin/finance', label: 'گزارش مالی', short: 'مالی', icon: Landmark, sub: 'خلاصه‌ی مالی، فاکتورها و وصول شارژ' },
+    { to: '/admin/rules', label: 'قوانین و برج', short: 'قوانین', icon: SlidersHorizontal, sub: 'مهلت بدهکاری، محدودیت مشاعات و رزرو هوشمند' },
+    { to: '/admin/logs', label: 'داشبورد لاگ', short: 'لاگ', icon: ScrollText, sub: 'لاگ متمرکز رفتار کاربران و خطاها' },
   ],
   resident: [
     { to: '/resident', label: 'خانه', icon: Home },
@@ -43,10 +45,10 @@ export const navByRole: Record<Role, NavItem[]> = {
     { to: '/resident/tickets', label: 'تیکت‌ها', icon: Ticket, module: 'ticket' },
     { to: '/resident/announcements', label: 'اعلانات', icon: Megaphone, module: 'notice', sub: 'اطلاعیه‌ها و نظرسنجی‌ها' },
     // ── «بیشتر» ──
-    { to: '/resident/reservations', label: 'رزرو مشاعات', icon: CalendarRange, module: 'amenity', sub: 'استخر، سالن اجتماعات، روف‌گاردن، باشگاه' },
+    { to: '/resident/reservations', label: 'رزرو مشاعات', short: 'رزرو', icon: CalendarRange, module: 'amenity', sub: 'استخر، سالن اجتماعات، روف‌گاردن، باشگاه' },
     { to: '/resident/family', label: 'خانواده', icon: UsersRound, module: 'household', sub: 'اعضای خانوار، حالت والدین، ورود کودک' },
-    { to: '/resident/charges', label: 'شارژ و پرداخت', icon: Wallet, module: 'finance', sub: 'صورتحساب‌ها و پرداخت آنلاین' },
-    { to: '/resident/finance', label: 'شفافیت مالی', icon: PieChart, module: 'finance', sub: 'هزینه‌های ساختمان و سهم شما' },
+    { to: '/resident/charges', label: 'شارژ و پرداخت', short: 'شارژ', icon: Wallet, module: 'finance', sub: 'صورتحساب‌ها و پرداخت آنلاین' },
+    { to: '/resident/finance', label: 'شفافیت مالی', short: 'شفافیت', icon: PieChart, module: 'finance', sub: 'هزینه‌های ساختمان و سهم شما' },
     { to: '/resident/guest', label: 'کارت مهمان', icon: QrCode, module: 'guest', sub: 'صدور کد ورود مهمان' },
   ],
   // اپ کودک: فقط دو تب؛ بخش‌های پنهان‌شده در حالت والدین اصلاً ساخته نمی‌شوند
@@ -55,26 +57,26 @@ export const navByRole: Record<Role, NavItem[]> = {
     { to: '/child/announcements', label: 'اعلانات', icon: Megaphone, module: 'notice' },
   ],
   guard: [
-    { to: '/guard', label: 'داشبورد نگهبانی', icon: LayoutDashboard },
-    { to: '/guard/guest-check', label: 'پنل فوق‌ساده نگهبانی', icon: QrCode },
-    { to: '/guard/parcels', label: 'مرسولات پستی', icon: PackageCheck },
-    { to: '/guard/traffic', label: 'تردد خودرو', icon: CarFront },
+    { to: '/guard', label: 'داشبورد نگهبانی', short: 'داشبورد', icon: LayoutDashboard },
+    { to: '/guard/guest-check', label: 'پنل فوق‌ساده نگهبانی', short: 'مهمان', icon: QrCode },
+    { to: '/guard/parcels', label: 'مرسولات پستی', short: 'مرسوله', icon: PackageCheck },
+    { to: '/guard/traffic', label: 'تردد خودرو', short: 'تردد', icon: CarFront },
     { to: '/guard/announcements', label: 'اعلانات', icon: Megaphone },
   ],
   // منوی کارکنان پویاست و بر اساس دسترسی‌ها ساخته می‌شود — lib/staff.ts → staffNavItems
   staff: staffNavItems.map(({ to, label, icon }) => ({ to, label, icon })),
   accountant: [
-    { to: '/accountant', label: 'داشبورد حسابداری', icon: LayoutDashboard },
-    { to: '/accountant/charges', label: 'شارژ و مطالبات', icon: Wallet },
-    { to: '/accountant/invoices', label: 'صندوق و فاکتورها', icon: FileText },
+    { to: '/accountant', label: 'داشبورد حسابداری', short: 'داشبورد', icon: LayoutDashboard },
+    { to: '/accountant/charges', label: 'شارژ و مطالبات', short: 'شارژ', icon: Wallet },
+    { to: '/accountant/invoices', label: 'صندوق و فاکتورها', short: 'فاکتور', icon: FileText },
     { to: '/accountant/announcements', label: 'اعلانات', icon: Megaphone },
   ],
   super_admin: [
-    { to: '/super-admin', label: 'داشبورد پلتفرم', icon: LayoutDashboard },
-    { to: '/super-admin/buildings', label: 'ساختمان‌ها و برج‌ها', icon: Building2 },
+    { to: '/super-admin', label: 'داشبورد پلتفرم', short: 'داشبورد', icon: LayoutDashboard },
+    { to: '/super-admin/buildings', label: 'ساختمان‌ها و برج‌ها', short: 'ساختمان‌ها', icon: Building2 },
     { to: '/super-admin/residents', label: 'ساکنین', icon: Users, sub: 'ساختمان‌ها با درصد پر بودن، پرونده‌ی شخص' },
     { to: '/super-admin/plans', label: 'سطوح سرویس', icon: CreditCard },
-    { to: '/super-admin/billing', label: 'تراکنش‌های پلتفرم', icon: Receipt },
+    { to: '/super-admin/billing', label: 'تراکنش‌های پلتفرم', short: 'تراکنش', icon: Receipt },
   ],
 }
 

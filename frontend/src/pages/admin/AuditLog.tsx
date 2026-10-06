@@ -182,7 +182,7 @@ export function AdminAuditLog() {
               <BarChart data={chart}>
                 <XAxis dataKey="label" tick={{ fontSize: 11, fill: 'var(--lg-text-tertiary)' }} axisLine={false} tickLine={false} />
                 <Tooltip
-                  contentStyle={{ borderRadius: 12, border: '1px solid var(--lg-border-hairline)', fontSize: 12 }}
+                  contentStyle={{ borderRadius: 12, border: '1px solid var(--color-line)', fontSize: 12, background: 'var(--color-card)', color: 'var(--color-ink-text)' }} labelStyle={{ color: 'var(--color-ink-text)' }} itemStyle={{ color: 'var(--color-ink-text)' }}
                   formatter={(value, name) => [value, name === 'count' ? 'کل لاگ‌ها' : 'خطاها']}
                 />
                 <Bar dataKey="count" fill="var(--lg-primary)" radius={[6, 6, 2, 2]} />

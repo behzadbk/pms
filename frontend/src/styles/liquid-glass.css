@@ -28,7 +28,7 @@
 
   --lg-text-primary: #141c26;
   --lg-text-secondary: #5b6878;
-  --lg-text-tertiary: #8d99a8;
+  --lg-text-tertiary: #6b7787;
 
   --lg-success: #1b8a5a;
   --lg-success-soft: #e2f3ea;
@@ -251,7 +251,7 @@
   cursor: pointer;
   transition: transform 0.18s var(--lg-ease-fluid), box-shadow 0.18s var(--lg-ease-fluid), opacity 0.18s;
   background: linear-gradient(180deg, color-mix(in oklab, var(--lg4-pri) 80%, white), var(--lg4-pri));
-  color: #fff;
+  color: var(--on-pri, #fff);
   box-shadow: 0 8px 22px color-mix(in srgb, var(--lg4-pri) 30%, transparent),
     inset 0 1px 0 rgba(255, 255, 255, 0.4), inset 0 -1px 0 rgba(0, 0, 0, 0.1);
 }
@@ -274,10 +274,9 @@
   transition: all 0.2s var(--lg-ease-fluid);
 }
 
-/* در حالت تیره رنگ اصلی روشن است (#4fd1b9 …) و متن سفید روی آن کنتراست کافی ندارد */
-[data-theme='dark'] .lg4-capsule,
-[data-theme='dark'] .hm-chip[data-on='true'] {
-  color: #04201c;
+/* متن روی رنگ اصلی را --on-pri می‌گذارد (سفید یا تیره، بر پایه‌ی روشنایی واقعی پالت) */
+.hm-chip[data-on='true'] {
+  color: var(--on-pri, #fff);
 }
 
 /* ---------- نوار تب شناور (موبایل) ---------- */
@@ -400,7 +399,7 @@ a.hm-row:active {
 .hm-chip[data-on='true'] {
   background: var(--hm-pri);
   border-color: var(--hm-pri);
-  color: #fff;
+  color: var(--on-pri, #fff);
 }
 
 .hm-seg {
@@ -506,12 +505,27 @@ a.hm-row:active {
   bottom: calc(var(--hm-tabbar-h) + 8px);
   z-index: 20;
   padding-top: 12px;
-  background: linear-gradient(to top, var(--lg-bg-base) 55%, transparent);
+}
+/* زمینه‌ی محو‌شونده‌ی پشت CTA: تا بالای نوار تب ادامه دارد تا لابه‌لای دکمه و نوار تب
+   تکه‌ای از متن لیست دیده نشود و دکمه روی محتوا «سوار» به نظر نیاید. */
+.hm-sticky::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  left: -16px;
+  right: -16px;
+  top: 0;
+  bottom: calc(-1 * (var(--hm-tabbar-h) + 8px));
+  background: linear-gradient(to bottom, transparent, var(--lg-bg-base) 22px);
+  pointer-events: none;
 }
 @media (min-width: 1024px) {
   .hm-sticky {
     bottom: 0;
     padding-bottom: 12px;
+  }
+  .hm-sticky::before {
+    bottom: 0;
   }
 }
 /* کیبورد باز است (Layout این attribute را می‌گذارد): نوار تب پنهان می‌شود تا روی فیلد/دکمه نیفتد

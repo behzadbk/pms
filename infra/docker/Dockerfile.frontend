@@ -15,6 +15,9 @@ COPY frontend/ .
 # چون Vite آن‌ها را در باندل نهایی جایگزین می‌کند — از --build-arg در CI/CD تزریق می‌شود.
 ARG VITE_VAPID_PUBLIC_KEY=""
 ENV VITE_VAPID_PUBLIC_KEY=$VITE_VAPID_PUBLIC_KEY
+# شناسه‌ی commit برای نمایش در «حساب و ظاهر» (اختیاری) — معلوم می‌کند سرور کدام نسخه را سرو می‌کند
+ARG VITE_BUILD_SHA=""
+ENV VITE_BUILD_SHA=$VITE_BUILD_SHA
 RUN npm run build
 # خروجی: /app/dist (شامل sw.js، manifest.webmanifest، آیکون‌ها)
 
