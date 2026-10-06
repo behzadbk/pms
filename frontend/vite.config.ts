@@ -34,7 +34,10 @@ const apiProxy = Object.fromEntries(
   ]),
 )
 
+const buildId = `${new Date().toISOString().slice(0, 16).replace('T', ' ')}${process.env.VITE_BUILD_SHA ? ' · ' + String(process.env.VITE_BUILD_SHA).slice(0, 7) : ''}`
+
 export default defineConfig(({ mode }) => ({
+  define: { __BUILD_ID__: JSON.stringify(buildId) },
   plugins: [
     react(),
     tailwindcss(),
@@ -42,6 +45,8 @@ export default defineConfig(({ mode }) => ({
     // service worker لازم نیست و فقط باعث کش‌شدن نسخه‌ی قدیمی بعد از آپدیت اپ می‌شود.
     mode !== 'mobile' && VitePWA({
       registerType: 'autoUpdate',
+      // ثبت و به‌روزرسانی سرویس‌ورکر را خودمان در main.tsx انجام می‌دهیم (ریلود خودکار بعد از نسخه‌ی جدید)
+      injectRegister: false,
       includeAssets: ['favicon.ico', 'icons/apple-touch-icon.png'],
       manifest: {
         id: '/',

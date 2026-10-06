@@ -158,8 +158,8 @@ export function Onboarding() {
                 <span className="absolute top-1.5 -right-0.5 w-5 h-5 rounded-full" style={{ background: 'linear-gradient(140deg,#e0b263,var(--color-brass))' }} />
               </div>
             </div>
-            <p className="ob-oa mt-5 text-[40px] lg:text-6xl font-extrabold tracking-tight text-ink" style={{ animationDelay: '.1s' }}>همین</p>
-            <p className="ob-oa mt-4 text-base lg:text-xl font-semibold text-ink-soft" style={{ animationDelay: '.18s' }}>برای یک ساختمان،همین کافیست</p>
+            <p className="ob-oa mt-5 text-[40px] lg:text-6xl font-extrabold tracking-tight text-ink-text" style={{ animationDelay: '.1s' }}>همین</p>
+            <p className="ob-oa mt-4 text-base lg:text-xl font-semibold text-muted" style={{ animationDelay: '.18s' }}>برای یک ساختمان،همین کافیست</p>
           </div>
         </div>
       )}
@@ -170,7 +170,7 @@ export function Onboarding() {
           <div className="w-full max-w-6xl mx-auto flex flex-col flex-1 lg:px-12">
             <div className="flex items-center justify-between pt-14 lg:pt-10 px-6 lg:px-0">
               <button onClick={skip} className="text-sm font-semibold text-muted px-0.5 py-1.5 hover:text-ink-text transition-colors">رد کردن</button>
-              <span className="hidden lg:flex items-center gap-2 text-xl font-extrabold text-ink">
+              <span className="hidden lg:flex items-center gap-2 text-xl font-extrabold text-ink-text">
                 <Home size={24} className="text-tile" /> همین
               </span>
             </div>
@@ -204,7 +204,7 @@ export function Onboarding() {
 
               {/* متن */}
               <div className="order-2 lg:order-1 lg:flex-1 lg:max-w-xl">
-                <p className="ob-oa mt-8 lg:mt-0 text-center lg:text-right text-[25px] md:text-4xl lg:text-5xl lg:leading-tight font-extrabold tracking-tight text-ink" key={`t-${step}`}>{slide.title}</p>
+                <p className="ob-oa mt-8 lg:mt-0 text-center lg:text-right text-[25px] md:text-4xl lg:text-5xl lg:leading-tight font-extrabold tracking-tight text-ink-text" key={`t-${step}`}>{slide.title}</p>
                 <p className="ob-oa mt-4 lg:mt-6 mx-auto lg:mx-0 max-w-[300px] md:max-w-[420px] lg:max-w-md text-center lg:text-right text-sm md:text-base lg:text-lg leading-loose text-muted" style={{ animationDelay: '.08s' }} key={`b-${step}`}>{slide.body}</p>
                 <div className="hidden lg:flex items-center gap-8 mt-12" dir="rtl">
                   <Controls />

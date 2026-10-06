@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom'
-import { Building2, ChevronDown, ChevronLeft, Lock, LogOut, Menu, Palette, ShieldCheck, Sparkles, X } from 'lucide-react'
+import { Building2, ChevronDown, ChevronLeft, Lock, LogOut, Menu, Palette, ShieldCheck, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { ROLE_SWITCHER_ENABLED, useRole, useRoleInfo } from '../context/RoleContext'
@@ -176,7 +176,7 @@ export function Layout() {
       <AnimatePresence>
         {drawerOpen && (
           <motion.div
-            className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+            className="fixed inset-0 z-40 lg:hidden bg-black/45"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -230,7 +230,7 @@ export function Layout() {
                 end={item.to === `/${role}`}
                 className={({ isActive }) =>
                   `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors active:scale-[0.98] ${
-                    isActive ? 'bg-[var(--hdr-acc)] text-white font-medium' : 'text-white/70 hover:bg-white/5 hover:text-white'
+                    isActive ? 'bg-[var(--hdr-acc)] text-[var(--hdr-acc-fg,#fff)] font-medium' : 'text-white/75 hover:bg-white/5 hover:text-white'
                   }`
                 }
               >
@@ -246,7 +246,7 @@ export function Layout() {
             onClick={() => ROLE_SWITCHER_ENABLED && setSwitcherOpen((s) => !s)}
             className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-white/5 active:bg-white/10 relative transition-colors"
           >
-            <div className="w-8 h-8 rounded-full bg-brass flex items-center justify-center text-xs font-bold shrink-0">
+            <div className="w-8 h-8 rounded-full bg-brass text-[#1d1a12] flex items-center justify-center text-xs font-bold shrink-0">
               {(user?.fullName ?? info.label)[0]}
             </div>
             <div className="text-right flex-1 min-w-0">
@@ -286,25 +286,31 @@ export function Layout() {
             </AnimatePresence>
           </button>
 
-          <button
-            onClick={() => navigate('/settings')}
-            className="hidden lg:flex w-full items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-white/70 hover:bg-white/5 hover:text-white active:bg-white/10 transition-colors"
+          <NavLink
+            to="/settings"
+            className={({ isActive }) =>
+              `hidden lg:flex w-full items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors ${
+                isActive ? 'bg-[var(--hdr-acc)] text-[var(--hdr-acc-fg,#fff)] font-medium' : 'text-white/75 hover:bg-white/5 hover:text-white active:bg-white/10'
+              }`
+            }
           >
-            <Sparkles size={18} strokeWidth={2} />
-            شخصی‌سازی
-          </button>
+            <Palette size={18} strokeWidth={2} />
+            حساب و ظاهر
+          </NavLink>
 
           <button
             onClick={handleLogout}
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-white/70 hover:bg-white/5 hover:text-white active:bg-white/10 transition-colors"
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-white/75 hover:bg-white/5 hover:text-white active:bg-white/10 transition-colors"
           >
             <LogOut size={18} strokeWidth={2} />
             خروج
           </button>
 
-          <p className="text-[11px] text-white/30 text-center mt-2">
-            {user ? 'سوییچر نقش فقط برای پیش‌نمایش پنل‌های دیگر' : 'نمای دمو — تعویض نقش برای پیش‌نمایش پنل‌ها'}
-          </p>
+          {ROLE_SWITCHER_ENABLED && (
+            <p className="text-[11px] text-white/60 text-center mt-2">
+              {user ? 'سوییچر نقش فقط برای پیش‌نمایش پنل‌های دیگر' : 'نمای دمو — تعویض نقش برای پیش‌نمایش پنل‌ها'}
+            </p>
+          )}
         </div>
       </motion.aside>
 
@@ -347,7 +353,7 @@ export function Layout() {
               to={item.to}
               end={item.to === `/${role}`}
               className={({ isActive }) =>
-                `relative flex-1 min-h-[52px] flex flex-col items-center justify-center gap-0.5 rounded-full text-[11px] transition-colors active:scale-95 ${
+                `relative flex-1 basis-0 min-w-0 min-h-[52px] flex flex-col items-center justify-center gap-0.5 rounded-full text-[11px] transition-colors active:scale-95 ${
                   isActive && !onOverflow ? 'font-bold' : 'text-muted'
                 }`
               }
@@ -357,7 +363,7 @@ export function Layout() {
                 <>
                   {isActive && !onOverflow && <TabLens />}
                   <item.icon size={20} strokeWidth={isActive && !onOverflow ? 2.4 : 2} className="relative" />
-                  <span className="relative truncate max-w-[64px]">{item.label}</span>
+                  <span className="relative block w-full truncate text-center px-0.5">{(item as NavItem).short ?? item.label}</span>
                 </>
               )}
             </NavLink>
@@ -365,7 +371,7 @@ export function Layout() {
           {hasMore && (
             <NavLink
               to="/more"
-              className={`relative flex-1 min-h-[52px] flex flex-col items-center justify-center gap-0.5 rounded-full text-[11px] active:scale-95 transition-colors ${onOverflow ? 'font-bold' : 'text-muted'}`}
+              className={`relative flex-1 basis-0 min-w-0 min-h-[52px] flex flex-col items-center justify-center gap-0.5 rounded-full text-[11px] active:scale-95 transition-colors ${onOverflow ? 'font-bold' : 'text-muted'}`}
               style={{ color: onOverflow ? 'var(--lg4-pri)' : undefined }}
             >
               {onOverflow && <TabLens />}

@@ -228,6 +228,8 @@ export function Cta({
   )
 }
 
+let sheetLocks = 0
+
 /** برگه‌ی شیشه‌ای از پایین: فاصله‌ی ۸px از لبه‌ها، شعاع ۴۴، scrim ملایم */
 export function Sheet({ open, onClose, children, label }: { open: boolean; onClose: () => void; children: ReactNode; label: string }) {
   useEffect(() => {
@@ -236,6 +238,18 @@ export function Sheet({ open, onClose, children, label }: { open: boolean; onClo
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [open, onClose])
+  // قفل اسکرول صفحه‌ی پشت برگه (شمارنده: چند برگه‌ی تودرتو هم درست باز و بسته شوند) — قبلاً با اسکرول
+  // داخل برگه، صفحه و نوار تب زیرش هم حرکت می‌کردند و منو «زیر برگه» اسکرول می‌شد.
+  useEffect(() => {
+    if (!open) return
+    const root = document.documentElement
+    sheetLocks += 1
+    root.setAttribute('data-sheet', 'on')
+    return () => {
+      sheetLocks = Math.max(0, sheetLocks - 1)
+      if (sheetLocks === 0) root.removeAttribute('data-sheet')
+    }
+  }, [open])
   // پورتال به body: والد صفحه transform دارد (انیمیشن ورود) و fixed داخل آن نسبت به خودش جا می‌گیرد،
   // پس بدون پورتال برگه زیر نوار تب می‌ماند.
   return createPortal(
@@ -244,7 +258,7 @@ export function Sheet({ open, onClose, children, label }: { open: boolean; onClo
         <div className="fixed inset-0 z-[60] flex flex-col justify-end" role="dialog" aria-modal="true" aria-label={label}>
           <motion.div
             className="absolute inset-0"
-            style={{ background: 'rgba(6,12,20,.25)' }}
+            style={{ background: 'rgba(6,12,20,.42)', touchAction: 'none' }}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -252,7 +266,7 @@ export function Sheet({ open, onClose, children, label }: { open: boolean; onClo
             onClick={onClose}
           />
           <motion.div
-            className="relative m-2 mx-auto w-[calc(100%-16px)] max-w-lg max-h-[88vh] overflow-y-auto p-4 pb-6"
+            className="relative m-2 mx-auto w-[calc(100%-16px)] max-w-lg max-h-[88dvh] overflow-y-auto overscroll-contain p-4 pb-6"
             style={{
               borderRadius: 44,
               background: 'var(--lg4-sheet)',

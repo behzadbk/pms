@@ -84,7 +84,7 @@ export const DEFAULT_PALETTE: Palette = 'ocean'
 
 /** شناسه‌های قدیمی (قبل از پالت‌های جدید) که ممکن است در localStorage کاربران مانده باشد */
 const LEGACY: Record<string, Palette> = {
-  teal: 'emerald',
+  teal: 'ocean', // «teal» پیش‌فرض قدیمیِ ذخیره‌شده بود، نه انتخاب کاربر → پیش‌فرض فعلی (قبلاً سبزِ زمرد می‌شد)
   blue: 'sapphire',
   violet: 'sapphire',
   coral: 'linen',
@@ -109,6 +109,22 @@ function rgb(hex: string): [number, number, number] {
   const n = parseInt(h.length === 3 ? h.replace(/./g, '$&$&') : h, 16)
   return [(n >> 16) & 255, (n >> 8) & 255, n & 255]
 }
+/** نسبت کنتراست WCAG بین دو رنگ هگز */
+function lum(hex: string): number {
+  const f = (v: number) => {
+    const x = v / 255
+    return x <= 0.03928 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4)
+  }
+  const [r, g, b] = rgb(hex)
+  return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b)
+}
+/** رنگ متن خوانا (سفید یا تقریباً مشکی) روی یک پس‌زمینه‌ی رنگی */
+export function readableOn(bg: string): string {
+  const L = lum(bg)
+  const white = 1.05 / (L + 0.05)
+  const dark = (L + 0.05) / 0.055
+  return white >= dark ? '#ffffff' : '#0b1620'
+}
 const a = (hex: string, alpha: number) => {
   const [r, g, b] = rgb(hex)
   return `rgba(${r}, ${g}, ${b}, ${alpha})`
@@ -122,6 +138,10 @@ export function paletteVars(id: Palette, mode: 'light' | 'dark'): Record<string,
     '--hdr-bg': t.hdr,
     '--hdr-soft': t.hdrSoft,
     '--hdr-acc': t.hdrAcc,
+    '--hdr-acc-fg': readableOn(t.hdrAcc),
+    // متن روی دکمه/تگ رنگ اصلی و رنگ برس (در حالت تیره رنگ اصلی روشن است و متن سفید ناخوانا می‌شود)
+    '--on-pri': readableOn(t.pri),
+    '--on-acc': readableOn(t.acc),
     '--lg-bg-base': t.base,
     '--lg-bg-elevated': t.elevated,
     '--color-canvas': t.base,

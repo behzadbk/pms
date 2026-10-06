@@ -112,3 +112,56 @@ html {
 .staff-embedded > div > div:first-child > h1 + p {
   display: none;
 }
+
+/* ---------- متن خوانا روی پس‌زمینه‌های رنگی (هر دو حالت) ----------
+   در حالت تیره رنگ اصلی/موفق/برس روشن است و `text-white` روی آن‌ها کنتراست ~۲ می‌داد
+   (دکمه‌ها و تگ‌های «ورود/خروج/بررسی/صدور کد…» ناخوانا بودند). رنگ متن از --on-pri
+   که ThemeContext بر پایه‌ی روشنایی واقعیِ رنگِ پالت حساب می‌کند گرفته می‌شود. */
+:is(.bg-tile, .bg-\[var\(--lg4-pri\)\], .bg-\[var\(--hm-pri\)\], .bg-\[var\(--lg-primary\)\]).text-white {
+  color: var(--on-pri, #fff);
+}
+:is(.bg-brass, .bg-warn).text-white {
+  color: #1d1a12;
+}
+[data-theme='dark'] :is(.bg-good, .bg-bad).text-white {
+  color: #07130d;
+}
+
+/* ---------- ناحیه‌ی نوار وضعیت گوشی (safe-area بالا) ----------
+   با رنگ هدر یکی می‌شود و همراه پالت عوض می‌شود؛ موقع bounce/overscroll هم رنگ صفحه
+   (روشن/سفید) بالای هدر دیده نمی‌شود. */
+@media (max-width: 1023.98px) {
+  html::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: env(safe-area-inset-top, 0px);
+    background: var(--hdr-bg);
+    z-index: 29;
+    pointer-events: none;
+  }
+}
+/* بالای صفحه هیچ سایه/هاله‌ای زیر هدر نباشد */
+header {
+  box-shadow: none;
+}
+
+/* پس‌زمینه‌ی scroll-lock وقتی برگه (Sheet) باز است */
+html[data-sheet='on'],
+html[data-sheet='on'] body {
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+html[data-sheet='on'] nav[aria-label='ناوبری اصلی'] {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s;
+}
+
+/* حالت روشن: متن زرد/برنجی روی زمینه‌ی روشنِ همان رنگ (تگ «در انتظار» و…) کنتراست ~۲٫۶ داشت */
+html:not([data-theme='dark']) .text-warn,
+html:not([data-theme='dark']) .text-brass {
+  color: #86580f;
+}

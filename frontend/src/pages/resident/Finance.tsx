@@ -36,7 +36,7 @@ export function ResidentFinance() {
                     <Pie data={month.by_category} dataKey="amount" nameKey="category" innerRadius={50} outerRadius={80} paddingAngle={2}>
                       {month.by_category.map((e, i) => <Cell key={e.category} fill={COLORS[i % COLORS.length]} />)}
                     </Pie>
-                    <Tooltip formatter={(v) => tomanText(Number(v))} contentStyle={{ fontFamily: 'Vazirmatn', borderRadius: 12, border: '1px solid #e2e6ea', fontSize: 12 }} />
+                    <Tooltip formatter={(v) => tomanText(Number(v))} contentStyle={{ fontFamily: 'Vazirmatn', borderRadius: 12, border: '1px solid var(--color-line)', fontSize: 12, background: 'var(--color-card)', color: 'var(--color-ink-text)' }} labelStyle={{ color: 'var(--color-ink-text)' }} itemStyle={{ color: 'var(--color-ink-text)' }} />
                   </PieChart>
                 </ResponsiveContainer>
               </div>
