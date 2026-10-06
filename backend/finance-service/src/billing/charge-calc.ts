@@ -23,6 +23,17 @@ export interface Formula {
 
 export interface UnitFacts { area: number; residents: number }
 
+/** مازاد مصرف خدمات (آفرها) که روی همین شارژ نشسته — از entitlement.usage_events خوانده می‌شود */
+export interface OverageItem {
+  service: string
+  variant: string | null
+  period: string
+  quantity: number
+  unit_label: string
+  amount: number
+}
+export interface OverageSummary { total: number; items: OverageItem[] }
+
 export interface ChargeBreakdown {
   base: number
   area: number
@@ -32,6 +43,8 @@ export interface ChargeBreakdown {
   round_to: number
   total: number
   inputs: { area: number; residents: number }
+  /** فقط وقتی مازادی در کار باشد؛ total شامل همین مبلغ است */
+  overage?: OverageSummary
 }
 
 const n = (v: unknown) => (Number.isFinite(Number(v)) ? Number(v) : 0)
@@ -47,6 +60,15 @@ export function calcCharge(f: Pick<Formula, 'base_amount' | 'amount_per_sqm' | '
   const step = Math.max(1, n(f.round_to) || 1)
   const total = Math.max(0, Math.round(raw / step) * step)
   return { base, area: Math.round(area), residents: Math.round(residents), fixed_items: items, raw_total: Math.round(raw), round_to: step, total, inputs: { area: n(u.area), residents: Math.floor(n(u.residents)) } }
+}
+
+/**
+ * مازاد خدمات را به شارژ فرمولی اضافه می‌کند: total = شارژ فرمول (گردشده) + مازاد.
+ * مازاد گرد نمی‌شود (مبلغ دقیق تعرفه است) و بدون مازاد، breakdown دست‌نخورده برمی‌گردد.
+ */
+export function withOverage(b: ChargeBreakdown, overage: OverageSummary | undefined): ChargeBreakdown {
+  if (!overage || !(overage.total > 0)) return b
+  return { ...b, overage, total: b.total + Math.round(overage.total) }
 }
 
 /** فرمولِ مؤثر برای یک دوره: فعال‌ها با effective_from ≤ دوره؛ جدیدترین effective_from (و سپس جدیدترین ساخت) */

@@ -44,6 +44,9 @@ import { ResidentFinance } from './pages/resident/Finance'
 import { ResidentGuestPass } from './pages/resident/GuestPass'
 import { ResidentTickets } from './pages/resident/Tickets'
 import { ResidentFoodOrder } from './pages/resident/FoodOrder'
+import { ResidentOffers } from './pages/resident/Offers'
+import { EntitlementDesk } from './pages/staff/EntitlementDesk'
+import { AdminEntitlements } from './pages/admin/Entitlements'
 
 import { GuardDashboard } from './pages/guard/Dashboard'
 import { GuardGuestCheck } from './pages/guard/GuestCheck'
@@ -173,6 +176,7 @@ function AppRoutes() {
         <Route path="/admin/tickets" element={<RequireRole role="admin"><AdminTickets /></RequireRole>} />
         <Route path="/admin/announcements" element={<RequireRole role="admin"><AdminAnnouncements /></RequireRole>} />
         <Route path="/admin/reservations" element={<RequireRole role="admin"><AmenityManager /></RequireRole>} />
+        <Route path="/admin/entitlements" element={<RequireRole role="admin"><AdminEntitlements /></RequireRole>} />
         <Route path="/admin/rules" element={<RequireRole role="admin"><AdminRules /></RequireRole>} />
         <Route path="/admin/amenity-rules" element={<Navigate to="/admin/reservations?tab=setup" replace />} />
         {/* ساکنین (RESIDENTS.md §3) — صفحه‌ی قدیمی «واحدها» با پرونده‌ی واحد جایگزین شد */}
@@ -191,6 +195,7 @@ function AppRoutes() {
         <Route path="/resident/finance" element={<RequireRole role="resident"><RequireModule module="finance"><ResidentFinance /></RequireModule></RequireRole>} />
         <Route path="/resident/guest" element={<RequireRole role="resident"><RequireModule module="guest"><ResidentGuestPass /></RequireModule></RequireRole>} />
         <Route path="/resident/reservations" element={<RequireRole role="resident"><RequireModule module="amenity"><ResidentBook /></RequireModule></RequireRole>} />
+        <Route path="/resident/offers" element={<RequireRole role="resident"><RequireModule module="amenity"><ResidentOffers /></RequireModule></RequireRole>} />
         <Route path="/resident/tickets" element={<RequireRole role="resident"><RequireModule module="ticket"><ResidentTickets /></RequireModule></RequireRole>} />
         <Route path="/resident/food-order" element={<RequireRole role="resident"><RequireModule module="food"><ResidentFoodOrder /></RequireModule></RequireRole>} />
         <Route path="/resident/announcements" element={<RequireRole role="resident"><RequireModule module="notice"><AnnouncementsFeed /></RequireModule></RequireRole>} />
@@ -218,6 +223,7 @@ function AppRoutes() {
         <Route path="/staff" element={<RequireRole role="staff"><StaffHome /></RequireRole>} />
         <Route path="/staff/lobby" element={<RequirePermission permission="lobby"><StaffLobbyDesk /></RequirePermission>} />
         <Route path="/staff/amenity-desk" element={<RequirePermission permission="amenity_desk"><StaffAmenityDesk /></RequirePermission>} />
+        <Route path="/staff/entitlements" element={<RequirePermission permission="amenity_desk"><EntitlementDesk /></RequirePermission>} />
         <Route path="/staff/kitchen" element={<RequirePermission permission="kitchen"><StaffKitchenDisplay venueId="v1" title="سفارش‌های رستوران" /></RequirePermission>} />
         <Route path="/staff/cafe" element={<RequirePermission permission="cafe"><StaffKitchenDisplay venueId="v2" title="سفارش‌های کافی‌شاپ" /></RequirePermission>} />
         <Route path="/staff/menu/restaurant" element={<RequirePermission permission="kitchen"><StaffMenuManager key="restaurant" venue="restaurant" /></RequirePermission>} />

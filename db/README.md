@@ -46,7 +46,7 @@ docker compose run --rm migrate --seed
 | 2 | `backend/identity-service/.../000_init_identity.sql` | جداول `identity.tenants` / `users` / `refresh_tokens` |
 | 3 | `.../001_enable_rls.sql` (identity) | RLS و پالیسی‌های identity |
 | 4 | `.../002_platform_admins_and_tiers.sql` | `platform_admins` + ستون‌های سطح سرویس و تسویه |
-| 5–11 | مایگریشن‌های property / facility / finance / guard / notification / audit / fnb | جداول و RLS هر دامنه |
+| 5–11 | مایگریشن‌های property / facility / finance / guard / notification / audit / fnb | جداول و RLS هر دامنه (facility شامل `005_entitlements.sql`: آفرها و سهمیه‌ی خدمات واحد) |
 | 12 | `db/migrations/900_grants_and_indexes.sql` | دسترسی‌ها، `ALTER DEFAULT PRIVILEGES`، ایندکس `tenant_id`، و بررسی نهایی |
 
 مرحله ۱۲ در پایان بررسی می‌کند که هیچ جدول `tenant_id`داری بدون RLS کامل نمانده
