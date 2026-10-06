@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, UnprocessableEntityException } from '@nestjs/common'
 import type { PoolClient } from 'pg'
-import { calcCharge, resolveFormula, type ChargeBreakdown, type Formula } from './charge-calc'
+import { calcCharge, resolveFormula, withOverage, type ChargeBreakdown, type Formula } from './charge-calc'
+import { markOverageBilled, pendingOverage } from './overage'
 import { SettingsService } from './settings.service'
 import { notify, payersByUnit } from './notify'
 import { bad } from '../common/validate'
@@ -12,7 +13,10 @@ export interface PlanRow {
   floor: number | null
   area: number
   residents: number
+  /** مبلغ کل شارژ (فرمول + مازاد) */
   amount: number
+  /** مازاد مصرف خدمات که در این شارژ می‌نشیند (۰ اگر نباشد) */
+  overage: number
   breakdown: ChargeBreakdown
   existing: { id: string; status: string; total_amount: number } | null
 }
@@ -34,6 +38,10 @@ export class ChargeEngine {
 
   /** برنامه‌ی صدور (پیش‌نمایش) — هیچ چیزی نمی‌نویسد */
   async plan(client: PoolClient, tenantId: string, input: { period: string; formulaId?: string; dueDate?: string }): Promise<ChargePlan> {
+    return (await this.build(client, tenantId, input)).plan
+  }
+
+  private async build(client: PoolClient, tenantId: string, input: { period: string; formulaId?: string; dueDate?: string }): Promise<{ plan: ChargePlan; eventIds: Map<string, string[]> }> {
     if (!parsePeriod(input.period)) bad('دوره باید شمسی و به شکل YYYY-MM باشد (مثلاً 1405-07)')
     if (input.dueDate !== undefined && !isIsoDate(input.dueDate)) bad('سررسید باید به شکل YYYY-MM-DD باشد')
     const settings = await this.settings.get(client, tenantId)
@@ -58,8 +66,14 @@ export class ChargeEngine {
         ORDER BY u.floor NULLS LAST, u.unit_number`,
       [input.period],
     )
+    // مازاد مصرف خدمات (آفرها): مصرف ماه‌های قبل از این دوره که هنوز به شارژی نرفته
+    const overages = await pendingOverage(client, input.period)
+    const eventIds = new Map<string, string[]>()
     const rows: PlanRow[] = units.rows.map((u) => {
-      const breakdown = calcCharge(formula!, { area: u.area ?? 0, residents: u.residents })
+      const ov = overages.get(u.id)
+      const fresh = !u.ex_id
+      const breakdown = withOverage(calcCharge(formula!, { area: u.area ?? 0, residents: u.residents }), fresh ? ov : undefined)
+      if (fresh && ov) eventIds.set(u.id, ov.event_ids)
       return {
         unit_id: u.id,
         unit_number: u.unit_number,
@@ -67,12 +81,13 @@ export class ChargeEngine {
         area: u.area ?? 0,
         residents: u.residents,
         amount: breakdown.total,
+        overage: breakdown.overage?.total ?? 0,
         breakdown,
         existing: u.ex_id ? { id: u.ex_id, status: u.ex_status!, total_amount: u.ex_total! } : null,
       }
     })
     const fresh = rows.filter((r) => !r.existing)
-    return {
+    const plan: ChargePlan = {
       period: input.period,
       period_label: periodLabel(input.period),
       due_date: input.dueDate ?? computeDueDate(input.period, settings.due_day),
@@ -82,6 +97,7 @@ export class ChargeEngine {
       already_issued: rows.length - fresh.length,
       total_new_amount: fresh.reduce((a, r) => a + r.amount, 0),
     }
+    return { plan, eventIds }
   }
 
   /**
@@ -89,7 +105,7 @@ export class ChargeEngine {
    * جاافتاده (مثلاً واحد تازه‌اضافه‌شده) را می‌سازد و شارژ قبلی را عوض نمی‌کند.
    */
   async issue(client: PoolClient, tenantId: string, input: { period: string; formulaId?: string; dueDate?: string }) {
-    const plan = await this.plan(client, tenantId, input)
+    const { plan, eventIds } = await this.build(client, tenantId, input)
     const fresh = plan.rows.filter((r) => !r.existing)
     const created: { id: string; unit_id: string; total_amount: number }[] = []
     for (const r of fresh) {
@@ -100,18 +116,23 @@ export class ChargeEngine {
          RETURNING id, unit_id, total_amount`,
         [tenantId, r.unit_id, plan.period, plan.formula.id, r.amount, plan.due_date, JSON.stringify(r.breakdown)],
       )
-      if (ins.rows[0]) created.push(ins.rows[0])
+      if (ins.rows[0]) {
+        created.push(ins.rows[0])
+        // مصرف‌های مازاد داخل این شارژ فریز می‌شوند تا دوباره روی شارژ بعدی نیایند
+        await markOverageBilled(client, ins.rows[0].id, eventIds.get(r.unit_id) ?? [])
+      }
     }
 
     // اعلان به پرداخت‌کننده‌ی هر واحد (push از مسیر inbox)
     const payers = await payersByUnit(client, created.map((c) => c.unit_id))
     const dueFa = formatJalali(plan.due_date)
+    const overageById = new Map(plan.rows.filter((r) => r.overage > 0).map((r) => [r.unit_id, r.overage]))
     for (const c of created) {
       const persons = payers.get(c.unit_id) ?? []
       await notify(client, tenantId, persons.map((p) => ({ person: p })), {
         kind: 'charge_issued',
         title: `شارژ ${plan.period_label} صادر شد`,
-        body: `مبلغ ${c.total_amount.toLocaleString('fa-IR')} تومان — سررسید ${dueFa}`,
+        body: `مبلغ ${c.total_amount.toLocaleString('fa-IR')} تومان${overageById.get(c.unit_id) ? ` (شامل ${overageById.get(c.unit_id)!.toLocaleString('fa-IR')} تومان مازاد خدمات)` : ''} — سررسید ${dueFa}`,
         link: '/resident/charges',
         ref: c.id,
       })

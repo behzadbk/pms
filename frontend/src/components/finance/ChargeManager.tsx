@@ -123,7 +123,7 @@ export function ChargeManager({ onChanged }: { onChanged?: () => void }) {
                       <td className={`${TD} font-medium`}>{c.unit_number}{c.payer_name && <span className="block text-[11px] text-muted font-normal">{c.payer_name}</span>}</td>
                       <td className={`${TD} text-muted`}>{tomanText(c.base_amount)}</td>
                       <td className={`${TD} text-muted`}>{c.late_fee_amount ? tomanText(c.late_fee_amount) : '—'}</td>
-                      <td className={`${TD} font-medium`}>{tomanText(c.total_amount)}</td>
+                      <td className={`${TD} font-medium`}>{tomanText(c.total_amount)}{c.breakdown?.overage && <span className="block text-[11px] text-warn font-normal">شامل مازاد خدمات {tomanText(c.breakdown.overage.total)}</span>}</td>
                       <td className={`${TD} text-muted whitespace-nowrap`}>{dayFa(c.due_date)}</td>
                       <td className={TD}><StatusPill status={c.status} />{c.status === 'paid' && <span className="block text-[11px] text-muted mt-1">{methodFa(c.pay_method)} · {instantFa(c.paid_at)}</span>}</td>
                       <td className={`${TD} whitespace-nowrap space-x-3 space-x-reverse`}>
@@ -159,6 +159,7 @@ export function ChargeManager({ onChanged }: { onChanged?: () => void }) {
               <div className="rounded-xl bg-canvas p-3"><p className="text-muted">سررسید</p><p className="font-medium mt-0.5">{dayFa(plan.due_date)}</p></div>
               <div className="rounded-xl bg-canvas p-3 col-span-2 sm:col-span-1"><p className="text-muted">واحدهای جدید / قبلاً صادرشده</p><p className="font-medium mt-0.5">{plan.to_create.toLocaleString('fa-IR')} / {plan.already_issued.toLocaleString('fa-IR')}</p></div>
             </div>
+            {plan.rows.some((r) => !r.existing && (r.overage ?? 0) > 0) && <Callout tone="warn">مازاد مصرف خدمات (کارواش، نظافت، مهمان استخر و …) ماه قبل برای {plan.rows.filter((r) => !r.existing && (r.overage ?? 0) > 0).length.toLocaleString('fa-IR')} واحد به مبلغ شارژ اضافه شده است.</Callout>}
             {plan.already_issued > 0 && <Callout tone="warn">برای {plan.already_issued.toLocaleString('fa-IR')} واحد، شارژ این دوره قبلاً صادر شده و دست‌نخورده می‌ماند.</Callout>}
             <div className="overflow-x-auto rounded-xl border border-line">
               <table className="w-full text-sm">
@@ -169,7 +170,7 @@ export function ChargeManager({ onChanged }: { onChanged?: () => void }) {
                       <td className={`${TD} font-medium`}>{r.unit_number}</td>
                       <td className={`${TD} text-muted`}>{r.area.toLocaleString('fa-IR')}</td>
                       <td className={`${TD} text-muted`}>{r.residents.toLocaleString('fa-IR')}</td>
-                      <td className={`${TD} font-medium`}>{tomanText(r.existing ? r.existing.total_amount : r.amount)}</td>
+                      <td className={`${TD} font-medium`}>{tomanText(r.existing ? r.existing.total_amount : r.amount)}{!r.existing && (r.overage ?? 0) > 0 && <span className="block text-[11px] text-warn font-normal">شامل مازاد خدمات {tomanText(r.overage!)}</span>}</td>
                       <td className={`${TD} text-[11px] text-muted whitespace-nowrap`}>{r.existing ? 'قبلاً صادر شده' : 'جدید'}</td>
                     </tr>
                   ))}

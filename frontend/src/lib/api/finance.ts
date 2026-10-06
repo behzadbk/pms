@@ -38,6 +38,12 @@ export interface FinanceSettings {
   opening_balance: number
 }
 
+/** مصرف مازاد بر سهمیه‌ی خدمات که در این شارژ اضافه شده (جزئیات هر خدمت) */
+export interface OverageBreakdown {
+  total: number
+  items: { service: string; variant: string | null; period: string; quantity: number; unit_label: string; amount: number }[]
+}
+
 export interface Charge {
   id: string
   unit_id: string
@@ -54,7 +60,7 @@ export interface Charge {
   late_fee_waived: boolean
   note: string | null
   payer_name: string | null
-  breakdown: { base?: number; area?: number; residents?: number; fixed_items?: FixedItem[]; inputs?: { area: number; residents: number } }
+  breakdown: { base?: number; area?: number; residents?: number; fixed_items?: FixedItem[]; inputs?: { area: number; residents: number }; overage?: OverageBreakdown }
 }
 
 export interface PlanRow {
@@ -64,6 +70,8 @@ export interface PlanRow {
   area: number
   residents: number
   amount: number
+  /** بخشی از amount که مازاد مصرف خدمات است */
+  overage?: number
   existing: { id: string; status: ChargeStatus; total_amount: number } | null
 }
 export interface ChargePlan {

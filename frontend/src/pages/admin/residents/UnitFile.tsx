@@ -6,6 +6,7 @@ import { formatJalali } from '../../../lib/jalali'
 import { Avatar, Badge, Cta, ErrorBlock, Field, FieldCard, Loading, Note, PageHeader, Sheet, useLoad, useToast } from '../../../components/hm'
 import { CredentialsSheet } from './CredentialsSheet'
 import { useResidentsScope, useUnitParam } from '../../../lib/residentsScope'
+import { AreaOffersHint } from '../../../components/AreaOffersHint'
 
 const RES_LABEL = { owner: 'مالک ساکن', tenant: 'مستأجر', owner_absent: 'مالک غیرساکن' } as const
 
@@ -308,6 +309,7 @@ function UnitSpecsSheet({
           <Field label="تعداد پارکینگ" value={parking} onChange={setParking} inputMode="numeric" />
           <Field label="شماره انباری" value={storage} onChange={setStorage} />
         </FieldCard>
+        <AreaOffersHint area={area ? n(area) : 0} />
         <Cta
           busy={busy}
           onClick={() =>

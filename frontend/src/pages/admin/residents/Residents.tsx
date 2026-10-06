@@ -4,6 +4,7 @@ import { ArrowLeftRight, Building2, ChevronLeft, FileUp, MessageSquare, PencilLi
 import { useResidentsScope } from '../../../lib/residentsScope'
 import { residentsApi, errText, fa, type UnitCategory, type UnitListItem, type UnitsResponse } from '../../../lib/api/residents'
 import { Badge, Cta, EmptyState, ErrorBlock, Field, FieldCard, Loading, PageTitle, Seg, Sheet, StickyCta, useLoad, useToast } from '../../../components/hm'
+import { AreaOffersHint } from '../../../components/AreaOffersHint'
 
 type Filter = 'all' | UnitCategory
 const FILTERS: [Filter, string][] = [['all', 'همه'], ['owner', 'مالک'], ['tenant', 'مستأجر'], ['pending', 'در انتظار'], ['vacant', 'خالی']]
@@ -441,11 +442,14 @@ function UnitsSheet({ open, buildingId, onClose, onDone }: { open: boolean; buil
             <p className="text-xs text-[var(--hm-t2)] px-2">{total > 0 ? `${fa(total)} واحد ساخته می‌شود · واحدهای تکراری نادیده گرفته می‌شوند (حداکثر ۵۰۰ واحد در هر بار)` : ' '}</p>
           </>
         ) : (
+          <>
           <FieldCard>
             <Field label="شماره واحد" value={no} onChange={setNo} placeholder="مثلاً ۴۰۲" inputMode="numeric" />
             <Field label="طبقه (اختیاری)" value={floor} onChange={setFloor} inputMode="numeric" />
             <Field label="متراژ (اختیاری)" value={area} onChange={setArea} inputMode="numeric" />
           </FieldCard>
+          <AreaOffersHint area={area ? n(area) : 0} />
+          </>
         )}
         {err && <p className="text-xs font-bold text-[var(--hm-bad)] px-2">{err}</p>}
         <Cta onClick={submit} busy={busy} disabled={tab === 'bulk' ? !(total > 0) : !no.trim()}>

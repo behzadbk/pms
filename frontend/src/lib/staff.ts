@@ -8,7 +8,7 @@
  */
 import {
   ClipboardList, ConciergeBell, Coffee, ChefHat, ShieldCheck, Wrench, CalendarRange, Megaphone,
-  UtensilsCrossed, BookOpenText, type LucideIcon,
+  UtensilsCrossed, BookOpenText, Gift, type LucideIcon,
 } from 'lucide-react'
 
 export type StaffPermission = 'lobby' | 'amenity_desk' | 'kitchen' | 'cafe' | 'security' | 'maintenance'
@@ -64,6 +64,7 @@ export interface StaffNavItem {
 export const staffNavItems: StaffNavItem[] = [
   { to: '/staff/lobby', label: 'میز لابی', icon: ConciergeBell, permission: 'lobby' },
   { to: '/staff/amenity-desk', label: 'مشاعات', icon: CalendarRange, permission: 'amenity_desk' },
+  { to: '/staff/entitlements', label: 'خدمات واحدها', icon: Gift, permission: 'amenity_desk' },
   { to: '/staff/kitchen', label: 'سفارش‌های رستوران', icon: ChefHat, permission: 'kitchen' },
   { to: '/staff/menu/restaurant', label: 'منوی رستوران', icon: UtensilsCrossed, permission: 'kitchen' },
   { to: '/staff/cafe', label: 'سفارش‌های کافی‌شاپ', icon: Coffee, permission: 'cafe' },

@@ -128,6 +128,9 @@ export function ResidentCharges() {
                       <tr className="border-b border-line bg-canvas/60">
                         <td colSpan={5} className="px-5 py-3 text-xs space-y-1.5">
                           <Row k="مبلغ پایه" v={tomanText(c.base_amount)} />
+                          {c.breakdown?.overage && c.breakdown.overage.items.map((it, i) => (
+                            <Row key={i} k={`مازاد ${it.service}${it.variant && it.variant !== it.service ? ` (${it.variant})` : ''} — ${periodFa(it.period)}`} v={tomanText(it.amount)} />
+                          ))}
                           {c.late_fee_amount > 0 && <Row k="جریمه‌ی دیرکرد" v={tomanText(c.late_fee_amount)} />}
                           {c.status === 'paid' && <Row k="پرداخت" v={`${methodFa(c.pay_method)} · ${instantFa(c.paid_at)}`} />}
                           {c.formula_name && <Row k="فرمول" v={c.formula_name} />}

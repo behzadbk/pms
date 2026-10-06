@@ -1,7 +1,7 @@
 import {
   LayoutDashboard, Wallet, Landmark, Ticket, Megaphone, CalendarRange,
   Building2, QrCode, PackageCheck, CarFront, SlidersHorizontal, PieChart,
-  Receipt, CreditCard, UtensilsCrossed, ScrollText, FileText, Users, Home, UsersRound, Contact,
+  Receipt, CreditCard, UtensilsCrossed, ScrollText, FileText, Users, Home, UsersRound, Contact, Gift,
 } from 'lucide-react'
 import type { Role } from './types'
 import type { AppModule } from './api/residents'
@@ -35,6 +35,7 @@ export const navByRole: Record<Role, NavItem[]> = {
     // ── «بیشتر» ──
     { to: '/admin/staff', label: 'کارکنان', icon: Contact, sub: 'افزودن کارمند، شیفت و دسترسی‌ها' },
     { to: '/admin/reservations', label: 'مشاعات', icon: CalendarRange, sub: 'تعریف مشاع، تایم‌تیبل و تأیید درخواست‌ها' },
+    { to: '/admin/entitlements', label: 'آفرها و خدمات', short: 'آفرها', icon: Gift, sub: 'سهمیه‌ی رایگان بر اساس متراژ، نرخ‌ها و ثبت مصرف' },
     { to: '/admin/finance', label: 'گزارش مالی', short: 'مالی', icon: Landmark, sub: 'خلاصه‌ی مالی، فاکتورها و وصول شارژ' },
     { to: '/admin/rules', label: 'قوانین و برج', short: 'قوانین', icon: SlidersHorizontal, sub: 'مهلت بدهکاری، محدودیت مشاعات و رزرو هوشمند' },
     { to: '/admin/logs', label: 'داشبورد لاگ', short: 'لاگ', icon: ScrollText, sub: 'لاگ متمرکز رفتار کاربران و خطاها' },
@@ -46,6 +47,7 @@ export const navByRole: Record<Role, NavItem[]> = {
     { to: '/resident/announcements', label: 'اعلانات', icon: Megaphone, module: 'notice', sub: 'اطلاعیه‌ها و نظرسنجی‌ها' },
     // ── «بیشتر» ──
     { to: '/resident/reservations', label: 'رزرو مشاعات', short: 'رزرو', icon: CalendarRange, module: 'amenity', sub: 'استخر، سالن اجتماعات، روف‌گاردن، باشگاه' },
+    { to: '/resident/offers', label: 'آفرها و مصرف', short: 'آفرها', icon: Gift, module: 'amenity', sub: 'سهمیه‌ی رایگان، مصرف باقی‌مانده و بلیت QR مهمان' },
     { to: '/resident/family', label: 'خانواده', icon: UsersRound, module: 'household', sub: 'اعضای خانوار، حالت والدین، ورود کودک' },
     { to: '/resident/charges', label: 'شارژ و پرداخت', short: 'شارژ', icon: Wallet, module: 'finance', sub: 'صورتحساب‌ها و پرداخت آنلاین' },
     { to: '/resident/finance', label: 'شفافیت مالی', short: 'شفافیت', icon: PieChart, module: 'finance', sub: 'هزینه‌های ساختمان و سهم شما' },
