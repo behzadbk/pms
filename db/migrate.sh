@@ -62,6 +62,7 @@ MIGRATIONS=(
   "backend/finance-service/prisma/migrations/002_charge_engine.sql"
   "backend/finance-service/prisma/migrations/003_settings_compat_and_import.sql"
   "backend/facility-service/prisma/migrations/004_maintenance.sql"
+  "db/migrations/901_rls_assertion_all_schemas.sql"
 )
 
 SEEDS=(
