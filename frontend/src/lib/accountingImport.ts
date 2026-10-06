@@ -44,10 +44,14 @@ export function parseDateCell(v: Cell): string | null {
   return Number.isNaN(dt.getTime()) ? null : dt.toISOString()
 }
 
+// تبدیل جلالی→میلادی مخصوص این فایل (الگوریتم حسابیِ چرخه‌ی ۳۳ ساله). یک پیاده‌سازی دقیق‌تر و آزموده‌شده‌تر
+// (jalaali-js) در lib/jalali.ts هست؛ این نسخه تکراری است و ممکن است در سال‌های دور یک روز با تقویم رسمی اختلاف داشته باشد.
 function jalaliToIso(jy: number, jm: number, jd: number): string {
   // الگوریتم استاندارد جلالی → میلادی
   jy -= 979
   const jDays = 365 * jy + Math.floor(jy / 33) * 8 + Math.floor(((jy % 33) + 3) / 4) + (jm < 7 ? (jm - 1) * 31 : (jm - 7) * 30 + 186) + jd - 1
+  // از این‌جا شماره‌ی روز (jDays) به تاریخ میلادی برمی‌گردد با شکستنِ چرخه‌ها: ۴۰۰ ساله (۱۴۶٬۰۹۷ روز)، ۱۰۰ ساله (۳۶٬۵۲۴)،
+  // ۴ ساله (۱۴۶۱) و ۱ ساله (۳۶۵)؛ leap مشخص می‌کند سال میلادیِ نتیجه کبیسه است تا فوریه ۲۹ روزه حساب شود.
   let g = 1600 + 400 * Math.floor((jDays + 79) / 146097)
   let days = (jDays + 79) % 146097
   let leap = true
@@ -69,6 +73,7 @@ function jalaliToIso(jy: number, jm: number, jd: number): string {
   const md = [31, leap || (g % 4 === 0 && (g % 100 !== 0 || g % 400 === 0)) ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
   let gm = 0
   for (; gm < 12 && days >= md[gm]; gm++) days -= md[gm]
+  // ساعت ۹ UTC (حدود ۱۲:۳۰ تهران) انتخاب شده تا هنگام تبدیل به منطقه‌ی زمانی، تاریخ به روز قبل/بعد نپرد.
   return new Date(Date.UTC(g, gm, days + 1, 9)).toISOString()
 }
 
@@ -76,6 +81,8 @@ function jalaliToIso(jy: number, jm: number, jd: number): string {
 export function parseCsv(text: string): string[][] {
   const t = text.replace(/^﻿/, '')
   const first = t.split(/\r?\n/, 1)[0] ?? ''
+  // جداکننده خودکار حدس زده می‌شود: در سطر اول، هر کاراکتر (کاما، ;، تب) که بیشترین تعداد ستون را بدهد برنده است
+  // (اکسل فارسی معمولاً ; می‌گذارد).
   const sep = [',', ';', '\t'].map((c) => [c, first.split(c).length] as const).sort((a, b) => b[1] - a[1])[0][0]
   const out: string[][] = []
   let row: string[] = []
@@ -83,6 +90,8 @@ export function parseCsv(text: string): string[][] {
   let q = false
   for (let i = 0; i < t.length; i++) {
     const ch = t[i]
+    // ماشین حالت ساده‌ی CSV: داخل کوتیشن (q) جداکننده و خط‌جدید متنِ خود سلول‌اند؛ «""» دوتایی یعنی یک کوتیشنِ واقعی.
+    // خارج از کوتیشن، جداکننده ستون را می‌بندد و \n / \r\n ردیف را؛ ردیف‌های کاملاً خالی نادیده گرفته می‌شوند.
     if (q) {
       if (ch === '"' && t[i + 1] === '"') (cur += '"'), i++
       else if (ch === '"') q = false
@@ -116,6 +125,8 @@ const HEAD: Record<string, string[]> = {
   number: ['شماره', 'شماره فاکتور', 'number'],
 }
 
+// ستون‌ها بر اساس «عنوانِ نرمال‌شده» پیدا می‌شوند، نه ترتیب؛ پس فایل می‌تواند ستون‌ها را هر جا و فارسی یا انگلیسی
+// داشته باشد (فهرست نام‌های پذیرفته در HEAD). ستونی که پیدا نشود در idx نمی‌آید و کنترل ستون‌های الزامی پایین‌تر است.
 function indexHeaders(header: Cell[]) {
   const idx: Record<string, number> = {}
   const h = header.map(norm)
@@ -129,6 +140,8 @@ function indexHeaders(header: Cell[]) {
 function chargeStatus(v: Cell): ImportChargeRow['status'] | null {
   const t = norm(v)
   if (!t) return 'pending'
+  // ترتیب بررسی مهم است (اول paid، بعد overdue، بعد pending) و مقایسه با includes است. توجه: includes('paid') روی عبارت
+  // انگلیسی «unpaid» هم true می‌شود؛ پس در فایل‌های انگلیسی برای وضعیت پرداخت‌نشده از «pending» یا «معوق» استفاده کنید.
   if (['پرداخت شده', 'پرداخت‌شده', 'پرداختی', 'paid', 'تسویه'].some((x) => t.includes(norm(x)))) return 'paid'
   if (['معوق', 'overdue', 'بدهکار'].some((x) => t.includes(norm(x)))) return 'overdue'
   if (['در انتظار', 'pending', 'پرداخت نشده', 'پرداخت‌نشده'].some((x) => t.includes(norm(x)))) return 'pending'

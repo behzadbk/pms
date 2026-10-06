@@ -41,6 +41,8 @@ export class MaintenanceScheduler implements OnModuleInit, OnModuleDestroy {
 
   async runTenant(tenantId: string): Promise<number> {
     return this.db.withTenant(tenantId, async (client) => {
+      // شرط ساخت دستور کار: «سررسید − lead_days» ≤ امروزِ تهران، و برای همین برنامه دستور کار باز/در‌حال‌انجام وجود نداشته باشد (NOT EXISTS)
+      // تا اجرای مجدد job روزانه دستور کار تکراری نسازد.
       const due = (await client.query<{
         id: string; asset_id: string; title: string; next_due: string; assignee_login: string | null; priority: string; asset_name: string; assignee_name: string | null
       }>(
@@ -52,6 +54,7 @@ export class MaintenanceScheduler implements OnModuleInit, OnModuleDestroy {
             AND NOT EXISTS (SELECT 1 FROM facility.work_orders w WHERE w.schedule_id = s.id AND w.status IN ('open','in_progress'))`)).rows
       let n = 0
       for (const s of due) {
+        // ON CONFLICT DO NOTHING: ایندکس یکتای جزئی (schedule_id برای دستور کار باز/در‌حال‌انجام، migration 004) جلوی ساخت هم‌زمان تکراری را می‌گیرد؛ در آن حالت RETURNING خالی است و `continue` اعلان/ممیزی تکراری نمی‌فرستد.
         const r = await client.query<{ id: string }>(
           `INSERT INTO facility.work_orders (tenant_id, title, description, asset_id, schedule_id, priority, assignee_login, assignee_name, due_date)
            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::date) ON CONFLICT DO NOTHING RETURNING id`,

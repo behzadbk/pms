@@ -32,6 +32,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // با GET /auth/me پروفایل کاربر را می‌گیریم؛ اگر توکن منقضی/نامعتبر بود، پاک می‌شود.
   // (این Endpoint هم کاربر عادی و هم سوپرادمین را برمی‌گرداند — تفکیک در بک‌اند انجام می‌شود.)
   useEffect(() => {
+    // پرچم cancelled جلوی setState بعد از unmount را می‌گیرد (و اجرای دوباره‌ی effect در StrictMode حالت قدیمی را تأثیرگذار نمی‌کند).
     let cancelled = false
     async function restoreSession() {
       if (!getToken()) {
@@ -42,6 +43,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const me = await identityApi.getMe()
         if (!cancelled) setUser(me)
       } catch {
+        // هر خطای /auth/me (توکن منقضی، یا حتی قطع‌بودن شبکه هنگام باز شدن اپ) نشست ذخیره‌شده را پاک می‌کند و کاربر به ورود می‌رود.
         identityApi.logout()
       } finally {
         if (!cancelled) setLoading(false)

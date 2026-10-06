@@ -41,6 +41,8 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
     if (!active) return
     const every = user?.role === 'child' ? 15_000 : 60_000
     const t = window.setInterval(() => void refresh(), every)
+    // علاوه بر تایمر، با هر بازگشت به اپ (focus / visibilitychange) و با رویداد سفارشی pms:permissions-changed هم دوباره
+    // خوانده می‌شود؛ تا تغییر حالت والدین (مثلاً پنهان‌کردن یک بخش) بدون صبر برای تایمر روی گوشی کودک اعمال شود.
     const onFocus = () => void refresh()
     window.addEventListener('focus', onFocus)
     document.addEventListener('visibilitychange', onFocus)
@@ -53,6 +55,8 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
     }
   }, [active, refresh, user?.role])
 
+  // visible فقط «پنهان‌سازی در UI» است و امنیت واقعی نیست؛ اعمال نهایی قفل/حالت والدین سمت بک‌اند انجام می‌شود.
+  // تا perms نرسیده یا برای نقش‌های بدون محدودیت، پیش‌فرض «نمایش» است. بخش «خانوار» فقط برای سرپرست/بزرگسال/سالمند دیده می‌شود.
   const visible = useCallback(
     (m: AppModule | undefined) => {
       if (!m || !perms) return true

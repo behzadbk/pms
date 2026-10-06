@@ -24,6 +24,8 @@ export function resolveTier(tiers: TierRow[], area: number | null | undefined): 
   if (!tiers.length) return { tier: null, match: 'no_tiers' }
   const a = Number(area)
   if (!Number.isFinite(a) || a <= 0) return { tier: null, match: 'no_area' }
+  // مرتب‌سازی صعودی تا حلقه‌ی پایین «آخرین سطحِ برقرار» را بدهد: چون min_areaها صعودی‌اند،
+  // آخرین سطحی که min_area ≤ متراژ است همان بزرگ‌ترین سطح قابل‌قبول (کفِ متراژ) است.
   const sorted = [...tiers].sort((x, y) => x.min_area - y.min_area)
   let hit: TierRow | null = null
   for (const t of sorted) if (t.min_area <= a) hit = t
@@ -32,6 +34,8 @@ export function resolveTier(tiers: TierRow[], area: number | null | undefined): 
 }
 
 export const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100
+// گرد کردن نویز اعشاری پیش از ceil: مثلاً 0.3 / 0.1 در جاوااسکریپت 2.9999999999999996 می‌شود
+// و بدون این، ceil یک «step» اضافه (یا کم) حساب می‌کرد.
 const round6 = (n: number) => Math.round(n * 1e6) / 1e6
 
 export interface AllocEvent {
@@ -75,6 +79,9 @@ export function allocate(included: number, events: AllocEvent[]): Allocation[] {
     if (!e.counts_toward_quota) {
       return { id: e.id, quota_qty: 0, overage_qty: round2(q), amount: overageAmount(q, e.unit_price, e.step) }
     }
+    // «used» مصرف تجمعی سهمیه است و حتی بعد از تمام‌شدن سهمیه هم بالا می‌رود؛ پس رویدادهای بعدی
+    // هرگز سهمیه‌ی رایگانِ برگشتی نمی‌گیرند و کل مقدارشان مازاد (پولی) می‌شود.
+    // پوشش رایگان = min(باقی‌مانده، مقدار این رویداد)؛ فقط ابتدای بازه رایگان است، ادامه‌اش مازاد.
     const freeLeft = Math.max(0, quota - used)
     const covered = Math.min(freeLeft, q)
     const over = round2(q - covered)

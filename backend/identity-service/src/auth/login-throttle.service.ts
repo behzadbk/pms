@@ -12,6 +12,7 @@ const RESET_AFTER_SECONDS = 60 * 60
 /** ثانیه‌های قفل پس از n خطای متوالی (۰ = بدون قفل) */
 export function lockoutSeconds(fails: number): number {
   if (fails <= FREE_ATTEMPTS) return 0
+  // backoff نمایی: خطای ششم ⇒ ۳۰ث، هفتم ⇒ ۶۰ث، هشتم ⇒ ۱۲۰ث … با سقف ۱۵ دقیقه.
   return Math.min(MAX_LOCK_SECONDS, BASE_LOCK_SECONDS * 2 ** (fails - FREE_ATTEMPTS - 1))
 }
 
@@ -60,6 +61,8 @@ export class LoginThrottleService {
     const keys = this.keys(scope, account, ip)
     await this.db.withPlatformAccess(async (c) => {
       for (const key of keys) {
+        // upsert اتمیک: بدون خواندن‌ونوشتن جدا (که با دو تلاش هم‌زمان یکی را گم می‌کرد). اگر آخرین خطا قدیمی‌تر از
+        // RESET_AFTER_SECONDS باشد شمارنده از ۱ شروع می‌شود، وگرنه یکی بالا می‌رود.
         const r = await c.query<{ fails: number }>(
           `INSERT INTO identity.login_attempts (key, fails, last_fail_at) VALUES ($1, 1, now())
            ON CONFLICT (key) DO UPDATE SET
@@ -74,6 +77,8 @@ export class LoginThrottleService {
           await c.query(`UPDATE identity.login_attempts SET locked_until = now() + make_interval(secs => $2) WHERE key = $1`, [key, lock])
         }
       }
+      // پاکسازیِ احتمالاتی (حدود ۲٪ خطاها): به‌جای cron جدا، ردیف‌های قدیمی‌تر از یک روز را گاهی حذف می‌کنیم
+      // تا جدول بی‌نهایت بزرگ نشود، بدون اینکه هر درخواست هزینه‌ی DELETE بدهد.
       if (Math.random() < 0.02) {
         await c.query(`DELETE FROM identity.login_attempts WHERE last_fail_at < now() - interval '1 day'`)
       }

@@ -9,6 +9,8 @@ export function useQrScanner(onCode: (v: string) => void) {
 
   useEffect(() => {
     if (!active) return
+    // stop: اگر کاربر قبل از آماده‌شدنِ دوربین (getUserMedia ناهمگام) از صفحه برود، بعد از رسیدن stream چیزی راه نیفتد.
+    // facingMode: 'environment' = دوربین پشتِ گوشی.
     let stop = false
     let stream: MediaStream | null = null
     let timer: ReturnType<typeof setInterval> | undefined
@@ -20,6 +22,8 @@ export function useQrScanner(onCode: (v: string) => void) {
         await videoRef.current.play()
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const detector = new (window as any).BarcodeDetector({ formats: ['qr_code'] })
+        // BarcodeDetector یک API مرورگر است (همه‌ی مرورگرها ندارند، پس supported بالا چک می‌شود). هر ۳۵۰ms یک فریم
+        // ویدیو بررسی می‌شود؛ با اولین QR معتبر callback صدا زده و اسکن (و دوربین) خاموش می‌شود.
         timer = setInterval(async () => {
           if (!videoRef.current) return
           try {
@@ -35,6 +39,7 @@ export function useQrScanner(onCode: (v: string) => void) {
         setActive(false)
       }
     })()
+    // پاکسازی: تایمر را متوقف و همه‌ی trackهای دوربین را می‌بندد؛ بدون این چراغ دوربین روشن می‌ماند.
     return () => {
       stop = true
       if (timer) clearInterval(timer)

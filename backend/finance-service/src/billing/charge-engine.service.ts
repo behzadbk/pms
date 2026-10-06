@@ -66,11 +66,15 @@ export class ChargeEngine {
         ORDER BY u.floor NULLS LAST, u.unit_number`,
       [input.period],
     )
+    // «residents» = عضوهای فعالِ ساکن؛ مالک غایب و مراقب (که در واحد زندگی نمی‌کنند) شمرده نمی‌شوند.
+    // LEFT JOIN با شارژِ همین دوره (ex_*) نشان می‌دهد کدام واحد قبلاً شارژ گرفته؛ پیش‌نمایش با همین «تفاوت» ساخته می‌شود.
     // مازاد مصرف خدمات (آفرها): مصرف ماه‌های قبل از این دوره که هنوز به شارژی نرفته
     const overages = await pendingOverage(client, input.period)
     const eventIds = new Map<string, string[]>()
     const rows: PlanRow[] = units.rows.map((u) => {
       const ov = overages.get(u.id)
+      // مازاد خدمات فقط روی شارژِ «تازه» می‌نشیند؛ واحدی که برای این دوره شارژ دارد دست نمی‌خورد، وگرنه مازاد دوبار
+      // حساب می‌شد. eventIds مشخص می‌کند کدام رویدادهای مصرف باید بعد از صدور «فریز» (billed) شوند.
       const fresh = !u.ex_id
       const breakdown = withOverage(calcCharge(formula!, { area: u.area ?? 0, residents: u.residents }), fresh ? ov : undefined)
       if (fresh && ov) eventIds.set(u.id, ov.event_ids)
@@ -108,6 +112,8 @@ export class ChargeEngine {
     const { plan, eventIds } = await this.build(client, tenantId, input)
     const fresh = plan.rows.filter((r) => !r.existing)
     const created: { id: string; unit_id: string; total_amount: number }[] = []
+    // بین پیش‌نمایش (plan) و درج ممکن است صدور دیگری هم‌زمان اجرا شده باشد؛ ON CONFLICT DO NOTHING جلوی شارژ دوباره را می‌گیرد
+    // و فقط ردیف‌هایی که واقعاً درج شده‌اند (ins.rows[0]) فریز مازاد و اعلان می‌گیرند.
     for (const r of fresh) {
       const ins = await client.query<{ id: string; unit_id: string; total_amount: number }>(
         `INSERT INTO finance.monthly_charges (tenant_id, unit_id, period, formula_id, base_amount, late_fee_amount, total_amount, due_date, status, breakdown)

@@ -10,6 +10,9 @@ export function assertDesk(user: JwtPayload, perms: string[] = ['lobby', 'securi
 }
 
 export async function myMembership(client: PoolClient, user: JwtPayload) {
+  // یک شخص ممکن است عضو چند واحد باشد. اولویت با واحدی است که «سرپرست» آن است، بعد قدیمی‌ترین عضویت.
+  // نشست «خانوادگی» (kind=family) مستقیم با شناسه‌ی عضویتِ داخل توکن (mid) کار می‌کند؛ نشست عادی از طریق person_id
+  // (pid در توکن، یا از روی identity.users) به عضویت می‌رسد. (همین منطق در facility-service هم تکرار شده است.)
   const q =
     user.kind === 'family' && user.mid
       ? await client.query<{ id: string; unit_id: string; user_id: string; role: string }>(
@@ -64,6 +67,8 @@ export function normPlate(raw: string): string {
   return String(raw ?? '')
     .replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)))
     .replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)))
+    // پلاک ایران شامل عدد، حرف و کد «ایران» است و ساکنین آن را با فرمت‌های مختلف می‌نویسند؛ این زنجیره همه را به یک شکل
+    // می‌رساند تا «۱۲ ب ۳۴۵ - ایران ۶۷» و «12ب34567» یک پلاک حساب شوند. ي/ك عربی هم به ی/ک فارسی برگردانده می‌شوند.
     .replace(/ایران/g, '')
     .replace(/[\s\-_.‌‏]/g, '')
     .replace(/ي/g, 'ی').replace(/ك/g, 'ک')

@@ -21,6 +21,8 @@ const ORDER_STEPS: { label: string; icon: LucideIcon }[] = [
 ]
 
 /** وضعیت سفارش در آشپزخانه → مرحله‌ی نمایش برای ساکن */
+// چندین وضعیتِ داخلی آشپزخانه به یک «مرحله‌ی نمایشی» برای ساکن نگاشت می‌شود: ready و out_for_delivery هر دو مرحله‌ی ۳
+// (آماده تحویل) هستند. وضعیت‌هایی که اینجا نیستند (rejected / cancelled) مرحله ندارند و جدا نمایش داده می‌شوند.
 const STAGE_OF: Partial<Record<OrderStatus, number>> = {
   placed: 0,
   accepted: 1,
@@ -61,8 +63,11 @@ export function ResidentFoodOrder() {
       setVenues(v)
       setZones(z.filter((x) => x.zone_type === 'amenity_zone'))
       setOrders(o)
+      // انتخاب فعلی کاربر حفظ می‌شود اگر هنوز در فهرست باشد؛ وگرنه (حذف‌شده/اولین بارگذاری) اولین مکان انتخاب می‌شود.
       setVenueId((cur) => (cur && v.some((x) => x.id === cur) ? cur : v[0]?.id ?? null))
       // اگر سفارش در جریانی دارد، مستقیم صفحه‌ی پیگیری را نشان بده
+      // فقط در «اولین» بارگذاری سفارشِ در جریان به‌طور خودکار باز می‌شود؛ ref (نه state) تا بارگذاری‌های بعدی (poll/refresh)
+      // کاربر را که چیز دیگری را مرور می‌کند به صفحه‌ی پیگیری نپرانند.
       if (!initialOrderPicked.current) {
         initialOrderPicked.current = true
         const live = o.find((x) => LIVE.includes(x.status))
@@ -183,6 +188,9 @@ function VenueOrdering({
   const items = useMemo(() => menu?.items ?? [], [menu])
   const categories = useMemo(() => ['همه', ...new Set(items.map((m) => m.category_name ?? 'سایر'))], [items])
   const list = items.filter((m) => category === 'همه' || (m.category_name ?? 'سایر') === category)
+  // cart یک نگاشت {شناسه‌ی آیتم: تعداد} است. چون منو هر ۳۰ ثانیه دوباره خوانده می‌شود، سطرهایی که آیتمشان دیگر در منو نیست
+  // (حذف یا تغییر منو) یا تعدادشان ≤۰ است حذف می‌شوند تا سبد با منوی تازه ناسازگار نماند. این جمع‌ها فقط نمایش‌اند:
+  // سرور فقط item_id و quantity را می‌گیرد و قیمت/موجودی/حداقل سفارش را خودش دوباره بررسی می‌کند.
   const cartRows = Object.entries(cart)
     .map(([id, qty]) => ({ item: items.find((m) => m.id === id), qty }))
     .filter((r): r is { item: MenuItem; qty: number } => !!r.item && r.qty > 0)
@@ -196,6 +204,7 @@ function VenueOrdering({
     setCart((prev) => {
       const next = { ...prev }
       if (qty <= 0) delete next[id]
+      // سقف ۵۰ عدد برای هر آیتم؛ تعداد صفر یا کمتر آیتم را از سبد برمی‌دارد (کلید حذف می‌شود، نه صفر نگه داشته شود).
       else next[id] = Math.min(qty, 50)
       return next
     })

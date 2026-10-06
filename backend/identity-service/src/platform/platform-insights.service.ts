@@ -98,6 +98,8 @@ export class PlatformInsightsService {
     const { tenants } = await this.listTenants()
     const active = tenants.filter((t) => t.status === 'active')
     const period = currentJalaliPeriod()
+    // یک کوئری دو جور عدد می‌دهد: تعداد/جمع فاکتورهای «دوره‌ی جاری» به تفکیک وضعیت، و مبلغ پرداخت‌شده‌ی
+    // ۳۰ روز اخیر (مستقل از دوره) که با کلید مصنوعی 'paid_30d' در همان خروجی می‌آید و پایین با get() جدا می‌شود.
     const inv = await this.db.withPlatformAccess(async (c) => {
       const r = await c.query<{ k: string; n: string; s: string }>(
         `SELECT status AS k, count(*) AS n, COALESCE(sum(amount), 0) AS s FROM identity.platform_invoices WHERE period = $1 GROUP BY status
@@ -114,6 +116,7 @@ export class PlatformInsightsService {
       activeTenants: active.length,
       trialTenants: tenants.filter((t) => t.status === 'trial').length,
       suspendedTenants: tenants.filter((t) => t.status === 'suspended').length,
+      // MRR (درآمد ماهانه‌ی تکرارشونده) فقط از ساختمان‌های active؛ trial و suspended هنوز/دیگر درآمد نیستند.
       totalMrr: active.reduce((s, t) => s + t.monthlyFee, 0),
       totalUnitsManaged: tenants.reduce((s, t) => s + t.unitCount, 0),
       totalResidents: tenants.reduce((s, t) => s + t.residentCount, 0),
@@ -188,6 +191,9 @@ export class PlatformInsightsService {
 
   /** صدور گروهی فاکتور دوره‌ی جاری برای همه‌ی مجتمع‌های فعال (idempotent) */
   async generateInvoices(period = currentJalaliPeriod()) {
+    // صدور گروهی idempotent است: یکتایی (tenant_id, period) + ON CONFLICT DO NOTHING یعنی اجرای دوباره
+    // فاکتور تکراری نمی‌سازد، و RETURNING فقط ردیف‌های تازه را برمی‌گرداند؛ پس مانده‌ی بدهی (syncOutstanding)
+    // فقط برای ساختمان‌هایی که فاکتور جدید گرفته‌اند بازمحاسبه می‌شود. سررسید = ۱۰ روز بعد از صدور.
     if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(period)) throw new BadRequestException('دوره باید به‌صورت 1405-07 باشد')
     return this.db.withPlatformAccess(async (c) => {
       const r = await c.query<{ tenant_id: string }>(
@@ -202,6 +208,8 @@ export class PlatformInsightsService {
   }
 
   async setInvoiceStatus(id: string, status: Exclude<InvoiceStatus, 'pending'> | 'pending') {
+    // paid_at فقط وقتی status='paid' ثبت می‌شود و با هر وضعیت دیگر NULL می‌گردد (برگرداندن پرداخت، تاریخش را پاک می‌کند).
+    // بعد از هر تغییر وضعیت، مانده‌ی بدهی و وضعیت تسویه‌ی ساختمان از روی همه‌ی فاکتورها بازمحاسبه می‌شود.
     const tenantId = await this.db.withPlatformAccess(async (c) => {
       const r = await c.query<{ tenant_id: string }>(
         `UPDATE identity.platform_invoices

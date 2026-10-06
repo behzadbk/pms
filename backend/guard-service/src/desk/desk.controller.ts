@@ -5,7 +5,10 @@ import { Roles } from '../auth/decorators/roles.decorator'
 import { GuardGateway } from '../realtime/guard.gateway'
 import { assertDesk, faDigits, normPlate } from '../common/access'
 
+// «امروز» یعنی روز تقویمی به وقت تهران، نه روز UTC سرور: مقایسه‌ی ساده با CURRENT_DATE بین ۲۰:۳۰ تا ۲۴:۰۰ UTC
+// (یعنی بعد از نیمه‌شب تهران) روز را اشتباه می‌گرفت. 'x' جانشین نام ستون است و فقط در today() عوض می‌شود.
 const TODAY = `(x AT TIME ZONE 'Asia/Tehran')::date = (now() AT TIME ZONE 'Asia/Tehran')::date`
+// فقط با نام ستونِ ثابتِ داخل کد صدا زده شود (هرگز ورودی کاربر): col مستقیم در متن SQL می‌نشیند و پارامتر bind نیست.
 const today = (col: string) => TODAY.replace('x', col)
 const SEC = ['security']
 
@@ -52,6 +55,9 @@ export class DeskController {
   @Get('feed')
   feed(@CurrentUser() user: JwtPayload, @Query('limit') limit?: string) {
     assertDesk(user)
+    // limit به بازه‌ی ۱ تا ۶۰ بسته می‌شود (مقدار نامعتبر ⇒ ۲۰) تا کوئری UNION سنگین نشود.
+    // خروجی از چهار منبع جدا (ورود مهمان، دریافت مرسوله، تحویل مرسوله، تردد خودرو) با UNION ALL یکی می‌شود و بعد زمان‌بندی می‌شود.
+    // یک مرسوله دو رویداد دارد (دریافت و تحویل)؛ پسوندهای ':r' و ':p' روی id آن‌ها را یکتا می‌کند تا کلید لیست در UI تکراری نشود.
     const n = Math.min(Math.max(Number(limit) || 20, 1), 60)
     return this.db.withTenant(user.tenant_id!, async (c) => {
       const r = await c.query(
@@ -149,6 +155,8 @@ export class DeskController {
     if (norm.length < 3 || plate.length > 30) throw new BadRequestException('پلاک نامعتبر است')
     if (!['in', 'out'].includes(b.direction)) throw new BadRequestException('جهت تردد نامعتبر است')
     const out = await this.db.withTenant(user.tenant_id!, async (c) => {
+      // پلاکِ ثبت‌شده برای یک واحد، «خودروی ساکن» است و واحدِ آن اولویت دارد؛ پلاکِ ناشناس (known نیست) خودکار «مهمان»
+      // علامت می‌خورد (is_guest = !known) و واحد از ورودی نگهبان می‌آید.
       const known = (await c.query('SELECT id, unit_id FROM guard.vehicles WHERE plate_norm = $1', [norm])).rows[0]
       const unitId = known?.unit_id ?? b.unitId ?? null
       if (unitId && !(await c.query('SELECT 1 FROM property.units WHERE id = $1', [unitId])).rowCount) throw new NotFoundException('واحد یافت نشد')

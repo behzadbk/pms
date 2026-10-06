@@ -32,6 +32,8 @@ CREATE TABLE IF NOT EXISTS residency.building_rules (
 
 CREATE OR REPLACE FUNCTION residency.unit_overdue_days(p_unit uuid) RETURNS integer
 LANGUAGE sql STABLE AS $fn$
+  -- «روزهای تأخیر» واحد = تأخیرِ قدیمی‌ترین شارژ پرداخت‌نشده‌ی گذشته از سررسید (max). اگر دو ماه معوقه دارد،
+  -- شمارش از ماه اول است. تاریخ‌ها به وقت تهران مقایسه می‌شوند؛ بدون معوقه ⇒ ۰.
   SELECT COALESCE(max(((now() AT TIME ZONE 'Asia/Tehran')::date - c.due_date)), 0)::integer
     FROM finance.monthly_charges c
    WHERE c.unit_id = p_unit
@@ -42,6 +44,8 @@ $fn$;
 
 CREATE OR REPLACE FUNCTION residency.unit_is_debtor(p_unit uuid) RETURNS boolean
 LANGUAGE sql STABLE AS $fn$
+  -- بدهکار = حداقل یک روز تأخیر (d>0) و رسیدن به مهلتِ مدیر (debtor_grace_days؛ پیش‌فرض ۳۰ اگر هنوز قانونی ثبت نشده).
+  -- مهلت ۰ یعنی از اولین روز تأخیر بدهکار است. مهلت از ردیف building_rules همان tenantِ واحد خوانده می‌شود.
   SELECT d > 0 AND d >= COALESCE(
            (SELECT r.debtor_grace_days FROM residency.building_rules r
              WHERE r.tenant_id = (SELECT u.tenant_id FROM property.units u WHERE u.id = p_unit)), 30)
@@ -50,6 +54,8 @@ $fn$;
 
 CREATE OR REPLACE FUNCTION residency.unit_restricted(p_unit uuid, p_scope text) RETURNS boolean
 LANGUAGE sql STABLE AS $fn$
+  -- p_scope مثل 'module:amenity' یا 'amenity:<uuid>' است؛ کلیدِ نبوده ⇒ NULL ⇒ COALESCE به false (محدود نیست).
+  -- محدودیت فقط وقتی اعمال می‌شود که هم مدیر آن بخش را بسته باشد و هم واحد همین حالا بدهکار باشد (تسویه ⇒ فوراً باز).
   SELECT COALESCE((
            SELECT (r.debtor_restrictions ->> p_scope)::boolean
              FROM residency.building_rules r

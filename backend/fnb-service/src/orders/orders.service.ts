@@ -82,6 +82,8 @@ export class OrdersService {
       }
 
       const ids = [...qty.keys()]
+      // قفل ردیفی (FOR UPDATE) روی آیتم‌های سبد: دو سفارش هم‌زمان برای آخرین موجودی نمی‌توانند هم‌زمان از چک موجودی رد شوند؛
+      // دومی تا پایان تراکنش اولی منتظر می‌ماند و بعد موجودی به‌روز را می‌بیند.
       const itemsRes = await c.query(
         `SELECT id, name, price, availability, stock_count, reserved_count
            FROM fnb.menu_items WHERE id = ANY($1::uuid[]) AND venue_id = $2 FOR UPDATE`,
@@ -94,6 +96,7 @@ export class OrdersService {
         const item = byId.get(itemId)
         if (!item) throw new NotFoundException('یکی از آیتم‌های سبد در این منو وجود ندارد')
         if (item.availability !== 'available') throw new ConflictException(`«${item.name}» در حال حاضر موجود نیست`)
+        // موجودی قابل‌فروش = stock_count − reserved_count (رزروِ سفارش‌های در جریان)؛ stock_count خالی یعنی موجودی نامحدود.
         if (item.stock_count !== null && item.stock_count - item.reserved_count < q) {
           throw new ConflictException(`موجودی «${item.name}» کافی نیست`)
         }
@@ -112,6 +115,7 @@ export class OrdersService {
         zoneId = z.id
       }
 
+      // شماره‌ی سفارش از sequence می‌آید (بدون تکرار حتی با درخواست هم‌زمان)؛ ممکن است در صورت rollback شماره‌ای خالی بماند.
       const num = (await c.query<{ n: string }>(`SELECT nextval('fnb.order_number_seq')::text AS n`)).rows[0].n
       const o = (await c.query(
         `INSERT INTO fnb.orders

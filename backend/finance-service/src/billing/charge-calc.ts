@@ -57,6 +57,8 @@ export function calcCharge(f: Pick<Formula, 'base_amount' | 'amount_per_sqm' | '
   const items = (f.fixed_items ?? []).map((i) => ({ title: String(i.title), amount: n(i.amount) }))
   const fixed = items.reduce((a, i) => a + i.amount, 0)
   const raw = base + area + residents + fixed
+  // گرد به نزدیک‌ترین مضرب round_to (مثلاً ۱٬۰۰۰ تومان). حداقل step=۱ تا تقسیم بر صفر یا مقدار نامعتبر پیش نیاید؛
+  // نفرات با floor شمرده می‌شود (نیم‌نفر معنا ندارد) و کل هرگز منفی نمی‌شود.
   const step = Math.max(1, n(f.round_to) || 1)
   const total = Math.max(0, Math.round(raw / step) * step)
   return { base, area: Math.round(area), residents: Math.round(residents), fixed_items: items, raw_total: Math.round(raw), round_to: step, total, inputs: { area: n(u.area), residents: Math.floor(n(u.residents)) } }
@@ -74,6 +76,8 @@ export function withOverage(b: ChargeBreakdown, overage: OverageSummary | undefi
 /** فرمولِ مؤثر برای یک دوره: فعال‌ها با effective_from ≤ دوره؛ جدیدترین effective_from (و سپس جدیدترین ساخت) */
 export function resolveFormula<T extends Pick<Formula, 'is_active' | 'effective_from' | 'created_at'>>(formulas: T[], period: string): T | null {
   const ok = formulas.filter((f) => f.is_active && (!f.effective_from || f.effective_from <= period))
+  // مقایسه‌ی رشته‌ای 'YYYY-MM' با ≤ درست است چون دوره‌ها صفر-پُر و هم‌قالب‌اند (ترتیب الفبایی = ترتیب زمانی).
+  // مرتب‌سازی نزولی: ابتدا جدیدترین effective_from (null = قدیمی‌ترین)، در تساوی جدیدترین تاریخ ساخت.
   ok.sort((a, b) => (b.effective_from ?? '').localeCompare(a.effective_from ?? '') || String(b.created_at ?? '').localeCompare(String(a.created_at ?? '')))
   return ok[0] ?? null
 }

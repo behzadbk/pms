@@ -205,9 +205,13 @@ export class TowerService {
     for (const [k, v] of Object.entries(dto.restrictions ?? {})) {
       if (typeof v !== 'boolean') throw new BadRequestException(`مقدار «${k}» باید بله/خیر باشد`)
       if (!isRestrictionKey(k)) throw new BadRequestException(`«${k}» قابل محدودسازی نیست (مالی، تیکت و اعلانات همیشه باز می‌مانند)`)
+      // فقط مقدارهای true ذخیره می‌شوند (نبودنِ کلید = محدود نیست) تا JSON کوچک بماند.
+      // کلیدها با isRestrictionKey فهرست سفید شده‌اند تا مالی/تیکت/اعلانات هیچ‌وقت قابل قفل‌شدن نباشند.
       if (v) clean[k] = true
     }
     return this.db.withTenant(tenantId, async (client) => {
+      // کلید amenity:<id> باید مشاعِ همین ساختمان باشد؛ این کوئری زیر RLS فقط مشاعات tenant جاری را می‌بیند،
+      // پس شناسه‌ی مشاعِ ساختمان دیگر رد می‌شود.
       const known = new Set((await client.query<{ id: string }>(`SELECT id FROM facility.amenities`)).rows.map((a) => a.id))
       for (const k of Object.keys(clean)) {
         if (k.startsWith('amenity:') && !known.has(k.slice('amenity:'.length))) throw new BadRequestException('مشاع انتخاب‌شده در این ساختمان نیست')
@@ -220,6 +224,7 @@ export class TowerService {
          ON CONFLICT (tenant_id) DO UPDATE
            SET debtor_grace_days = EXCLUDED.debtor_grace_days, debtor_restrictions = EXCLUDED.debtor_restrictions,
                updated_by = EXCLUDED.updated_by, updated_at = now()`,
+        // دفاعی: اگر sub توکن UUID معتبر نباشد (مثلاً توکن توسعه/تست) به‌جای خطای نوع uuid در ستون updated_by، null ذخیره می‌شود.
         [tenantId, dto.debtor_grace_days, JSON.stringify(clean), /^[0-9a-f-]{36}$/i.test(ctx.user.sub) ? ctx.user.sub : null],
       )
       await writeAudit(client, tenantId, ctx, 'building_rules.updated', {

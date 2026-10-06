@@ -55,6 +55,8 @@ export function ScheduleView({ admin, toast }: { admin?: boolean; toast: (m: str
         ) : (
           <div className="grid gap-3 lg:grid-cols-2">
             {sch.data.map((s) => {
+              // وضعیت سررسید: days_left منفی = دیرکرد (قرمز)؛ داخل بازه‌ی lead_days = «نزدیک» (هشدار زرد)؛ وگرنه عادی.
+              // (job روزانه‌ی بک‌اند وقتی «سررسید − lead_days» برسد خودش دستور کار می‌سازد؛ این رنگ‌ها فقط نمایش‌اند.)
               const late = s.days_left < 0
               const soon = !late && s.days_left <= s.lead_days
               return (

@@ -11,6 +11,8 @@ const fa = (n: number | string) => String(n).replace(/\d/g, (d) => '۰۱۲۳۴۵
 export function tehranToday(): string {
   return new Intl.DateTimeFormat('en-CA', { timeZone: TZ }).format(new Date())
 }
+// تاریخ‌ها را روی ظهر UTC می‌سازیم (T12:00:00Z) تا جمع/تفریق روز و گرفتن روز هفته با اختلاف منطقه‌ی زمانی
+// (مثلاً +۰۳:۳۰ تهران) از مرز نیمه‌شب رد نشود و یک روز جابه‌جا نگردد.
 export function addDays(iso: string, n: number): string {
   const d = new Date(`${iso}T12:00:00Z`)
   d.setUTCDate(d.getUTCDate() + n)
@@ -21,6 +23,7 @@ export function weekdayName(iso: string): string {
 }
 /** روز هفته‌ی ایرانی (۰=شنبه) برای یک تاریخ میلادی */
 export function weekdayIndex(iso: string): number {
+  // getUTCDay: یکشنبه=۰ … شنبه=۶. هفته‌ی ایرانی از شنبه شروع می‌شود، پس +۱ و باقی‌مانده‌ی ۷ (شنبه ⇒ ۰، جمعه ⇒ ۶).
   return (new Date(`${iso}T12:00:00Z`).getUTCDay() + 1) % 7
 }
 export function tehranParts(iso: string | Date): { date: string; hour: number; minute: number } {
@@ -39,6 +42,7 @@ export function dayLabel(iso: string, withYear = false) {
 export function whenLabel(startIso: string, endIso?: string) {
   const s = tehranParts(startIso)
   const e = endIso ? tehranParts(endIso) : null
+  // پایانِ دقیقاً نیمه‌شب (ساعت ۰) به‌صورت «۲۴:۰۰» نشان داده می‌شود نه «۰۰:۰۰» تا بازه‌ی ۲۳ تا ۲۴ درست خوانده شود.
   const t = e ? `${hourLabel(s.hour)} تا ${hourLabel(e.hour === 0 ? 24 : e.hour)}` : hourLabel(s.hour)
   return `${dayLabel(s.date)} · ${t}`
 }
