@@ -23,6 +23,7 @@ export class OrdersController {
     return this.orders.listMine(user)
   }
 
+  @Roles('resident', 'child', 'admin', 'staff')
   @Get('orders/:id')
   findOne(@CurrentUser() user: JwtPayload, @Param('id', ParseUUIDPipe) id: string) {
     return this.orders.findOne(user, id)
