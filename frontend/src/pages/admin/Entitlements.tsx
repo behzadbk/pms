@@ -1,21 +1,20 @@
-import { useState } from 'react'
-import { Gift, RefreshCw, Trash2, Plus, Wand2 } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { Gift, Minus, RefreshCw, Trash2, Plus, Wand2 } from 'lucide-react'
 import { Card, CardHeader } from '../../components/ui/Card'
 import { ErrorBlock, Loading, useLoad, useToast } from '../../components/hm'
 import { entitlementsApi, type Catalog, type CatalogService, type Tariff } from '../../lib/api/entitlements'
 import { errText, fa } from '../../lib/api/residents'
 import { money, priceText } from '../../lib/entitlementsFmt'
-import { EntitlementDesk } from '../staff/EntitlementDesk'
 
-type Tab = 'desk' | 'quotas' | 'tariffs' | 'tiers'
+/** ثبت مصرف و اسکن بلیت کار مسئول مشاعات است (پنل کارکنان)؛ این صفحه فقط تنظیمات مدیر است */
+type Tab = 'quotas' | 'tariffs' | 'tiers'
 const TABS: { id: Tab; label: string }[] = [
-  { id: 'desk', label: 'میز مصرف' },
   { id: 'quotas', label: 'سهمیه‌ها' },
   { id: 'tariffs', label: 'نرخ‌ها' },
   { id: 'tiers', label: 'سطوح متراژ' },
 ]
 
-const cell = 'w-20 rounded-lg border border-line px-2 py-1.5 text-sm text-center bg-card min-h-[40px] focus:outline-none focus:ring-2 focus:ring-tile/40'
+const cell = 'rounded-lg border border-line px-2 py-1.5 text-sm text-center bg-card min-h-[40px] focus:outline-none focus:ring-2 focus:ring-tile/40'
 const fromFa = (s: string) => Number(s.replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d))).replace(/[٬,]/g, '').replace('٫', '.'))
 
 /** عدد قابل‌ویرایش که با خروج از فیلد ذخیره می‌شود */
@@ -48,36 +47,127 @@ function NumCell({ value, onSave, width = 'w-20', label }: { value: number; onSa
   )
 }
 
+/** «۲۴۰ متر» — دقیقاً همان متراژِ ستون برگه‌ی آفرها (نام سطح فقط «واحد ۲۴۰ متری» را تکرار می‌کرد) */
+const areaLabel = (a: number) => `${fa(a)} متر`
+const periodLabel = (t: 'month' | 'year') => (t === 'year' ? 'سالانه' : 'ماهانه')
+
+/**
+ * مقدار سهمیه با دکمه‌های − و ＋ (هدف لمسی ۴۴px) و ورودی عددی. تغییر با ۶۰۰ میلی‌ثانیه تأخیر ذخیره می‌شود
+ * تا چند ضربه‌ی پشت‌سرهم فقط یک بار محاسبه‌ی مجدد سرور را اجرا کند. اگر ذخیره شکست بخورد مقدار قبلی برمی‌گردد.
+ */
+function QuotaStepper({ value, label, onSave, step = 1 }: { value: number; label: string; onSave: (n: number) => Promise<void>; step?: number }) {
+  const [v, setV] = useState(value)
+  const [text, setText] = useState(String(value))
+  const timer = useRef<number | undefined>(undefined)
+  const saved = useRef(value)
+  useEffect(() => {
+    setV(value)
+    setText(String(value))
+    saved.current = value
+  }, [value])
+  useEffect(() => () => window.clearTimeout(timer.current), [])
+
+  function commit(n: number) {
+    const next = Math.max(0, Math.round(n * 100) / 100)
+    setV(next)
+    setText(String(next))
+    window.clearTimeout(timer.current)
+    timer.current = window.setTimeout(async () => {
+      if (next === saved.current) return
+      try {
+        await onSave(next)
+        saved.current = next
+      } catch {
+        setV(saved.current)
+        setText(String(saved.current))
+      }
+    }, 600)
+  }
+  const btn = 'w-11 h-11 shrink-0 rounded-xl border border-line flex items-center justify-center text-ink-text hover:border-tile hover:text-tile active:scale-95 transition disabled:opacity-40'
+  return (
+    <div className="flex items-center gap-2" role="group" aria-label={label}>
+      <button type="button" className={btn} onClick={() => commit(v - step)} disabled={v <= 0} aria-label="کم کردن"><Minus size={16} /></button>
+      <input
+        value={text}
+        inputMode="decimal"
+        aria-label={label}
+        onChange={(e) => setText(e.target.value)}
+        onFocus={(e) => e.target.select()}
+        onBlur={() => {
+          const n = fromFa(text)
+          if (Number.isFinite(n) && n >= 0) commit(n)
+          else setText(String(v))
+        }}
+        className="w-16 h-11 rounded-xl border border-line text-center text-base font-semibold bg-card focus:outline-none focus:ring-2 focus:ring-tile/40"
+      />
+      <button type="button" className={btn} onClick={() => commit(v + step)} aria-label="زیاد کردن"><Plus size={16} /></button>
+    </div>
+  )
+}
+
 function QuotaGrid({ cat, run }: { cat: Catalog; run: (fn: () => Promise<unknown>, ok: string) => Promise<void> }) {
   const quota = cat.services.filter((s) => s.kind === 'quota')
+  const [tierId, setTierId] = useState<string>('')
   if (cat.tiers.length === 0 || quota.length === 0) return <p className="p-5 text-sm text-muted">ابتدا قالب آفرها را اعمال کنید یا سطح متراژ بسازید.</p>
+  const active = cat.tiers.find((t) => t.id === tierId) ?? cat.tiers[0]
+  const save = (serviceId: string, tId: string) => (n: number) =>
+    run(() => entitlementsApi.setQuota({ tierId: tId, serviceId, included: n }), 'سهمیه ذخیره شد')
+
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="text-right text-muted border-y border-line">
-            <th className="font-medium px-4 py-2.5 sticky right-0 bg-card">خدمت</th>
-            {cat.tiers.map((t) => <th key={t.id} className="font-medium px-2 py-2.5 text-center whitespace-nowrap">{t.name}<span className="block text-xs">{fa(t.min_area)}+ متر</span></th>)}
-          </tr>
-        </thead>
-        <tbody>
-          {quota.map((s) => (
-            <tr key={s.id} className="border-b border-line">
-              <td className="px-4 py-2 font-medium whitespace-nowrap sticky right-0 bg-card">{s.title}<span className="block text-xs text-muted font-normal">{s.unit_label} · {s.period_type === 'year' ? 'سالانه' : 'ماهانه'}</span></td>
-              {cat.tiers.map((t) => (
-                <td key={t.id} className="px-2 py-2 text-center">
-                  <NumCell
-                    value={cat.quotas[s.id]?.[t.id] ?? 0}
-                    label={`${s.title} — ${t.name}`}
-                    onSave={(n) => run(() => entitlementsApi.setQuota({ tierId: t.id, serviceId: s.id, included: n }), 'سهمیه ذخیره شد')}
-                  />
-                </td>
-              ))}
-            </tr>
+    <>
+      {/* موبایل و تبلت: یک متراژ را انتخاب می‌کنی و سهمیه‌ی همه‌ی خدماتش را زیر هم می‌بینی (کارت‌های لمسی) */}
+      <div className="md:hidden px-4 pb-4 space-y-4">
+        <div role="tablist" aria-label="متراژ واحد" className="flex gap-2 overflow-x-auto pb-1 -mx-4 px-4 snap-x">
+          {cat.tiers.map((t) => (
+            <button
+              key={t.id}
+              role="tab"
+              aria-selected={t.id === active.id}
+              onClick={() => setTierId(t.id)}
+              className={`snap-start shrink-0 min-h-[44px] px-4 rounded-full text-sm font-medium border whitespace-nowrap transition ${t.id === active.id ? 'bg-ink text-white border-ink' : 'bg-card text-muted border-line'}`}
+            >
+              {areaLabel(t.min_area)}
+            </button>
           ))}
-        </tbody>
-      </table>
-    </div>
+        </div>
+        <p className="text-xs text-muted">سهمیه‌ی رایگان واحدهای <b className="text-ink-text">{areaLabel(active.min_area)}</b></p>
+        <div className="space-y-3">
+          {quota.map((s) => (
+            <div key={`${active.id}-${s.id}`} className="rounded-2xl border border-line p-4 flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-sm font-semibold">{s.title}</p>
+                <p className="text-xs text-muted mt-0.5">{s.unit_label} · {periodLabel(s.period_type)}</p>
+              </div>
+              <QuotaStepper value={cat.quotas[s.id]?.[active.id] ?? 0} label={`${s.title} — ${areaLabel(active.min_area)}`} onSave={save(s.id, active.id)} />
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* دسکتاپ: جدول کامل مثل برگه‌ی آفرها (هر ستون یک متراژ) */}
+      <div className="hidden md:block overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="text-right text-muted border-y border-line">
+              <th scope="col" className="font-medium px-4 py-2.5 sticky right-0 bg-card">خدمت</th>
+              {cat.tiers.map((t) => <th scope="col" key={t.id} className="font-medium px-1 py-2.5 text-center whitespace-nowrap">{areaLabel(t.min_area)}</th>)}
+            </tr>
+          </thead>
+          <tbody>
+            {quota.map((s) => (
+              <tr key={s.id} className="border-b border-line">
+                <th scope="row" className="px-4 py-2 font-medium text-right whitespace-nowrap sticky right-0 bg-card">{s.title}<span className="block text-xs text-muted font-normal">{s.unit_label} · {periodLabel(s.period_type)}</span></th>
+                {cat.tiers.map((t) => (
+                  <td key={t.id} className="px-1 py-2 text-center">
+                    <NumCell value={cat.quotas[s.id]?.[t.id] ?? 0} width="w-16" label={`${s.title} — ${areaLabel(t.min_area)}`} onSave={save(s.id, t.id)} />
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </>
   )
 }
 
@@ -106,7 +196,7 @@ function TariffRow({ s, t, run }: { s: CatalogService; t: Tariff; run: (fn: () =
 
 export function AdminEntitlements() {
   const cfg = useLoad(() => entitlementsApi.config(), [])
-  const [tab, setTab] = useState<Tab>('desk')
+  const [tab, setTab] = useState<Tab>('quotas')
   const [busy, setBusy] = useState(false)
   const { toast, toastNode } = useToast()
   const [newArea, setNewArea] = useState('')
@@ -179,14 +269,10 @@ export function AdminEntitlements() {
                 <button key={t.id} onClick={() => setTab(t.id)} className={`px-4 py-2.5 rounded-xl text-sm font-medium whitespace-nowrap min-h-[44px] ${tab === t.id ? 'bg-ink text-white' : 'text-muted hover:text-ink-text'}`}>{t.label}</button>
               ))}
             </div>
-            {tab !== 'desk' && (
-              <button onClick={recompute} disabled={busy} className="flex items-center gap-1.5 text-xs text-tile px-3 py-2 rounded-xl border border-line min-h-[44px] disabled:opacity-50" title="پس از تغییر متراژ واحدها، سهمیه‌ی مصرف‌های ثبت‌شده را دوباره حساب می‌کند">
-                <RefreshCw size={14} /> محاسبه‌ی مجدد مصرف‌ها
-              </button>
-            )}
+            <button onClick={recompute} disabled={busy} className="flex items-center gap-1.5 text-xs text-tile px-3 py-2 rounded-xl border border-line min-h-[44px] disabled:opacity-50" title="پس از تغییر متراژ واحدها، سهمیه‌ی مصرف‌های ثبت‌شده را دوباره حساب می‌کند">
+              <RefreshCw size={14} /> محاسبه‌ی مجدد مصرف‌ها
+            </button>
           </div>
-
-          {tab === 'desk' && <div className="staff-embedded"><EntitlementDesk /></div>}
 
           {tab === 'quotas' && (
             <Card>
@@ -216,7 +302,7 @@ export function AdminEntitlements() {
               <div className="px-5 pb-5 space-y-3">
                 {cat.tiers.map((t) => (
                   <div key={t.id} className="flex flex-wrap items-center gap-3">
-                    <span className="text-sm font-medium min-w-[6rem]">{t.name}</span>
+                    <span className="text-sm font-medium min-w-[6rem]">{areaLabel(t.min_area)}</span>
                     <label className="text-xs text-muted flex items-center gap-1.5">
                       از متراژ
                       <NumCell value={t.min_area} label={`حداقل متراژ ${t.name}`} onSave={(n) => run(() => entitlementsApi.patchTier(t.id, { min_area: n }), 'سطح ذخیره شد')} />

@@ -31,7 +31,7 @@ export interface JoinRequestView {
 }
 
 /** ستون‌های قالب اکسل — به همین ترتیب؛ سطر اول سرتیتر است */
-export const IMPORT_COLUMNS = ['واحد', 'نام و نام خانوادگی', 'شماره موبایل', 'کد ملی', 'نوع سکونت', 'شروع سکونت', 'پایان قرارداد', 'پرداخت شارژ با'] as const
+export const IMPORT_COLUMNS = ['واحد', 'نام و نام خانوادگی', 'شماره موبایل', 'کد ملی', 'نوع سکونت', 'شروع سکونت', 'پایان قرارداد', 'پرداخت شارژ با', 'متراژ واحد'] as const
 const RESIDENCY_FROM_LABEL: Record<string, 'owner' | 'tenant' | 'owner_absent'> = {
   'مالک ساکن': 'owner', مالک: 'owner', owner: 'owner',
   مستأجر: 'tenant', مستاجر: 'tenant', tenant: 'tenant',
@@ -133,13 +133,29 @@ export class JoinService {
 
   /* ───────────── ورود گروهی از اکسل ───────────── */
 
+  /** ردیف ساختمان (برای واحدی که از اکسل ساخته می‌شود)؛ اگر نبود با نام ساختمان ساخته می‌شود */
+  private async ensureBuilding(client: PoolClient, tenantId: string): Promise<string> {
+    const b = (await client.query<{ id: string }>(`SELECT id FROM property.buildings ORDER BY created_at LIMIT 1`)).rows[0]?.id
+    if (b) return b
+    const name = (await client.query<{ name: string }>(`SELECT name FROM identity.tenants WHERE id = $1`, [tenantId])).rows[0]?.name ?? 'ساختمان'
+    return (await client.query<{ id: string }>(`INSERT INTO property.buildings (tenant_id, name) VALUES ($1, $2) RETURNING id`, [tenantId, name])).rows[0].id
+  }
+
   async template(): Promise<Buffer> {
     const wb = new ExcelJS.Workbook()
     const ws = wb.addWorksheet('ساکنین', { views: [{ rightToLeft: true }] })
     ws.addRow([...IMPORT_COLUMNS])
-    ws.addRow(['1204', 'رضا کریمی', '09123456789', '', 'مستأجر', '1405/07/01', '1406/06/31', 'مستأجر'])
+    ws.addRow(['1204', 'رضا کریمی', '09123456789', '', 'مستأجر', '1405/07/01', '1406/06/31', 'مستأجر', '250'])
+    ws.addRow(['1205', '', '', '', '', '', '', '', '340']) // فقط متراژ: واحد را می‌سازد/متراژ را ثبت می‌کند
     ws.getRow(1).font = { bold: true }
     ws.columns.forEach((c) => (c.width = 18))
+    const help = wb.addWorksheet('راهنما', { views: [{ rightToLeft: true }] })
+    ;[
+      ['ستون «متراژ واحد» اختیاری است و آفرهای رایگان خدمات هر واحد از روی همین متراژ تعیین می‌شود.'],
+      ['ردیفی که فقط «واحد» و «متراژ» دارد (بدون نام و موبایل) واحد را می‌سازد (اگر نبود) و متراژش را ثبت می‌کند.'],
+      ['اگر متراژ ردیف با متراژ فعلی واحد فرق داشته باشد، متراژ جدید جایگزین می‌شود.'],
+    ].forEach((r) => help.addRow(r))
+    help.getColumn(1).width = 110
     return Buffer.from(await wb.xlsx.writeBuffer())
   }
 
@@ -155,10 +171,34 @@ export class JoinService {
       const errors: { row: number; reason: string; text: string }[] = []
       const seenPhones = new Map<string, string>()
       let created = 0
+      let unitsSet = 0
+      let building: string | undefined
       for (const { row, cells } of rows) {
-        const [unitNo, name, phoneRaw, nid, resLabel, start, end, payer] = cells.map((c) => toLatinDigits(String(c ?? '').trim()))
+        const [unitNo, name, phoneRaw, nid, resLabel, start, end, payer, areaRaw] = cells.map((c) => toLatinDigits(String(c ?? '').trim()))
         const fail = (reason: string) => errors.push({ row, reason, text: `ردیف ${fa(row)} · ${reason}` })
-        if (!unitNo && !name && !phoneRaw) continue // ردیف خالی
+        if (!unitNo && !name && !phoneRaw && !areaRaw) continue // ردیف خالی
+        const areaVal = areaRaw ? Number(areaRaw.replace(/٫/g, '.').replace(/[,٬]/g, '')) : null
+        if (areaVal !== null && (!Number.isFinite(areaVal) || areaVal < 1 || areaVal > 5000)) { fail(`متراژ «${areaRaw}» نامعتبر است (عدد بین ۱ تا ۵۰۰۰)`); continue }
+
+        // ردیفِ «فقط متراژ»: بدون ساکن؛ واحد را می‌سازد (اگر نبود) و متراژ را ثبت می‌کند
+        if (unitNo && !name && !phoneRaw && areaVal !== null) {
+          if (!/^[0-9A-Za-z-]{1,10}$/.test(unitNo)) { fail(`شماره‌ی واحد «${unitNo}» نامعتبر است`); continue }
+          const existing = units.get(unitNo)
+          if (existing) {
+            await client.query(`UPDATE property.units SET area_sqm = $2 WHERE id = $1`, [existing, areaVal])
+          } else {
+            building ??= await this.ensureBuilding(client, tenantId)
+            const floor = /^\d{3,}$/.test(unitNo) ? parseInt(unitNo.slice(0, -2), 10) : null
+            const ins = await client.query<{ id: string }>(
+              `INSERT INTO property.units (tenant_id, building_id, unit_number, floor, area_sqm) VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+              [tenantId, building, unitNo, floor, areaVal],
+            )
+            units.set(unitNo, ins.rows[0].id)
+          }
+          unitsSet++
+          continue
+        }
+
         const unitId = units.get(unitNo)
         if (!unitId) { fail(`واحد ${fa(unitNo || '؟')} وجود ندارد`); continue }
         if (!name) { fail('نام خالی است'); continue }
@@ -190,6 +230,7 @@ export class JoinService {
           const out = await this.manager.addResidentTx(client, tenantId, unitId, dto, ctx, 'excel')
           await client.query('RELEASE SAVEPOINT import_row')
           this.manager.afterInvite(tenantId, out)
+          if (areaVal !== null) await client.query(`UPDATE property.units SET area_sqm = $2 WHERE id = $1`, [unitId, areaVal])
           seenPhones.set(phone, unitNo)
           created++
         } catch (e) {
@@ -202,9 +243,10 @@ export class JoinService {
         summary: `ورود گروهی ${file.originalname}: ${created} از ${total} ثبت شد`,
         file: file.originalname,
         created,
+        units_set: unitsSet,
         errors,
       })
-      return { file: file.originalname, total, created, errors }
+      return { file: file.originalname, total: total + unitsSet, created, units_set: unitsSet, errors }
     })
   }
 

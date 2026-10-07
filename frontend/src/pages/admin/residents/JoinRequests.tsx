@@ -128,7 +128,7 @@ function ImportCard({ r }: { r: ImportResult }) {
           {r.file}
         </p>
         <span className="text-xs font-bold text-[var(--hm-ok)]">
-          {fa(r.created)} از {fa(r.total)} ثبت شد
+          {fa(r.created)} ساکن ثبت شد{r.units_set ? ` · متراژ ${fa(r.units_set)} واحد` : ''}
         </span>
       </div>
       {r.errors.length > 0 && (
@@ -159,7 +159,7 @@ function ImportPanel({ buildingId, toast }: { buildingId: string; toast: (m: str
     try {
       const r = await residentsApi.importFile(buildingId, file)
       setResult(r)
-      toast(`${fa(r.created)} از ${fa(r.total)} ثبت شد`)
+      toast(`${fa(r.created)} ساکن ثبت شد${r.units_set ? ` · متراژ ${fa(r.units_set)} واحد ثبت شد` : ''}${r.errors.length ? ` · ${fa(r.errors.length)} خطا` : ''}`)
     } catch (e) {
       toast(errText(e))
     } finally {
@@ -172,7 +172,7 @@ function ImportPanel({ buildingId, toast }: { buildingId: string; toast: (m: str
       <div className="hm-card p-4 flex flex-col gap-2" style={{ borderRadius: 24 }}>
         <p className="text-sm font-bold">ورود گروهی از اکسل</p>
         <p className="text-xs leading-6 text-[var(--hm-t2)]">
-          برای راه‌اندازی اولیه؛ قالب آماده دارد. هر ردیف جداگانه بررسی می‌شود و ردیف‌های خطادار با دلیل برمی‌گردند. برای هر ساکن پیامک دعوت ارسال می‌شود.
+          برای راه‌اندازی اولیه؛ قالب آماده دارد. ستون «متراژ واحد» (اختیاری) متراژ واحد را ثبت می‌کند و آفرهای خدمات از روی آن تعیین می‌شود؛ ردیفی که فقط واحد و متراژ دارد، خودِ واحد را هم می‌سازد. هر ردیف جداگانه بررسی می‌شود و ردیف‌های خطادار با دلیل برمی‌گردند. برای هر ساکن پیامک دعوت ارسال می‌شود.
         </p>
         <div className="flex gap-2 mt-1">
           <button

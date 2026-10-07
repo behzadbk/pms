@@ -90,6 +90,8 @@ export interface ImportResult {
   file: string
   total: number
   created: number
+  /** ردیف‌های «فقط متراژ» که واحد را ساخته یا متراژش را ثبت کرده‌اند */
+  units_set?: number
   errors: { row: number; reason: string; text: string }[]
 }
 
@@ -334,8 +336,9 @@ export const residentsApi = {
 
   // ── واحدها، حذف ساکن، قوانین برج ──
   createUnit: (buildingId: string, body: UnitSpecs & { unit_number: string }) => api.post<{ id: string; no: string }>(`${I}/buildings/${buildingId}/units`, body),
-  bulkUnits: (buildingId: string, body: { floors: number; units_per_floor: number; start_floor?: number; area?: number }) =>
-    api.post<{ created: number; skipped: number; total: number }>(`${I}/buildings/${buildingId}/units/bulk`, body),
+  /** areas[i] = متراژ واحد (i+1)ام هر طبقه؛ null = خالی (از area یکسان استفاده می‌شود) */
+  bulkUnits: (buildingId: string, body: { floors: number; units_per_floor: number; start_floor?: number; area?: number; areas?: (number | null)[] }) =>
+    api.post<{ created: number; skipped: number; total: number; area_filled: number }>(`${I}/buildings/${buildingId}/units/bulk`, body),
   updateUnit: (id: string, body: UnitSpecs) => api.patch<{ id: string; no: string }>(sc(`${I}/units/${id}`), body),
   deleteUnit: (id: string) => api.delete<{ ok: boolean }>(sc(`${I}/units/${id}`)),
   /** حذف ساکن = پایان عضویت با ردپا؛ پرونده‌ی تازه‌ی واحد برمی‌گردد */

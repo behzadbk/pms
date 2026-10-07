@@ -22,14 +22,31 @@ export function normalizeUnitNumber(raw: string): string {
     .replace(/\s+/g, '')
 }
 
-/** شماره‌گذاری گروهی: طبقه f، واحد i → f*100+i (۱۰۱، ۱۰۲، …، ۱۲۰۳). تا ۹۹ واحد در طبقه یکتاست. */
-export function bulkNumbers(floors: number, perFloor: number, startFloor: number): { unit_number: string; floor: number }[] {
-  const out: { unit_number: string; floor: number }[] = []
+/**
+ * شماره‌گذاری گروهی: طبقه f، واحد i → f*100+i (۱۰۱، ۱۰۲، …، ۱۲۰۳). تا ۹۹ واحد در طبقه یکتاست.
+ * `pos` جایگاه واحد در طبقه (از ۱) است؛ متراژ هر جایگاه در همه‌ی طبقات یکی است (پلان تیپ).
+ */
+export function bulkNumbers(floors: number, perFloor: number, startFloor: number): { unit_number: string; floor: number; pos: number }[] {
+  const out: { unit_number: string; floor: number; pos: number }[] = []
   for (let f = 0; f < floors; f++) {
     const floor = startFloor + f
-    for (let i = 1; i <= perFloor; i++) out.push({ unit_number: String(floor * 100 + i), floor })
+    for (let i = 1; i <= perFloor; i++) out.push({ unit_number: String(floor * 100 + i), floor, pos: i })
   }
   return out
+}
+
+/**
+ * متراژ هر ردیف ساخت گروهی: اول متراژ جایگاه (`areas[pos-1]`)، بعد متراژ یکسان `fallback`، وگرنه null.
+ * مقدار نامعتبر (غیرعدد، کمتر از ۱ یا بیشتر از ۵۰۰۰) خطای ۴۰۰ با شماره‌ی جایگاه است، نه نادیده‌گرفتن بی‌صدا.
+ */
+export function areasForRows(rows: { pos: number }[], areas: (number | null)[] | undefined, fallback: number | undefined): (number | null)[] {
+  const byPos = (areas ?? []).map((a, i) => {
+    if (a === null || a === undefined) return null
+    const n = Number(a)
+    if (!Number.isFinite(n) || n < 1 || n > 5000) throw new BadRequestException(`متراژ واحد ${fa(i + 1)} هر طبقه نامعتبر است (عدد بین ۱ تا ۵۰۰۰)`)
+    return Math.round(n * 100) / 100
+  })
+  return rows.map((r) => byPos[r.pos - 1] ?? fallback ?? null)
 }
 
 const RESTRICTABLE_LABEL: Record<(typeof RESTRICTABLE_MODULES)[number], { t: string; d: string }> = {
@@ -64,21 +81,31 @@ export class TowerService {
   async bulkCreate(tenantId: string, dto: BulkUnitsDto, ctx: RequestCtx) {
     const rows = bulkNumbers(dto.floors, dto.units_per_floor, dto.start_floor ?? 1)
     if (rows.length > MAX_BULK) throw new BadRequestException(`در هر بار حداکثر ${fa(MAX_BULK)} واحد ساخته می‌شود`)
+    if ((dto.areas?.length ?? 0) > dto.units_per_floor) throw new BadRequestException('تعداد متراژها از تعداد واحد در هر طبقه بیشتر است')
+    const areas = areasForRows(rows, dto.areas, dto.area)
     return this.db.withTenant(tenantId, async (client) => {
       const res = await client.query<{ unit_number: string }>(
         `INSERT INTO property.units (tenant_id, unit_number, floor, area_sqm)
-         SELECT $1::uuid, n, f, $4::numeric FROM unnest($2::text[], $3::int[]) AS t(n, f)
+         SELECT $1::uuid, n, f, a FROM unnest($2::text[], $3::int[], $4::numeric[]) AS t(n, f, a)
          ON CONFLICT (tenant_id, unit_number) DO NOTHING
          RETURNING unit_number`,
-        [tenantId, rows.map((r) => r.unit_number), rows.map((r) => r.floor), dto.area ?? null],
+        [tenantId, rows.map((r) => r.unit_number), rows.map((r) => r.floor), areas],
       )
       const created = res.rowCount ?? 0
       const skipped = rows.length - created
+      // واحدی که از قبل بوده و متراژ نداشته، با اجرای دوباره متراژ می‌گیرد (متراژ ثبت‌شده هرگز بازنویسی نمی‌شود)
+      const filled = await client.query(
+        `UPDATE property.units u SET area_sqm = t.a
+           FROM unnest($2::text[], $3::numeric[]) AS t(n, a)
+          WHERE u.tenant_id = $1 AND u.unit_number = t.n AND u.area_sqm IS NULL AND t.a IS NOT NULL`,
+        [tenantId, rows.map((r) => r.unit_number), areas],
+      )
+      const areaFilled = filled.rowCount ?? 0 // فقط واحدهای قبلیِ بدون متراژ؛ ردیف‌های تازه‌ساخته‌شده متراژ خود را دارند
       await writeAudit(client, tenantId, ctx, 'unit.bulk_created', {
         summary: `${created} واحد به‌صورت گروهی ساخته شد (${dto.floors} طبقه × ${dto.units_per_floor} واحد)${skipped ? `؛ ${skipped} شماره‌ی تکراری رد شد` : ''}`,
         created, skipped,
       })
-      return { created, skipped, total: rows.length }
+      return { created, skipped, total: rows.length, area_filled: areaFilled }
     })
   }
 

@@ -8,7 +8,7 @@
  */
 import {
   ClipboardList, ConciergeBell, Coffee, ChefHat, ShieldCheck, Wrench, CalendarRange, Megaphone,
-  UtensilsCrossed, BookOpenText, Gift, type LucideIcon,
+  UtensilsCrossed, BookOpenText, type LucideIcon,
 } from 'lucide-react'
 
 export type StaffPermission = 'lobby' | 'amenity_desk' | 'kitchen' | 'cafe' | 'security' | 'maintenance'
@@ -18,7 +18,7 @@ export const ALL_PERMISSIONS: StaffPermission[] = ['lobby', 'amenity_desk', 'kit
 
 export const permissionInfo: Record<StaffPermission, { label: string; desc: string; icon: LucideIcon }> = {
   lobby: { label: 'پنل لابی (ورودی)', desc: 'پذیرش مهمان و بررسی کد، ثبت و تحویل مرسوله', icon: ConciergeBell },
-  amenity_desk: { label: 'پنل مسئول مشاعات', desc: 'تعریف مشاعات و تایم‌تیبل، تایید/رد رزروها، ثبت دستی', icon: CalendarRange },
+  amenity_desk: { label: 'پنل مسئول مشاعات', desc: 'تعریف مشاعات و تایم‌تیبل، تایید/رد رزروها، اسکن بلیت مهمان استخر و ثبت مصرف خدمات واحدها', icon: CalendarRange },
   kitchen: { label: 'آشپزخانه / رستوران', desc: 'دریافت سفارش رستوران و مدیریت منوی رستوران', icon: ChefHat },
   cafe: { label: 'کافی‌شاپ', desc: 'دریافت سفارش کافی‌شاپ و مدیریت منوی کافی‌شاپ', icon: Coffee },
   security: { label: 'نگهبانی', desc: 'کنترل مهمان، مرسولات و تردد خودرو', icon: ShieldCheck },
@@ -64,7 +64,6 @@ export interface StaffNavItem {
 export const staffNavItems: StaffNavItem[] = [
   { to: '/staff/lobby', label: 'میز لابی', icon: ConciergeBell, permission: 'lobby' },
   { to: '/staff/amenity-desk', label: 'مشاعات', icon: CalendarRange, permission: 'amenity_desk' },
-  { to: '/staff/entitlements', label: 'خدمات واحدها', icon: Gift, permission: 'amenity_desk' },
   { to: '/staff/kitchen', label: 'سفارش‌های رستوران', icon: ChefHat, permission: 'kitchen' },
   { to: '/staff/menu/restaurant', label: 'منوی رستوران', icon: UtensilsCrossed, permission: 'kitchen' },
   { to: '/staff/cafe', label: 'سفارش‌های کافی‌شاپ', icon: Coffee, permission: 'cafe' },

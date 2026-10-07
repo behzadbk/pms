@@ -1,5 +1,7 @@
 import { Type } from 'class-transformer'
 import {
+  ArrayMaxSize,
+  IsArray,
   IsBoolean,
   IsIn,
   IsInt,
@@ -102,7 +104,13 @@ export class BulkUnitsDto {
   @Type(() => Number) @IsInt() @Min(1, { message: 'تعداد طبقات حداقل ۱ است' }) @Max(80) floors: number
   @Type(() => Number) @IsInt() @Min(1, { message: 'تعداد واحد در هر طبقه حداقل ۱ است' }) @Max(30) units_per_floor: number
   @IsOptional() @Type(() => Number) @IsInt() @Min(0) @Max(150) start_floor?: number
+  /** متراژ یکسان برای همه‌ی واحدها (اگر `areas` نباشد) */
   @IsOptional() @Type(() => Number) @Min(1) @Max(5000) area?: number
+  /**
+   * متراژ به‌ترتیب جایگاه واحد در طبقه: areas[0] = واحد ۱ هر طبقه (۱۰۱، ۲۰۱، …)، areas[1] = واحد ۲ و …
+   * خانه‌ی خالی = null (از `area` استفاده می‌شود). مقدارها در سرویس بررسی می‌شوند (۱ تا ۵۰۰۰).
+   */
+  @IsOptional() @IsArray() @ArrayMaxSize(30) areas?: (number | null)[]
 }
 
 export class BuildingRulesDto {
