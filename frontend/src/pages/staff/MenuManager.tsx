@@ -85,7 +85,6 @@ export function StaffMenuManager({ venue: kind }: { venue: VenueKey }) {
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
           <h1 className="text-xl font-bold">منوی {title}</h1>
-          <p className="text-muted text-sm mt-1">دسته‌ها، آیتم‌ها، عکس و قیمت، ناموجود کردن، غذای روز و مناطق تحویل</p>
         </div>
         <GhostButton onClick={() => setCreating(true)}><Plus size={15} /> {title} جدید</GhostButton>
       </div>

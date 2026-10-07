@@ -11,7 +11,6 @@ export function AccountantDashboard() {
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
           <h1 className="text-xl font-bold">داشبورد حسابداری</h1>
-          <p className="text-muted text-sm mt-1">صندوق ساختمان، وصول شارژ و فاکتورهای هزینه</p>
         </div>
         <div className="flex gap-2">
           <Link to="/accountant/charges" className="flex items-center gap-2 border border-line px-4 py-2.5 rounded-xl text-sm font-medium hover:border-ink-soft">

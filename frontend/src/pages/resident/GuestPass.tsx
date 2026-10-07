@@ -93,7 +93,6 @@ export function ResidentGuestPass() {
     <div className="space-y-6">
       <div>
         <h1 className="text-xl font-bold">صدور کد مهمان</h1>
-        <p className="text-muted text-sm mt-1">برای مهمانان خود یک کد ورود صادر کنید؛ نگهبان با اسکن یا ورود کد، ورودشان را ثبت می‌کند و به شما اطلاع می‌رسد</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">

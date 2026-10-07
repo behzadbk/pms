@@ -9,6 +9,7 @@ import { DatabaseService } from '../database/database.service'
 import { CurrentUser, JwtPayload } from '../auth/decorators/current-user.decorator'
 import { Roles } from '../auth/decorators/roles.decorator'
 import { unitOfResident } from './debtor-lock'
+import { normalizeSplit } from './gender'
 
 interface UpsertRuleBody {
   maxBookingsPerUnitPerPeriod: number
@@ -30,6 +31,9 @@ export class AmenityDto {
   @IsOptional() @IsInt() @Min(1) @Max(12) max_hours?: number
   @IsOptional() @IsInt() @Min(1) @Max(90) max_advance_days?: number
   @IsOptional() @IsBoolean() is_active?: boolean
+  @IsOptional() @IsBoolean() private_enabled?: boolean
+  @IsOptional() @IsString() @MaxLength(1500) private_rules?: string
+  @IsOptional() gender_split?: unknown
 }
 export class AmenityPatchDto {
   @IsOptional() @IsString() @MinLength(2) @MaxLength(60) name?: string
@@ -41,6 +45,9 @@ export class AmenityPatchDto {
   @IsOptional() @IsInt() @Min(1) @Max(12) max_hours?: number
   @IsOptional() @IsInt() @Min(1) @Max(90) max_advance_days?: number
   @IsOptional() @IsBoolean() is_active?: boolean
+  @IsOptional() @IsBoolean() private_enabled?: boolean
+  @IsOptional() @IsString() @MaxLength(1500) private_rules?: string
+  @IsOptional() gender_split?: unknown
 }
 class DayDto {
   @IsInt() @Min(0) @Max(6) weekday: number
@@ -131,10 +138,11 @@ export class AmenitiesController {
       const dup = await client.query(`SELECT 1 FROM facility.amenities WHERE is_active AND lower(name) = lower($1)`, [dto.name.trim()])
       if (dup.rowCount) throw new BadRequestException('مشاعی با این نام وجود دارد')
       const a = (await client.query(
-        `INSERT INTO facility.amenities (tenant_id, name, type, icon, description, rule_text, capacity, requires_approval, max_hours, max_advance_days, is_active)
-         VALUES ($1,$2,'other',$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *, requires_approval AS needs_approval`,
+        `INSERT INTO facility.amenities (tenant_id, name, type, icon, description, rule_text, capacity, requires_approval, max_hours, max_advance_days, is_active, private_enabled, private_rules, gender_split)
+         VALUES ($1,$2,'other',$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *, requires_approval AS needs_approval`,
         [tenantId, dto.name.trim(), dto.icon ?? 'groups', dto.description ?? null, dto.rule_text ?? null, dto.capacity ?? null,
-          dto.requires_approval ?? true, dto.max_hours ?? 2, dto.max_advance_days ?? 14, dto.is_active ?? true])).rows[0]
+          dto.requires_approval ?? true, dto.max_hours ?? 2, dto.max_advance_days ?? 14, dto.is_active ?? true,
+          dto.private_enabled ?? false, dto.private_rules?.trim() || null, normalizeSplit(dto.gender_split)])).rows[0]
       await this.audit(client, tenantId, user, 'amenity.created', { summary: `مشاع «${a.name}» تعریف شد`, amenity_id: a.id })
       return a
     })
@@ -144,9 +152,14 @@ export class AmenitiesController {
   @Patch(':id')
   async update(@CurrentUser() user: JwtPayload, @Param('id', ParseUUIDPipe) id: string, @Body() dto: AmenityPatchDto) {
     needDesk(user)
-    const cols = ['name', 'icon', 'description', 'rule_text', 'capacity', 'requires_approval', 'max_hours', 'max_advance_days', 'is_active'] as const
+    const cols = ['name', 'icon', 'description', 'rule_text', 'capacity', 'requires_approval', 'max_hours', 'max_advance_days', 'is_active', 'private_enabled', 'private_rules'] as const
     const sets: string[] = []
     const vals: unknown[] = []
+    if (dto.gender_split !== undefined) {
+      const sp = normalizeSplit(dto.gender_split)
+      vals.push(sp ? JSON.stringify(sp) : null)
+      sets.push(`gender_split = $${vals.length}::jsonb`)
+    }
     for (const c of cols) {
       if ((dto as Record<string, unknown>)[c] !== undefined) {
         vals.push((dto as Record<string, unknown>)[c])

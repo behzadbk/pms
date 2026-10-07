@@ -254,9 +254,11 @@ export interface Amenity {
   max_advance_days?: number
   /** مشاعِ بسته برای واحد بدهکار */
   locked?: boolean
+  private_enabled?: boolean
+  private_rules?: string | null
 }
 export interface SlotLock { code: 'debtor_restricted'; overdue_days: number; message: string }
-export interface Slot { hour: number; label: string; start: string; end: string; status: 'free' | 'taken' | 'past' }
+export interface Slot { hour: number; label: string; start: string; end: string; status: 'free' | 'taken' | 'past'; gender?: 'women' | 'men' | null }
 export interface ReservationRow {
   id: string
   status: 'pending' | 'confirmed' | 'rejected' | 'cancelled'
@@ -403,7 +405,7 @@ export const residentsApi = {
   // ── رزرو مشاعات ──
   amenities: () => api.get<Amenity[]>(`${F}/amenities`),
   slots: (amenityId: string, date: string) => api.get<{ amenity: Amenity; date: string; closed: string | null; lock?: SlotLock | null; slots: Slot[] }>(`${F}/amenities/${amenityId}/slots${qs({ date })}`),
-  book: (body: { amenity_id: string; start: string; hours?: number; unit_id?: string }) =>
+  book: (body: { amenity_id: string; start: string; hours?: number; unit_id?: string; private?: boolean }) =>
     api.post<{ id: string; status: 'pending' | 'confirmed' | 'pending_parent'; amenity: string; start_at: string; end_at: string }>(`${F}/reservations`, body),
   myReservations: () => api.get<ReservationRow[]>(`${F}/me/reservations`),
   reservationQueue: (status = 'pending') => api.get<ReservationRow[]>(`${F}/reservations${qs({ status })}`),

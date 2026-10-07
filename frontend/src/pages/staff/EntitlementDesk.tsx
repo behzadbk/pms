@@ -326,7 +326,6 @@ export function EntitlementDesk() {
     <div className="space-y-5">
       <div>
         <h1 className="text-xl font-bold">میز خدمات واحدها</h1>
-        <p className="text-muted text-sm mt-1">اسکن بلیت مهمان استخر و ثبت مصرف خدمات (کارواش، نظافت، بولینگ و …) — مازاد بر سهمیه خودکار به شارژ ماه بعد می‌رود</p>
       </div>
       <div className="flex gap-1.5 bg-canvas rounded-xl p-1 w-fit max-w-full">
         {tabBtn('scan', 'اسکن بلیت', QrCode)}

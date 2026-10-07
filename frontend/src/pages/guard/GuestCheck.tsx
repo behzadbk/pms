@@ -82,7 +82,6 @@ export function GuardGuestCheck() {
     <div className="space-y-6">
       <div>
         <h1 className="text-xl font-bold">پنل فوق‌ساده نگهبانی</h1>
-        <p className="text-muted text-sm mt-1">تایید ورود مهمان با یک کلیک — با کد QR یا جستجوی پلاک</p>
       </div>
 
       <div className="flex gap-1.5 bg-canvas rounded-xl p-1 w-fit max-w-full">

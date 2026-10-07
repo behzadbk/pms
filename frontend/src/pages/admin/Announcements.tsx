@@ -50,7 +50,6 @@ export function AdminAnnouncements() {
   return (
     <div className="max-w-6xl mx-auto flex flex-col gap-4 hm-fade-in">
       <PageTitle kicker="مدیریت" title="اعلانات و رأی‌گیری" />
-      <p className="text-sm text-[var(--hm-t2)] -mt-2 leading-7">تابلوی اعلانات و نظرسنجی‌های ساختمان — پس از انتشار برای مخاطبان اعلان (و Push) ارسال می‌شود.</p>
       <div className="flex items-center gap-2 flex-wrap">
         <Seg<Tab> className="flex-1 min-w-[240px]" options={[['all', 'همه'], ['announcement', 'اعلان‌ها'], ['poll', 'نظرسنجی‌ها']]} value={tab} onChange={setTab} />
         <button className="hm-chip !min-h-[44px] inline-flex items-center gap-1.5" onClick={() => setComposer('poll')}>

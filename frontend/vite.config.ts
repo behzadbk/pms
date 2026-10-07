@@ -37,7 +37,7 @@ const apiProxy = Object.fromEntries(
 const buildId = `${new Date().toISOString().slice(0, 16).replace('T', ' ')}${process.env.VITE_BUILD_SHA ? ' · ' + String(process.env.VITE_BUILD_SHA).slice(0, 7) : ''}`
 
 export default defineConfig(({ mode }) => ({
-  define: { __BUILD_ID__: JSON.stringify(buildId) },
+  define: { __BUILD_ID__: JSON.stringify(buildId), __APP_VERSION__: JSON.stringify(process.env.npm_package_version ?? '1.0.0') },
   plugins: [
     react(),
     tailwindcss(),

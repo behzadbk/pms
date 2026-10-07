@@ -247,7 +247,6 @@ export function AdminEntitlements() {
     <div className="space-y-5">
       <div>
         <h1 className="text-xl font-bold">آفرها و خدمات واحدها</h1>
-        <p className="text-muted text-sm mt-1">سهمیه‌ی رایگان بر اساس متراژ هر واحد؛ مصرف مازاد به شارژ ماه بعد اضافه می‌شود</p>
       </div>
 
       {empty ? (

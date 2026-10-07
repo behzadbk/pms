@@ -46,7 +46,6 @@ export function GuardDashboard() {
     <div className="space-y-6">
       <div>
         <h1 className="text-xl font-bold">داشبورد نگهبانی</h1>
-        <p className="text-muted text-sm mt-1">وضعیت امروز درب اصلی — هر ۱۰ ثانیه به‌روز می‌شود</p>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

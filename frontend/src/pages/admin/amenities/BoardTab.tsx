@@ -95,9 +95,9 @@ export function BoardTab({ toast, onChanged }: { toast: (m: string) => void; onC
                       const past = h <= nowHour || date < today
                       if (r) {
                         return (
-                          <button key={h} onClick={() => setDetail({ a, r })} className={`min-h-[52px] rounded-2xl px-2 text-center ${r.status === 'pending' ? 'hm-tone-warn' : 'hm-tone-ok'}`}>
+                          <button key={h} onClick={() => setDetail({ a, r })} className={`min-h-[56px] rounded-2xl px-3 py-2 text-center ${r.status === 'pending' ? 'hm-tone-warn' : 'hm-tone-ok'}`}>
                             <span className="block text-sm font-bold">{hourLabel(h)}</span>
-                            <span className="block text-[11px] opacity-90">واحد {fa(r.unit_no ?? '—')}</span>
+                            <span className="block text-[11px] opacity-90 mt-0.5 whitespace-nowrap">واحد {fa(r.unit_no ?? '—')}</span>
                           </button>
                         )
                       }

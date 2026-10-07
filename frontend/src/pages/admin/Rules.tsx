@@ -107,7 +107,6 @@ function TowerRules() {
       </div>
 
       <p className="text-sm font-bold">محدودیت واحد بدهکار</p>
-      <p className="-mt-2 text-xs leading-6 text-[var(--hm-t2)]">برای هر بخش یا مشاع انتخاب کنید که واحد بدهکار بتواند استفاده کند یا نه.</p>
 
       <div className="hm-card px-4 py-1 hm-divided">
         {(data.modules ?? []).map((m) => (

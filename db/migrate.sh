@@ -63,6 +63,7 @@ MIGRATIONS=(
   "backend/finance-service/prisma/migrations/003_settings_compat_and_import.sql"
   "backend/facility-service/prisma/migrations/004_maintenance.sql"
   "backend/facility-service/prisma/migrations/005_entitlements.sql"
+  "backend/facility-service/prisma/migrations/006_private_booking.sql"
   "db/migrations/901_rls_assertion_all_schemas.sql"
 )
 

@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ArrowRight, CalendarOff, Plus, Trash2 } from 'lucide-react'
-import { amenitiesApi, type Closure, type ManagedAmenity } from '../../../lib/api/amenities'
+import { amenitiesApi, type Closure, type GenderSplit, type ManagedAmenity } from '../../../lib/api/amenities'
 import { errText, fa } from '../../../lib/api/residents'
 import { AMENITY_ICONS, amenityIcon } from '../../../lib/amenityIcons'
 import { formatJalali, parseDateInput } from '../../../lib/jalali'
 import { addDays, tehranToday } from '../../../lib/tehran'
-import { Badge, Cta, EmptyState, FieldCard, IconTile, Sheet, Toggle } from '../../../components/hm'
+import { Badge, Cta, EmptyState, FieldCard, IconTile, Seg, Sheet, Toggle } from '../../../components/hm'
 import { ScheduleEditor } from './ScheduleEditor'
+import { GenderSplitEditor } from './GenderSplitEditor'
 import { Section, Stepper } from './parts'
 
 const DEFAULT_SCHEDULE = () => Array.from({ length: 7 }, () => [16, 17, 18, 19, 20, 21])
@@ -21,8 +22,11 @@ interface Draft {
   max_hours: number
   max_advance_days: number
   is_active: boolean
+  private_enabled: boolean
+  private_rules: string
+  gender_split: GenderSplit | null
 }
-const emptyDraft = (): Draft => ({ name: '', icon: 'groups', description: '', rule_text: '', capacity: '', requires_approval: true, max_hours: 2, max_advance_days: 14, is_active: true })
+const emptyDraft = (): Draft => ({ name: '', icon: 'groups', description: '', rule_text: '', capacity: '', requires_approval: true, max_hours: 2, max_advance_days: 14, is_active: true, private_enabled: false, private_rules: '', gender_split: null })
 const toDraft = (a: ManagedAmenity): Draft => ({
   name: a.name,
   icon: a.icon ?? 'groups',
@@ -33,6 +37,9 @@ const toDraft = (a: ManagedAmenity): Draft => ({
   max_hours: a.max_hours,
   max_advance_days: a.max_advance_days,
   is_active: a.is_active,
+  private_enabled: a.private_enabled ?? false,
+  private_rules: a.private_rules ?? '',
+  gender_split: a.gender_split ?? null,
 })
 
 /** تعریف مشاعات و تایم‌تیبل — لیست + ویرایشگر (دسکتاپ: کنار هم، موبایل: صفحه‌ی جدا) */
@@ -52,7 +59,7 @@ export function SetupTab({ amenities, closures, toast, onChanged }: { amenities:
         <button className="lg4-capsule min-h-[48px] inline-flex items-center justify-center gap-2 text-sm font-bold" onClick={() => setSel('new')}>
           <Plus size={18} /> تعریف مشاع جدید
         </button>
-        {amenities.length === 0 && <EmptyState icon={Plus} tone="pri" title="هنوز مشاعی تعریف نشده" sub="اولین مشاع (استخر، سالن، باشگاه…) را بسازید و ساعت‌هایش را تعیین کنید." />}
+        {amenities.length === 0 && <EmptyState icon={Plus} tone="pri" title="هنوز مشاعی تعریف نشده" />}
         {amenities.map((a) => {
           const Icon = amenityIcon(a.icon)
           return (
@@ -72,7 +79,6 @@ export function SetupTab({ amenities, closures, toast, onChanged }: { amenities:
           <IconTile icon={CalendarOff} tone="mute" />
           <div className="flex-1">
             <p className="font-bold text-sm">تعطیلی همه‌ی مشاعات</p>
-            <p className="text-xs text-[var(--hm-t2)] mt-0.5">مثلاً تعطیلات رسمی یا مراسم ساختمان</p>
           </div>
         </button>
       </div>
@@ -134,6 +140,9 @@ function Editor({ amenity, closures, toast, onBack, onSaved }: { amenity: Manage
         max_hours: d.max_hours,
         max_advance_days: d.max_advance_days,
         is_active: d.is_active,
+        private_enabled: d.private_enabled,
+        private_rules: d.private_rules.trim(),
+        gender_split: d.gender_split,
       }
       const saved = amenity ? await amenitiesApi.update(amenity.id, body) : await amenitiesApi.create(body)
       await amenitiesApi.setSchedule(saved.id, sched.map((hours, weekday) => ({ weekday, hours })))
@@ -197,9 +206,23 @@ function Editor({ amenity, closures, toast, onBack, onSaved }: { amenity: Manage
         </div>
       </Section>
 
+      <Section title="نوع مشاع">
+        <Seg<'general' | 'private'> options={[['general', 'عمومی'], ['private', 'رزرو خصوصی']]} value={d.private_enabled ? 'private' : 'general'} onChange={(v) => set('private_enabled', v === 'private')} />
+        {d.private_enabled && (
+          <label className="hm-card block px-4 py-2">
+            <span className="block text-xs text-[var(--hm-t2)]">قوانین رزرو خصوصی</span>
+            <textarea className="hm-input mt-0.5 min-h-[96px] resize-none" value={d.private_rules} onChange={(e) => set('private_rules', e.target.value)} maxLength={1500} />
+          </label>
+        )}
+      </Section>
+
+      <Section title="تفکیک بانوان و آقایان">
+        <GenderSplitEditor value={d.gender_split} onChange={(v) => set('gender_split', v)} />
+      </Section>
+
       <Section title="قوانین رزرو">
         <div className="hm-card hm-divided">
-          <Row label="نیاز به تأیید مسئول" hint="خاموش = رزرو بلافاصله قطعی می‌شود">
+          <Row label="نیاز به تأیید مسئول">
             <Toggle on={d.requires_approval} onChange={(v) => set('requires_approval', v)} label="نیاز به تأیید" />
           </Row>
           <Row label="حداکثر مدت هر رزرو">
@@ -208,23 +231,23 @@ function Editor({ amenity, closures, toast, onBack, onSaved }: { amenity: Manage
           <Row label="رزرو تا چند روز جلوتر">
             <Stepper value={d.max_advance_days} min={1} max={90} unit="روز" onChange={(v) => set('max_advance_days', v)} />
           </Row>
-          <Row label="ظرفیت (نفر)" hint="خالی = بدون سقف">
+          <Row label="ظرفیت (نفر)">
             <input className="hm-input !w-24 text-center rounded-xl border border-[var(--hm-hair)] min-h-[40px]" inputMode="numeric" value={d.capacity} onChange={(e) => set('capacity', e.target.value.replace(/\D/g, '').slice(0, 4))} />
           </Row>
           {amenity && (
-            <Row label="فعال برای رزرو" hint="غیرفعال = از دید ساکنان پنهان می‌شود">
+            <Row label="فعال برای رزرو">
               <Toggle on={d.is_active} onChange={(v) => set('is_active', v)} label="فعال" />
             </Row>
           )}
         </div>
       </Section>
 
-      <Section title="تایم‌تیبل هفتگی" hint="ساعت‌هایی که ساکنان می‌توانند رزرو کنند. هر خانه یک ساعت است (مثلاً «۱۷» یعنی ۱۷ تا ۱۸).">
+      <Section title="تایم‌تیبل هفتگی">
         <ScheduleEditor value={sched} onChange={setSched} />
       </Section>
 
       {amenity && (
-        <Section title="تعطیلی‌ها" hint="در این روزها مشاع قابل رزرو نیست (تعمیرات، مراسم، تعطیلات).">
+        <Section title="تعطیلی‌ها">
           <div className="flex flex-col gap-2">
             {mine.length === 0 && <p className="text-sm text-[var(--hm-t2)]">تعطیلی ثبت نشده.</p>}
             {mine.map((c) => (
@@ -280,7 +303,6 @@ function Editor({ amenity, closures, toast, onBack, onSaved }: { amenity: Manage
 
       <Sheet open={confirmDel} onClose={() => setConfirmDel(false)} label="حذف مشاع">
         <p className="text-lg font-bold">حذف «{amenity?.name}»؟</p>
-        <p className="text-sm text-[var(--hm-t2)] leading-7 mt-1">اگر برای این مشاع رزرو ثبت شده باشد، حذف نمی‌شود و فقط غیرفعال می‌شود تا تاریخچه بماند.</p>
         <div className="grid grid-cols-2 gap-2 mt-3">
           <button className="min-h-[48px] rounded-full hm-tone-mute font-bold text-sm" onClick={() => setConfirmDel(false)}>
             انصراف
@@ -294,12 +316,11 @@ function Editor({ amenity, closures, toast, onBack, onSaved }: { amenity: Manage
   )
 }
 
-function Row({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
+function Row({ label, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
     <div className="flex items-center gap-3 px-4 py-3">
       <div className="flex-1 min-w-0">
         <p className="text-sm font-bold">{label}</p>
-        {hint && <p className="text-xs text-[var(--hm-t2)] mt-0.5">{hint}</p>}
       </div>
       {children}
     </div>

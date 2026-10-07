@@ -22,7 +22,6 @@ export function ResidentFinance() {
     <div className="space-y-6">
       <div>
         <h1 className="text-xl font-bold">شفافیت مالی</h1>
-        <p className="text-muted text-sm mt-1">هزینه‌های مشاعات دقیقاً کجا و چقدر خرج شده — و شارژ شما چگونه محاسبه شده است</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">

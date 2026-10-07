@@ -7,7 +7,7 @@ import { Layout } from './components/Layout'
 import { Login } from './pages/Login'
 import { Onboarding, ONBOARDING_SEEN_KEY } from './pages/Onboarding'
 import { Settings } from './pages/shared/Settings'
-import { MoreScreen } from './components/Layout'
+import { MoreScreen, AccountScreen } from './components/Layout'
 import { PermissionsProvider, usePermissions } from './context/PermissionsContext'
 import type { AppModule } from './lib/api/residents'
 import { AdminResidents } from './pages/admin/residents/Residents'
@@ -167,6 +167,7 @@ function AppRoutes() {
         {/* شخصی‌سازی ظاهر — برای هر نقش لاگین‌شده در دسترس است (طراحی Liquid Glass v4) */}
         <Route path="/settings" element={<Settings />} />
         <Route path="/more" element={<MoreScreen />} />
+        <Route path="/account" element={<AccountScreen />} />
 
         <Route path="/admin" element={<RequireRole role="admin"><AdminDashboard /></RequireRole>} />
         {/* شارژ و فاکتور به پنل حسابداری منتقل شد؛ مدیر فقط گزارش می‌بیند */}
