@@ -135,10 +135,10 @@ export function SplashScene({ className, style }: P) {
 
       {/* زمین و درخت */}
       <rect x="0" y="288" width="420" height="12" fill="url(#sp-ground)" />
-      <Tree x={20} y={282} s={1.15} />
+      <Tree x={30} y={282} s={1.1} />
       <Tree x={128} y={284} s={0.9} tone={1} />
       <Tree x={290} y={284} s={0.95} tone={1} />
-      <Tree x={398} y={282} s={1.2} />
+      <Tree x={390} y={282} s={1.1} />
     </svg>
   )
 }
@@ -405,34 +405,35 @@ export function LifeScene({ className }: P) {
 }
 
 /* ───────────────────────── ۵) صفحه‌ی پایانی: شب ───────────────────────── */
-/** آسمان شب: ستاره‌ها و ماه (کل صفحه) */
+/** آسمان شب: گرادیان + ستاره‌ها + ماه، با درصد (روی هر نسبت صفحه درست جا می‌گیرد) */
 export function NightSky({ className, style }: P) {
   const stars = [
-    [40, 70, 1.6], [92, 130, 1.2], [150, 60, 1.8], [214, 110, 1.2], [276, 52, 1.6], [332, 120, 1.4],
-    [380, 70, 1.8], [64, 210, 1.2], [352, 230, 1.2], [118, 270, 1.4], [300, 300, 1.2], [210, 40, 1.2],
-    [30, 340, 1.4], [372, 360, 1.2], [180, 330, 1.6],
+    [6, 8, 2], [15, 15, 1.5], [24, 6, 2.2], [34, 13, 1.5], [44, 5, 2], [53, 14, 1.7],
+    [62, 7, 2.2], [72, 18, 1.5], [82, 5, 1.8], [91, 14, 2], [10, 26, 1.5], [28, 30, 1.7],
+    [47, 27, 1.5], [66, 32, 1.8], [88, 30, 1.5], [95, 40, 1.5], [4, 42, 1.7], [38, 40, 1.5],
   ] as const
   return (
-    <svg viewBox="0 0 420 844" preserveAspectRatio="xMidYMid slice" className={className} style={style} aria-hidden="true">
-      <defs>
-        <linearGradient id="n-sky" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor={mix(INK, 55, 'black')} />
-          <stop offset="0.55" stopColor={mix(T, 30, INK)} />
-          <stop offset="1" stopColor={mix(T, 48, INK)} />
-        </linearGradient>
-        <radialGradient id="n-moon" cx="50%" cy="50%" r="50%">
-          <stop offset="0" stopColor={mix(B, 40)} stopOpacity="0.5" />
-          <stop offset="1" stopColor={mix(B, 40)} stopOpacity="0" />
-        </radialGradient>
-      </defs>
-      <rect width="420" height="844" fill="url(#n-sky)" />
+    <div
+      className={`absolute inset-0 overflow-hidden ${className ?? ''}`}
+      style={{
+        background: `linear-gradient(180deg, ${mix(INK, 55, 'black')} 0%, ${mix(T, 30, INK)} 58%, ${mix(T, 48, INK)} 100%)`,
+        ...style,
+      }}
+      aria-hidden="true"
+    >
       {stars.map(([x, y, r], i) => (
-        <circle key={i} cx={x} cy={y} r={r} fill="white" className="ob-anim ob-twinkle" style={{ animationDelay: `${i * 0.37}s` }} />
+        <span
+          key={i}
+          className="ob-anim ob-twinkle absolute rounded-full bg-white"
+          style={{ left: `${x}%`, top: `${y}%`, width: r * 1.6, height: r * 1.6, animationDelay: `${i * 0.37}s` }}
+        />
       ))}
-      <circle cx="338" cy="196" r="70" fill="url(#n-moon)" />
-      <circle cx="338" cy="196" r="24" fill={mix(B, 35)} />
-      <circle cx="348" cy="190" r="21" fill={mix(INK, 55, 'black')} opacity="0.16" />
-    </svg>
+      <div className="absolute" style={{ right: '12%', top: '10%', width: 56, height: 56 }}>
+        <div className="absolute rounded-full" style={{ inset: -44, background: `radial-gradient(circle, ${mix(B, 40)}88 0%, transparent 70%)` }} />
+        <div className="absolute inset-0 rounded-full" style={{ background: mix(B, 35) }} />
+        <div className="absolute rounded-full" style={{ width: 50, height: 50, left: 14, top: -4, background: mix(INK, 55, 'black'), opacity: 0.2 }} />
+      </div>
+    </div>
   )
 }
 
