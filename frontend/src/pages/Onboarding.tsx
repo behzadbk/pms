@@ -1,251 +1,346 @@
 /**
- * صفحات معرفی (Onboarding) — پیاده‌سازی طراحی «Onboarding - Hamino» (Claude Design).
+ * صفحات معرفی (Onboarding) «همین» — بازطراحی کامل.
  *
- * فلوی اصلی طراحی حفظ شده: اسپلش انیمیشنی (auto-advance) → ۴ اسلاید معرفی → صفحه‌ی
- * پایانی با CTA. رنگ‌ها با هویت بصری فعلی اپ (ink/tile در index.css، نه آبی #2f6bf0
- * فایل طراحی) هماهنگ شدند تا رنگ برند در کل اپ یکدست بماند.
+ * ایده‌ی طراحی: یک «روز در مجتمع». اسپلش سپیده‌دم است، چهار اسلاید با رنگ‌مایه‌ی
+ * متفاوت به‌ترتیب می‌گذرند و صفحه‌ی پایانی شب است؛ یعنی کاربر در طی معرفی، یک
+ * شبانه‌روز زندگی در ساختمان را می‌بیند. همه‌ی تصاویر اختصاصی و SVG هستند
+ * (onboarding/illustrations.tsx) و از توکن‌های رنگ اپ و سیستم شیشه‌ای v4 استفاده می‌کنند.
  *
- * صفحه‌ی ورود با شماره‌موبایل/OTP در فایل طراحی صرفاً یک دموی نمایشی بود (خود کد آن
- * صراحتاً کامنت داشت: «در نسخه کامل، مستقیم وارد پنل می‌شوید») و به هیچ بک‌اندی وصل
- * نبود. به‌جای ساختن یک سیستم احراز هویت جعلی و موازی، دکمه‌ی «شروع کنید» مستقیم به
- * صفحه‌ی ورود واقعی و از قبل متصل به بک‌اند (ایمیل/رمز/subdomain، در Login.tsx) می‌رود.
+ * رفتار:
+ *  - اسپلش خودکار بعد از ۲.۶ ثانیه به اسلاید اول می‌رود (یا با لمس/Enter).
+ *  - جابه‌جایی با دکمه، نقطه‌ها، کشیدن انگشت (RTL: کشیدن به راست = بعدی)، یا کلیدهای جهت‌دار.
+ *  - دکمه‌ی اصلی در ناحیه‌ی شست (پایین صفحه) و تمام‌عرض است.
+ *  - «شروع کنید» مستقیم به صفحه‌ی ورود واقعی (Login.tsx) می‌رود؛ ورود جعلی ساخته نشده است.
  */
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import type { ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { ArrowLeft } from 'lucide-react'
 import {
-  Home, Users, ShieldCheck, Wallet, Wrench, CalendarRange, Bell,
-  Shield, Video, Coffee, TreePine, ArrowLeft,
-} from 'lucide-react'
+  SplashScene, ManageScene, PhoneScene, SecurityScene, LifeScene, NightSky, NightScene,
+} from './onboarding/illustrations'
 
 export const ONBOARDING_SEEN_KEY = 'hamino_onboarding_seen'
 
 interface Slide {
+  eyebrow: string
   title: string
   body: string
-  badges: { Icon: typeof Home; className: string }[]
+  /** درصد رنگ برند در پس‌زمینه؛ هر اسلاید کمی متفاوت است (سیر روز) */
+  tint: number
+  Scene: (p: { className?: string }) => ReactNode
 }
 
 const SLIDES: Slide[] = [
   {
+    eyebrow: 'مدیریت',
     title: 'مدیریت کامل مجتمع',
-    body: 'از امور مالی و شارژ تا خدمات، رزرو امکانات و ارتباط با مدیران، همه در یک پلتفرم.',
-    badges: [
-      { Icon: Home, className: 'top-1 -left-2 w-14 h-14 text-tile' },
-      { Icon: Users, className: 'top-20 -left-6 w-14 h-14 text-tile animate-[ofloat_7s_ease-in-out_infinite] [animation-delay:.6s]' },
-      { Icon: ShieldCheck, className: 'top-36 left-1 w-12 h-12 text-tile animate-[ofloat_6.5s_ease-in-out_infinite] [animation-delay:1.1s]' },
-    ],
+    body: 'امور مالی و شارژ، خدمات، رزرو امکانات و ارتباط با مدیر؛ همه در یک پلتفرم.',
+    tint: 14,
+    Scene: ManageScene,
   },
   {
-    title: 'همه چیز در دسترس شما',
-    body: 'با اپلیکیشن همینو، به‌راحتی درخواست‌ها را ثبت کنید، وضعیت را پیگیری کنید و از آخرین اطلاعیه‌ها باخبر شوید.',
-    badges: [
-      { Icon: Wallet, className: 'top-2 right-0 w-14 h-14 text-tile' },
-      { Icon: Wrench, className: 'top-20 right-2 w-13 h-13 text-tile animate-[ofloat_7s_ease-in-out_infinite] [animation-delay:.7s]' },
-      { Icon: CalendarRange, className: 'top-36 right-0 w-13 h-13 text-tile animate-[ofloat_6.4s_ease-in-out_infinite] [animation-delay:1.2s]' },
-      { Icon: Bell, className: 'top-52 right-1 w-12 h-12 text-tile animate-[ofloat_6.8s_ease-in-out_infinite] [animation-delay:1.6s]' },
-    ],
+    eyebrow: 'دسترسی',
+    title: 'همه‌چیز در دسترس شما',
+    body: 'درخواستتان را ثبت کنید، مرحله‌به‌مرحله پیگیری کنید و از اطلاعیه‌ها باخبر شوید.',
+    tint: 20,
+    Scene: PhoneScene,
   },
   {
+    eyebrow: 'امنیت',
     title: 'امنیت و آرامش بیشتر',
-    body: 'با پنل نگهبانی و سیستم‌های امنیتی، آرامش و امنیت مجتمع شما همیشه در اولویت است.',
-    badges: [
-      { Icon: Shield, className: 'top-0 left-8 w-14 h-14 text-tile' },
-      { Icon: Video, className: 'top-4 right-8 w-14 h-14 text-tile animate-[ofloat_7.2s_ease-in-out_infinite] [animation-delay:.8s]' },
-    ],
+    body: 'پنل نگهبانی، ثبت تردد و کد QR مهمان؛ آرامش مجتمع همیشه در اولویت است.',
+    tint: 26,
+    Scene: SecurityScene,
   },
   {
+    eyebrow: 'زندگی',
     title: 'زندگی بهتر، در کنار هم',
-    body: 'از رستوران و کافی‌شاپ گرفته تا امکانات تفریحی و خدمات رفاهی، همه برای یک زندگی راحت‌تر.',
-    badges: [
-      { Icon: Coffee, className: 'top-6 left-2 w-14 h-14 text-tile' },
-      { Icon: TreePine, className: 'top-24 -left-2 w-13 h-13 text-tile animate-[ofloat_7.4s_ease-in-out_infinite] [animation-delay:.9s]' },
-    ],
+    body: 'از کافی‌شاپ و رستوران تا استخر و باشگاه، رزرو و سفارش با چند لمس.',
+    tint: 32,
+    Scene: LifeScene,
   },
 ]
 
-/** ۰=اسپلش، ۱-۴=اسلایدهای معرفی، ۵=صفحه‌ی پایانی */
+/** ۰=اسپلش، ۱-۴=اسلایدها، ۵=صفحه‌ی پایانی */
 type Step = 0 | 1 | 2 | 3 | 4 | 5
+const LAST_SLIDE = SLIDES.length as Step
+const FINAL = (SLIDES.length + 1) as Step
+
+const fa = (n: number) => n.toLocaleString('fa-IR')
+
+/** آیکن برند: کارت سفید گرد + خانه‌ی فیروزه‌ای + نقطه‌ی برنجی (مطابق آیکن اپ) */
+function BrandMark({ size = 96, dark = false }: { size?: number; dark?: boolean }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 96 96" aria-hidden="true" style={{ overflow: 'visible' }}>
+      <defs>
+        <filter id="bm-sh" filterUnits="userSpaceOnUse" x="-30" y="-30" width="160" height="170">
+          <feDropShadow dx="0" dy="8" stdDeviation="8" floodColor="#052f30" floodOpacity={dark ? 0.5 : 0.25} />
+        </filter>
+      </defs>
+      <rect x="6" y="6" width="84" height="84" rx="26" fill="white" filter="url(#bm-sh)" />
+      <path
+        d="M24 50 L48 28 L72 50 V68 a5 5 0 0 1 -5 5 H29 a5 5 0 0 1 -5 -5Z"
+        fill="var(--color-tile)"
+      />
+      <path d="M41 73 V58 a7 7 0 0 1 14 0 V73Z" fill="white" />
+      <circle cx="68" cy="30" r="7" fill="var(--color-brass)" />
+    </svg>
+  )
+}
 
 export function Onboarding() {
   const navigate = useNavigate()
   const [step, setStep] = useState<Step>(0)
+  const [dir, setDir] = useState<1 | -1>(1)
+  const touch = useRef<{ x: number; y: number } | null>(null)
 
-  // اسپلش بعد از ۲.۴ ثانیه خودکار به اولین اسلاید می‌رود
-  useEffect(() => {
-    if (step !== 0) return
-    const t = setTimeout(() => setStep(1), 2400)
-    return () => clearTimeout(t)
-  }, [step])
-
-  function goStart() {
+  const finish = useCallback(() => {
     localStorage.setItem(ONBOARDING_SEEN_KEY, '1')
     navigate('/login', { replace: true })
-  }
-  function skip() {
-    setStep(5)
-  }
-  function next() {
-    setStep((s) => (Math.min(5, s + 1) as Step))
-  }
-  function goTo(i: number) {
-    setStep(i as Step)
-  }
+  }, [navigate])
 
-  // دسکتاپ: ناوبری با کیبورد (در RTL فلش چپ = بعدی)
+  const go = useCallback((to: number) => {
+    setStep((cur) => {
+      const clamped = Math.max(0, Math.min(FINAL, to)) as Step
+      setDir(clamped >= cur ? 1 : -1)
+      return clamped
+    })
+  }, [])
+
+  const next = useCallback(() => setStep((s) => { setDir(1); return Math.min(FINAL, s + 1) as Step }), [])
+  const prev = useCallback(() => setStep((s) => { setDir(-1); return Math.max(1, s - 1) as Step }), [])
+
+  // اسپلش خودکار جلو می‌رود
+  useEffect(() => {
+    if (step !== 0) return
+    const t = setTimeout(() => go(1), 2600)
+    return () => clearTimeout(t)
+  }, [step, go])
+
+  // کیبورد (RTL: فلش چپ = بعدی)
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if (e.key === 'ArrowLeft') setStep((s) => (s >= 1 && s < 5 ? ((s + 1) as Step) : s))
-      else if (e.key === 'ArrowRight') setStep((s) => (s > 1 ? ((s - 1) as Step) : s))
-      else if (e.key === 'Enter') setStep((s) => (s === 5 ? (localStorage.setItem(ONBOARDING_SEEN_KEY, '1'), navigate('/login', { replace: true }), s) : s === 0 ? 1 : s))
+      if (e.key === 'ArrowLeft') { if (step >= 1 && step < FINAL) next() }
+      else if (e.key === 'ArrowRight') { if (step > 1 && step <= FINAL) prev() }
+      else if (e.key === 'Enter') { if (step === 0) go(1); else if (step === FINAL) finish() }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [navigate])
+  }, [step, next, prev, go, finish])
 
-  const slide = SLIDES[Math.min(3, Math.max(0, step - 1))]
+  function onTouchStart(e: React.TouchEvent) {
+    const t = e.touches[0]
+    touch.current = { x: t.clientX, y: t.clientY }
+  }
+  function onTouchEnd(e: React.TouchEvent) {
+    const s = touch.current
+    touch.current = null
+    if (!s || step < 1) return
+    const t = e.changedTouches[0]
+    const dx = t.clientX - s.x
+    const dy = t.clientY - s.y
+    if (Math.abs(dx) < 56 || Math.abs(dx) < Math.abs(dy) * 1.4) return
+    // RTL: انگشت به راست = صفحه‌ی بعد
+    if (dx > 0) { if (step < FINAL) next() } else if (step > 1) prev()
+  }
 
-  const Controls = () => (
-    <>
-      <div className="flex items-center gap-2">
-        {SLIDES.map((_, i) => (
-          <button
-            key={i}
-            onClick={() => goTo(i + 1)}
-            aria-label={`اسلاید ${i + 1}`}
-            className="h-2 rounded-full transition-all duration-300"
-            style={{ width: i === step - 1 ? 22 : 8, background: i === step - 1 ? 'var(--color-tile)' : 'var(--color-line)' }}
-          />
-        ))}
-      </div>
-      <button
-        onClick={next}
-        className="rounded-full bg-tile text-white flex items-center justify-center gap-2 shadow-lg active:scale-95 hover:brightness-110 transition lg:w-auto lg:px-7"
-        style={{ width: 52, height: 52, boxShadow: '0 12px 26px color-mix(in srgb, var(--color-tile) 35%, transparent)' }}
-        aria-label="بعدی"
-      >
-        <span className="hidden lg:inline text-sm font-bold">{step === 4 ? 'شروع' : 'بعدی'}</span>
-        <ArrowLeft size={22} />
-      </button>
-    </>
+  const slide = step >= 1 && step <= LAST_SLIDE ? SLIDES[step - 1] : null
+
+  const nextButton = (
+    <button
+      onClick={next}
+      className="lg4-capsule w-full min-h-[56px] px-6 text-[17px] flex items-center justify-center gap-2.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-tile)]"
+    >
+      <span>{step === LAST_SLIDE ? 'ادامه' : 'بعدی'}</span>
+      <ArrowLeft size={20} />
+    </button>
   )
 
   return (
-    <div dir="rtl" className="min-h-[100dvh] bg-canvas flex flex-col overflow-hidden relative font-sans">
+    <div
+      dir="rtl"
+      data-onboarding
+      className="lg-motion relative min-h-[100dvh] overflow-hidden font-sans bg-canvas text-ink-text select-none"
+      onTouchStart={onTouchStart}
+      onTouchEnd={onTouchEnd}
+    >
       <style>{`
-        @keyframes ofloat { 0%, 100% { transform: translateY(0) } 50% { transform: translateY(-9px) } }
-        @keyframes osun { 0%, 100% { opacity: .85; transform: scale(1) } 50% { opacity: 1; transform: scale(1.05) } }
-        @keyframes ofu { from { opacity: 0; transform: translateY(16px) } to { opacity: 1; transform: none } }
-        .ob-oa { animation: ofu .5s cubic-bezier(.32,.72,0,1) both }
+        @keyframes ob-float { 0%,100% { transform: translateY(0) } 50% { transform: translateY(-8px) } }
+        @keyframes ob-glow { 0%,100% { opacity: .75 } 50% { opacity: 1 } }
+        @keyframes ob-twinkle { 0%,100% { opacity: .35 } 50% { opacity: 1 } }
+        @keyframes ob-win { 0%,100% { opacity: 1 } 50% { opacity: .45 } }
+        @keyframes ob-steam { 0% { opacity: 0; transform: translateY(6px) } 40% { opacity: .9 } 100% { opacity: 0; transform: translateY(-8px) } }
+        @keyframes ob-wave { 0%,100% { transform: translateX(0) } 50% { transform: translateX(-9px) } }
+        @keyframes ob-sway { 0%,100% { transform: rotate(-5deg) } 50% { transform: rotate(5deg) } }
+        @keyframes ob-sun { 0% { transform: translateY(70px); opacity: 0 } 100% { transform: none; opacity: 1 } }
+        @keyframes ob-rise { from { opacity: 0; transform: translateY(18px) } to { opacity: 1; transform: none } }
+        @keyframes ob-in-next { from { opacity: 0; transform: translateX(-36px) } to { opacity: 1; transform: none } }
+        @keyframes ob-in-prev { from { opacity: 0; transform: translateX(36px) } to { opacity: 1; transform: none } }
+        .ob-anim { animation-duration: 6.5s; animation-timing-function: ease-in-out; animation-iteration-count: infinite; transform-box: fill-box }
+        .ob-float { animation-name: ob-float }
+        .ob-glow { animation-name: ob-glow; animation-duration: 2.8s }
+        .ob-twinkle { animation-name: ob-twinkle; animation-duration: 3.4s }
+        .ob-win { animation-name: ob-win; animation-duration: 4.6s }
+        .ob-steam { animation-name: ob-steam; animation-duration: 2.8s }
+        .ob-wave { animation-name: ob-wave; animation-duration: 4s }
+        .ob-sway { animation-name: ob-sway; animation-duration: 5s }
+        .ob-rise { animation: ob-rise .6s cubic-bezier(.32,.72,0,1) both }
+        .ob-next { animation: ob-in-next .5s cubic-bezier(.32,.72,0,1) both }
+        .ob-prev { animation: ob-in-prev .5s cubic-bezier(.32,.72,0,1) both }
+        @media (prefers-reduced-motion: reduce) {
+          [data-onboarding] *, [data-onboarding] *::before { animation: none !important; transition: none !important }
+        }
       `}</style>
 
-      {/* ===== اسپلش (مرحله ۰) ===== */}
+      {/* ───────── ۰) اسپلش: سپیده‌دم ───────── */}
       {step === 0 && (
-        <div className="absolute inset-0 flex flex-col bg-gradient-to-b from-tile-soft via-tile-soft to-card">
+        <button
+          type="button"
+          onClick={() => go(1)}
+          aria-label="شروع معرفی"
+          className="absolute inset-0 flex flex-col items-center text-center cursor-pointer"
+          style={{
+            background:
+              'linear-gradient(180deg, color-mix(in srgb, var(--color-brass) 22%, var(--color-card)) 0%, color-mix(in srgb, var(--color-tile) 14%, var(--color-card)) 55%, var(--color-card) 100%)',
+          }}
+        >
+          {/* خورشید در حال طلوع */}
           <div
-            className="absolute w-24 h-24 lg:w-36 lg:h-36 rounded-full pointer-events-none right-[14%] bottom-[214px] lg:bottom-[34vh]"
+            className="absolute right-[9%] top-[7%] w-20 h-20 lg:w-32 lg:h-32 rounded-full pointer-events-none"
             style={{
-              background: 'radial-gradient(circle at 40% 40%, #f6d78a, var(--color-brass))',
-              filter: 'blur(1px)', animation: 'osun 5s ease-in-out infinite',
+              background: 'radial-gradient(circle at 38% 36%, color-mix(in srgb, var(--color-brass) 35%, white), var(--color-brass))',
+              boxShadow: '0 0 90px 28px color-mix(in srgb, var(--color-brass) 38%, transparent)',
+              animation: 'ob-sun 1.4s cubic-bezier(.32,.72,0,1) both',
             }}
           />
-          <div className="absolute inset-x-0 bottom-0 h-80 lg:h-[42vh] z-[3] overflow-hidden"><div className="w-full h-full lg:scale-110 origin-bottom">
-            <img src="/onboarding/splash-city.webp" alt="" className="w-full h-full object-cover" />
-          </div></div>
-          <div className="relative z-[2] flex-1 flex flex-col items-center pt-44 lg:pt-[18vh] px-8 pointer-events-none">
-            <div className="ob-oa" style={{ animation: 'ofloat 6s ease-in-out infinite' }}>
-              <div className="relative w-24 h-24 lg:w-32 lg:h-32 flex items-center justify-center">
-                <Home className="w-24 h-24 lg:w-32 lg:h-32 text-tile drop-shadow-lg" strokeWidth={1.6} />
-                <span className="absolute top-1.5 -right-0.5 w-5 h-5 rounded-full" style={{ background: 'linear-gradient(140deg,#e0b263,var(--color-brass))' }} />
+          <div className="relative z-[2] flex flex-col items-center pt-[15vh] px-8">
+            <div className="ob-rise" style={{ animation: 'ob-rise .6s cubic-bezier(.32,.72,0,1) both, ob-float 6s ease-in-out .6s infinite' }}>
+              <BrandMark size={104} />
+            </div>
+            <p className="ob-rise mt-6 text-[44px] lg:text-6xl font-extrabold tracking-tight" style={{ animationDelay: '.12s' }}>همین</p>
+            <p className="ob-rise mt-3 text-base lg:text-xl font-semibold text-muted" style={{ animationDelay: '.22s' }}>
+              برای یک ساختمان، همین کافیست
+            </p>
+          </div>
+          <SplashScene className="absolute inset-x-0 bottom-0 w-full h-[44vh] lg:h-[48vh] z-[3]" />
+        </button>
+      )}
+
+      {/* ───────── ۱–۴) اسلایدها ───────── */}
+      {slide && (
+        <div
+          className="absolute inset-0 flex flex-col"
+          style={{
+            background: `linear-gradient(180deg, color-mix(in srgb, var(--color-tile) ${slide.tint}%, var(--color-card)) 0%, var(--color-canvas) 68%)`,
+            transition: 'background .6s ease',
+          }}
+        >
+          <div className="w-full max-w-6xl mx-auto flex flex-col flex-1 min-h-0 px-6 lg:px-12">
+            {/* نوار پیشرفت به سبک استوری */}
+            <div className="pt-[max(env(safe-area-inset-top),20px)] lg:pt-10">
+              <div className="flex items-center gap-1.5" role="tablist" aria-label="مراحل معرفی">
+                {SLIDES.map((s, i) => (
+                  <button
+                    key={s.title}
+                    role="tab"
+                    aria-selected={i + 1 === step}
+                    aria-label={`مرحله ${fa(i + 1)}: ${s.title}`}
+                    onClick={() => go(i + 1)}
+                    className="flex-1 h-8 flex items-center cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-tile)] rounded-full"
+                  >
+                    <span className="block w-full h-1 rounded-full overflow-hidden" style={{ background: 'color-mix(in srgb, var(--color-tile) 18%, transparent)' }}>
+                      <span
+                        className="block h-full rounded-full"
+                        style={{
+                          width: i + 1 <= step ? '100%' : '0%',
+                          background: 'var(--color-tile)',
+                          transition: 'width .45s cubic-bezier(.32,.72,0,1)',
+                        }}
+                      />
+                    </span>
+                  </button>
+                ))}
+              </div>
+              <div className="flex items-center justify-between mt-1">
+                <span className="text-[13px] font-semibold text-muted">{fa(step)} از {fa(SLIDES.length)}</span>
+                <button
+                  onClick={() => go(FINAL)}
+                  className="lg4-capsule-outline px-4 min-h-[44px] text-[13px] text-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-tile)]"
+                >
+                  رد کردن
+                </button>
               </div>
             </div>
-            <p className="ob-oa mt-5 text-[40px] lg:text-6xl font-extrabold tracking-tight text-ink-text" style={{ animationDelay: '.1s' }}>همین</p>
-            <p className="ob-oa mt-4 text-base lg:text-xl font-semibold text-muted" style={{ animationDelay: '.18s' }}>برای یک ساختمان،همین کافیست</p>
+
+            {/* محتوا؛ با key جدا می‌شود تا هر اسلاید انیمیشن ورود خودش را داشته باشد */}
+            <div
+              key={step}
+              className={`flex-1 min-h-0 flex flex-col lg:flex-row lg:items-center lg:gap-16 justify-center ${dir === 1 ? 'ob-next' : 'ob-prev'}`}
+              role="group"
+              aria-roledescription="اسلاید"
+              aria-label={`${fa(step)} از ${fa(SLIDES.length)}`}
+            >
+              <div className="lg:order-2 lg:flex-1 flex items-center justify-center min-h-0 py-2">
+                <div className="lg4-card lg4-card-float w-full max-w-[400px] lg:max-w-[520px] p-3 lg:p-6" style={{ borderRadius: 32 }}>
+                  <slide.Scene className="w-full h-auto max-h-[38dvh] lg:max-h-none" />
+                </div>
+              </div>
+
+              <div className="lg:order-1 lg:flex-1 lg:max-w-xl text-center lg:text-right pt-4 lg:pt-0">
+                <span
+                  className="inline-block px-3 py-1 rounded-full text-[12px] font-bold"
+                  style={{ background: 'var(--color-brass-soft)', color: 'color-mix(in srgb, var(--color-brass) 78%, black)' }}
+                >
+                  {slide.eyebrow}
+                </span>
+                <h1 className="mt-3 text-[28px] md:text-4xl lg:text-5xl lg:leading-tight font-extrabold tracking-tight">{slide.title}</h1>
+                <p className="mt-3 lg:mt-5 mx-auto lg:mx-0 max-w-[330px] md:max-w-[440px] text-[15px] md:text-base lg:text-lg leading-8 text-muted">{slide.body}</p>
+                {/* دسکتاپ: دکمه کنار متن */}
+                <div className="hidden lg:block mt-10 max-w-xs">{nextButton}</div>
+              </div>
+            </div>
+
+            {/* موبایل: دکمه در ناحیه‌ی شست */}
+            <div className="lg:hidden pt-4 pb-[max(env(safe-area-inset-bottom),28px)] w-full">{nextButton}</div>
           </div>
         </div>
       )}
 
-      {/* ===== اسلایدهای معرفی (مراحل ۱-۴) ===== */}
-      {step >= 1 && step <= 4 && (
-        <div className="absolute inset-0 flex flex-col bg-gradient-to-b from-card to-canvas overflow-y-auto">
-          <div className="w-full max-w-6xl mx-auto flex flex-col flex-1 lg:px-12">
-            <div className="flex items-center justify-between pt-14 lg:pt-10 px-6 lg:px-0">
-              <button onClick={skip} className="text-sm font-semibold text-muted px-0.5 py-1.5 hover:text-ink-text transition-colors">رد کردن</button>
-              <span className="hidden lg:flex items-center gap-2 text-xl font-extrabold text-ink-text">
-                <Home size={24} className="text-tile" /> همین
-              </span>
-            </div>
-
-            <div className="flex-1 flex flex-col lg:flex-row lg:items-center lg:gap-20 justify-center px-7 lg:px-0 pb-7">
-              {/* تصویر */}
-              <div className="order-1 lg:order-2 w-full max-w-[420px] lg:max-w-[540px] mx-auto lg:flex-1">
-                <div className="relative h-72 lg:h-[460px] flex items-center justify-center">
-                  <div
-                    className="absolute w-72 h-64 lg:w-[460px] lg:h-[400px] blur-[.5px]"
-                    style={{
-                      background: 'linear-gradient(150deg, color-mix(in srgb, var(--color-tile) 18%, transparent), color-mix(in srgb, var(--color-tile) 6%, transparent))',
-                      borderRadius: '48% 52% 44% 56% / 52% 44% 56% 48%',
-                    }}
-                  />
-                  <div className="relative w-56 h-56 lg:w-80 lg:h-80 flex flex-wrap items-center justify-center gap-3 lg:gap-5 p-6" style={{ animation: 'ofloat 7s ease-in-out infinite' }}>
-                    {slide.badges.map(({ Icon }, i) => (
-                      <Icon key={i} className="w-14 h-14 lg:w-24 lg:h-24 text-tile" strokeWidth={1.4} />
-                    ))}
-                  </div>
-                  {slide.badges.map(({ Icon, className }, i) => (
-                    <div
-                      key={i}
-                      className={`absolute pointer-events-none rounded-[20px] bg-card/70 backdrop-blur-md border border-card shadow-lg flex items-center justify-center p-2 lg:scale-125 ${className}`}
-                    >
-                      <Icon className="w-6 h-6 text-tile" strokeWidth={1.8} />
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* متن */}
-              <div className="order-2 lg:order-1 lg:flex-1 lg:max-w-xl">
-                <p className="ob-oa mt-8 lg:mt-0 text-center lg:text-right text-[25px] md:text-4xl lg:text-5xl lg:leading-tight font-extrabold tracking-tight text-ink-text" key={`t-${step}`}>{slide.title}</p>
-                <p className="ob-oa mt-4 lg:mt-6 mx-auto lg:mx-0 max-w-[300px] md:max-w-[420px] lg:max-w-md text-center lg:text-right text-sm md:text-base lg:text-lg leading-loose text-muted" style={{ animationDelay: '.08s' }} key={`b-${step}`}>{slide.body}</p>
-                <div className="hidden lg:flex items-center gap-8 mt-12" dir="rtl">
-                  <Controls />
-                </div>
-              </div>
-            </div>
-
-            <div className="lg:hidden flex items-center justify-between px-7 pb-10" dir="ltr">
-              <Controls />
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ===== پایانی (مرحله ۵) ===== */}
-      {step === 5 && (
+      {/* ───────── ۵) صفحه‌ی پایانی: شب ───────── */}
+      {step === FINAL && (
         <div className="absolute inset-0 flex flex-col">
-          <img src="/onboarding/final-city.webp" alt="" className="absolute inset-0 w-full h-full object-cover" />
+          <NightSky className="absolute inset-0 w-full h-full" />
+          <NightScene className="absolute inset-x-0 bottom-0 w-full h-[40vh] lg:h-[46vh]" />
           <div
             className="absolute inset-0 pointer-events-none"
-            style={{ background: 'linear-gradient(180deg, rgba(15,30,35,.88) 0%, rgba(15,45,45,.34) 30%, rgba(10,25,28,.26) 60%, rgba(8,18,20,.86) 100%)' }}
+            style={{ background: 'linear-gradient(180deg, rgba(6,18,22,0) 52%, rgba(6,18,22,.7) 82%, rgba(6,18,22,.9) 100%)' }}
           />
-          <div className="relative z-[3] flex-1 flex flex-col items-center pt-32 lg:pt-0 lg:justify-center px-8 pb-11 lg:pb-0 w-full max-w-xl mx-auto pointer-events-none">
-            <div className="ob-oa relative w-19 h-19 flex items-center justify-center" style={{ animation: 'ofloat 6s ease-in-out infinite' }}>
-              <Home className="w-16 h-16 text-white drop-shadow-lg" strokeWidth={1.5} />
-              <span className="absolute top-1 -right-0.5 w-4 h-4 rounded-full" style={{ background: 'linear-gradient(140deg,#e0b263,var(--color-brass))' }} />
+          <div className="relative z-[3] flex-1 flex flex-col items-center px-7 w-full max-w-md mx-auto pt-[max(env(safe-area-inset-top),64px)] pb-[max(env(safe-area-inset-bottom),28px)]">
+            <div className="ob-rise" style={{ animation: 'ob-rise .6s cubic-bezier(.32,.72,0,1) both, ob-float 6s ease-in-out .6s infinite' }}>
+              <BrandMark size={84} dark />
             </div>
-            <p className="ob-oa mt-4 text-[36px] lg:text-6xl font-extrabold tracking-tight text-white" style={{ animationDelay: '.08s' }}>همین</p>
-            <p className="ob-oa mt-3 text-sm lg:text-lg font-semibold text-white/75" style={{ animationDelay: '.14s' }}>همه‌چیز، همین‌جا.</p>
+            <h1 className="ob-rise mt-5 text-[38px] lg:text-5xl font-extrabold tracking-tight text-white" style={{ animationDelay: '.1s' }}>همین</h1>
+            <p className="ob-rise mt-2 text-base font-semibold text-white/80" style={{ animationDelay: '.18s' }}>همه‌چیز، همین‌جا.</p>
 
-            <div className="flex-1 lg:flex-none lg:h-24" />
+            <div className="flex-1" />
 
             <button
-              onClick={goStart}
-              className="ob-oa pointer-events-auto w-full rounded-full py-5 px-6 bg-tile text-white text-[17px] font-extrabold flex items-center justify-center gap-2.5 shadow-xl active:scale-[0.99] transition-transform"
-              style={{ animationDelay: '.2s', boxShadow: '0 16px 34px color-mix(in srgb, var(--color-tile) 45%, transparent)' }}
+              onClick={finish}
+              className="lg4-capsule ob-rise w-full min-h-[58px] px-6 text-[17px] font-extrabold flex items-center justify-center gap-2.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+              style={{ animationDelay: '.26s' }}
             >
-              <span className="flex-1 text-center">شروع کنید</span>
-              <ArrowLeft size={22} />
+              <span>شروع کنید</span>
+              <ArrowLeft size={20} />
             </button>
-            <p className="mt-4 text-center text-[11.5px] leading-loose text-white/60">
+            <button
+              onClick={prev}
+              className="ob-rise mt-3 min-h-[44px] px-4 text-[13px] font-semibold text-white/75 hover:text-white transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white rounded-full"
+              style={{ animationDelay: '.32s' }}
+            >
+              بازگشت به معرفی
+            </button>
+            <p className="mt-2 text-center text-[11.5px] leading-6 text-white/55">
               با ورود، شما با قوانین و شرایط استفاده موافقت می‌کنید.
             </p>
           </div>
