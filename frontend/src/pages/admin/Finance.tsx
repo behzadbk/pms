@@ -33,7 +33,6 @@ export function AdminFinance() {
     <div className="space-y-6">
       <div>
         <h1 className="text-xl font-bold">مالی ساختمان</h1>
-        <p className="text-muted text-sm mt-1">گزارش مالی، فرمول شارژ، جریمه‌ی دیرکرد و حسابداران ساختمان</p>
       </div>
 
       <div className="flex gap-2 flex-wrap">

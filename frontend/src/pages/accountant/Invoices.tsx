@@ -47,7 +47,6 @@ export function AccountantInvoices() {
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
           <h1 className="text-xl font-bold">صندوق و فاکتورها</h1>
-          <p className="text-muted text-sm mt-1">ثبت فاکتورهای هزینه، پرداخت و دفتر صندوق ساختمان</p>
         </div>
         <PrimaryButton onClick={() => setNewOpen(true)}><Plus size={16} /> ثبت فاکتور جدید</PrimaryButton>
       </div>

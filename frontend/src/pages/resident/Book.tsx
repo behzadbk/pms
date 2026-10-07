@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { CalendarX2, Info, Lock } from 'lucide-react'
+import { CalendarX2, Lock, ShieldCheck } from 'lucide-react'
 import { ApiError } from '../../lib/api/client'
 import { usePermissions } from '../../context/PermissionsContext'
 import { DebtorLock } from '../../components/DebtorLock'
 import { residentsApi, errText, fa, type Amenity, type ReservationRow, type Slot } from '../../lib/api/residents'
 import { amenityIcon } from '../../lib/amenityIcons'
-import { amenitiesApi } from '../../lib/api/amenities'
+import { amenitiesApi, GENDER_LABEL } from '../../lib/api/amenities'
 import { dayLabel as fullDayLabel, whenLabel, relDay } from '../../lib/tehran'
 import { Badge, Cta, ErrorBlock, Loading, Sheet, StickyCta, SuccessSheet, useLoad, useToast } from '../../components/hm'
 
@@ -44,13 +44,16 @@ export function BookAmenity({ child = false }: { child?: boolean }) {
   const [slot, setSlot] = useState<Slot | null>(null)
   const [busy, setBusy] = useState(false)
   const [closed, setClosed] = useState<string | null>(null)
+  const [acked, setAcked] = useState<Record<string, boolean>>({})
+  const [rulesFor, setRulesFor] = useState<Amenity | null>(null)
   const [cancelFor, setCancelFor] = useState<ReservationRow | null>(null)
-  const [success, setSuccess] = useState<{ title: string; sub: string; rows: { k: string; v: string }[] } | null>(null)
+  const [success, setSuccess] = useState<{ title: string; sub?: string; rows: { k: string; v: string }[] } | null>(null)
   const { toast, toastNode } = useToast()
   const { perms } = usePermissions()
   const a = amenities?.find((x) => x.id === am) ?? amenities?.[0]
   const span = Math.min(14, Math.max(1, a?.max_advance_days ?? 4))
   const days = useMemo(() => Array.from({ length: span }, (_, i) => ({ i, iso: tehranDate(i) })), [span])
+  const gated = !!a?.private_enabled && !acked[a.id]
   const locked = !!a?.locked || (!!a && !!perms?.locked_amenities?.includes(a.id))
 
   useEffect(() => {
@@ -71,15 +74,15 @@ export function BookAmenity({ child = false }: { child?: boolean }) {
     if (!a || !slot) return toast('یک ساعت آزاد انتخاب کنید')
     setBusy(true)
     try {
-      const r = await residentsApi.book({ amenity_id: a.id, start: slot.start })
+      const r = await residentsApi.book({ amenity_id: a.id, start: slot.start, ...(a.private_enabled ? { private: true } : {}) })
       const when = `${fullDayLabel(days[day].iso)} ${fa(slot.label)}`
       if (r.status === 'pending_parent') {
         navigate(`/child/waiting/${r.id}`, { state: { what: `${a.name} · ${when}` } })
         return
       }
       setSuccess({
-        title: r.status === 'pending' ? 'درخواست رزرو ثبت شد' : 'رزرو قطعی شد',
-        sub: r.status === 'pending' ? 'پس از تأیید مسئول مشاعات اعلان می‌گیرید.' : 'در «رزروهای من» در صفحه خانه دیده می‌شود.',
+        title: r.status === 'pending' ? 'درخواست رزرو ثبت شد' : a.private_enabled ? 'رزرو خصوصی قطعی شد' : 'رزرو قطعی شد',
+        sub: r.status === 'pending' ? 'پس از تأیید مسئول مشاعات اعلان می‌گیرید.' : undefined,
         rows: [
           { k: 'مشاع', v: a.name },
           { k: 'زمان', v: when },
@@ -105,7 +108,7 @@ export function BookAmenity({ child = false }: { child?: boolean }) {
 
   if (loading) return <Loading />
   if (error || !amenities) return <ErrorBlock message={error ?? ''} />
-  const cta = locked ? 'بسته برای واحد بدهکار' : slot ? (a?.needs_approval ? `ارسال درخواست رزرو · ${fa(slot.label)}` : `رزرو قطعی · ${fa(slot.label)}`) : 'یک ساعت انتخاب کنید'
+  const cta = gated ? 'رزرو خصوصی' : locked ? 'بسته برای واحد بدهکار' : slot ? (a?.needs_approval ? `ارسال درخواست رزرو · ${fa(slot.label)}` : `رزرو قطعی · ${fa(slot.label)}`) : 'یک ساعت انتخاب کنید'
 
   return (
     <div className="flex flex-col gap-4 hm-fade-in">
@@ -121,15 +124,17 @@ export function BookAmenity({ child = false }: { child?: boolean }) {
           )
         })}
       </div>
-      {a && (
-        <div className="hm-note hm-tone-pri" style={{ color: 'var(--hm-t1)', borderRadius: 16 }}>
-          <Info size={18} className="shrink-0 text-[var(--hm-pri)]" />
-          <p>
-            {[a.description, a.rule_text ?? (a.needs_approval ? 'نیاز به تأیید مسئول مشاعات' : 'رزرو فوری، بدون نیاز به تأیید')].filter(Boolean).join(' — ')}
-          </p>
-        </div>
-      )}
       {locked && <DebtorLock debtor={perms?.debtor} child={child} />}
+      {gated && (
+        <button
+          className="hm-card p-4 flex items-center gap-3 text-right min-h-[72px]"
+          onClick={() => (a?.private_rules ? setRulesFor(a) : a && setAcked((m) => ({ ...m, [a.id]: true })))}
+        >
+          <span className="grid place-items-center w-12 h-12 rounded-2xl hm-tone-pri"><ShieldCheck size={24} /></span>
+          <span className="flex-1 font-bold">رزرو خصوصی</span>
+        </button>
+      )}
+      {!gated && <>
       <div className="flex gap-2 overflow-x-auto pb-1 -mx-4 px-4 sm:mx-0 sm:px-0" role="radiogroup" aria-label="روز">
         {days.map((d) => (
           <button key={d.iso} role="radio" aria-checked={day === d.i} data-on={day === d.i} className="hm-chip !min-h-[52px] !px-4 flex flex-col items-center justify-center leading-5" onClick={() => setDay(d.i)}>
@@ -160,7 +165,7 @@ export function BookAmenity({ child = false }: { child?: boolean }) {
                   aria-disabled={taken || past}
                   aria-pressed={sel}
                   onClick={() => (taken ? toast('این ساعت رزرو شده است') : past ? toast('این ساعت گذشته است') : setSlot(s))}
-                  className="min-h-[44px] rounded-full text-sm font-bold"
+                  className="min-h-[48px] rounded-3xl text-sm font-bold py-1"
                   style={{
                     textDecoration: taken ? 'line-through' : 'none',
                     background: sel ? 'var(--hm-pri)' : taken || past ? 'transparent' : 'var(--lg4-inner)',
@@ -170,12 +175,15 @@ export function BookAmenity({ child = false }: { child?: boolean }) {
                   }}
                 >
                   {fa(s.label)}
+                  {s.gender && <span className="block text-[11px] font-medium opacity-80">{GENDER_LABEL[s.gender]}</span>}
                 </button>
               )
             })}
           </div>
         )}
       </div>
+
+      </>}
 
       {!child && mine && mine.length > 0 && (
         <>
@@ -205,6 +213,14 @@ export function BookAmenity({ child = false }: { child?: boolean }) {
         </>
       )}
 
+      <Sheet open={!!rulesFor} onClose={() => setRulesFor(null)} label="قوانین رزرو خصوصی">
+        <p className="text-lg font-bold">قوانین رزرو خصوصی</p>
+        <p className="text-sm leading-7 mt-2 whitespace-pre-line">{rulesFor?.private_rules}</p>
+        <Cta className="mt-4" onClick={() => { if (rulesFor) setAcked((m) => ({ ...m, [rulesFor.id]: true })); setRulesFor(null) }}>
+          فهمیدم
+        </Cta>
+      </Sheet>
+
       <Sheet open={!!cancelFor} onClose={() => setCancelFor(null)} label="لغو رزرو">
         <p className="text-lg font-bold">لغو رزرو {cancelFor?.amenity}؟</p>
         <p className="text-sm text-[var(--hm-t2)] mt-1">{cancelFor ? whenLabel(cancelFor.start_at, cancelFor.end_at) : ''}</p>
@@ -232,11 +248,15 @@ export function BookAmenity({ child = false }: { child?: boolean }) {
         </div>
       </Sheet>
 
-      <StickyCta>
-        <Cta onClick={submit} busy={busy} disabled={!slot || locked}>
+      {!gated && <StickyCta>
+        <Cta
+          onClick={gated && a ? () => (a.private_rules ? setRulesFor(a) : setAcked((m) => ({ ...m, [a.id]: true }))) : submit}
+          busy={busy}
+          disabled={!gated && (!slot || locked)}
+        >
           {cta}
         </Cta>
-      </StickyCta>
+      </StickyCta>}
       <SuccessSheet
         open={!!success}
         onClose={() => setSuccess(null)}

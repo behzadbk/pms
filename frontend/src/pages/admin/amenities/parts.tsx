@@ -47,7 +47,7 @@ export function ReservationCard({
         </div>
       </div>
       <div className="flex items-center gap-2 text-xs text-[var(--hm-t2)] flex-wrap">
-        <span className="hm-unitno whitespace-nowrap">واحد {fa(r.unit_no ?? '—')}</span>
+        <span className="hm-unitpill">واحد {fa(r.unit_no ?? '—')}</span>
         {r.requester && <span>{r.requester}</span>}
         <span className="ms-auto">{r.status === 'pending' ? `ثبت ${ago(r.created_at)}` : r.decided_at ? ago(r.decided_at) : ''}</span>
       </div>
@@ -174,12 +174,11 @@ export function UnitPicker({ value, onChange }: { value: { id: string; no: strin
   )
 }
 
-export function Section({ title, hint, children }: { title: string; hint?: string; children: ReactNode }) {
+export function Section({ title, children }: { title: string; hint?: string; children: ReactNode }) {
   return (
     <section className="flex flex-col gap-2">
       <div>
         <h3 className="text-sm font-bold">{title}</h3>
-        {hint && <p className="text-xs text-[var(--hm-t2)] mt-0.5 leading-6">{hint}</p>}
       </div>
       {children}
     </section>

@@ -5,6 +5,7 @@ import { useResidentsScope } from '../../../lib/residentsScope'
 import { residentsApi, errText, fa, type UnitCategory, type UnitListItem, type UnitsResponse } from '../../../lib/api/residents'
 import { Badge, Cta, EmptyState, ErrorBlock, Field, FieldCard, Loading, PageTitle, Seg, Sheet, StickyCta, useLoad, useToast } from '../../../components/hm'
 import { AreaOffersHint } from '../../../components/AreaOffersHint'
+import { entitlementsApi } from '../../../lib/api/entitlements'
 
 type Filter = 'all' | UnitCategory
 const FILTERS: [Filter, string][] = [['all', 'همه'], ['owner', 'مالک'], ['tenant', 'مستأجر'], ['pending', 'در انتظار'], ['vacant', 'خالی']]
@@ -396,31 +397,52 @@ function UnitsSheet({ open, buildingId, onClose, onDone }: { open: boolean; buil
   const [floors, setFloors] = useState('5')
   const [per, setPer] = useState('4')
   const [startFloor, setStartFloor] = useState('1')
+  /** متراژ هر جایگاه در طبقه (پلان تیپ): areas[0] = واحد ۱ هر طبقه … ؛ خالی = ثبت نشود */
+  const [areas, setAreas] = useState<string[]>([])
+  const [sameArea, setSameArea] = useState('')
+  /** متراژهای تعریف‌شده‌ی آفرها (۲۴۰، ۲۴۵، …) به‌عنوان پیشنهاد؛ اگر آفری نباشد یا دسترسی نباشد خالی می‌ماند */
+  const [tierAreas, setTierAreas] = useState<number[]>([])
   const [no, setNo] = useState('')
   const [floor, setFloor] = useState('')
   const [area, setArea] = useState('')
   const [err, setErr] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   useEffect(() => {
-    if (open) setErr(null)
+    if (!open) return
+    setErr(null)
+    entitlementsApi.catalog().then((c) => setTierAreas(c.tiers.map((t) => t.min_area))).catch(() => setTierAreas([]))
   }, [open])
-  const n = (v: string) => Number(v.replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d))))
+  const n = (v: string) => Number(v.replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d))).replace(/٫/g, '.'))
   const total = n(floors) * n(per)
+  const positions = Number.isFinite(n(per)) ? Math.min(Math.max(Math.floor(n(per)), 0), 30) : 0
+  const firstFloor = n(startFloor) || 1
+  const setAreaAt = (i: number, v: string) => setAreas((a) => Object.assign([...a], { [i]: v }))
 
   async function submit() {
     setBusy(true)
     setErr(null)
     try {
       if (tab === 'bulk') {
-        const r = await residentsApi.bulkUnits(buildingId, { floors: n(floors), units_per_floor: n(per), start_floor: n(startFloor) || 1 })
-        onDone(r.created ? `${fa(r.created)} واحد ساخته شد${r.skipped ? ` (${fa(r.skipped)} واحد از قبل بود)` : ''}` : 'همه‌ی این واحدها از قبل وجود داشتند')
+        const pos = Array.from({ length: positions }, (_, i) => (areas[i]?.trim() ? n(areas[i]) : null))
+        if (pos.some((a) => a !== null && !(a >= 1 && a <= 5000))) throw new Error('متراژها را درست وارد کنید (عدد بین ۱ تا ۵۰۰۰)')
+        const common = sameArea.trim() ? n(sameArea) : undefined
+        if (common !== undefined && !(common >= 1 && common <= 5000)) throw new Error('متراژ یکسان را درست وارد کنید (عدد بین ۱ تا ۵۰۰۰)')
+        const r = await residentsApi.bulkUnits(buildingId, {
+          floors: n(floors),
+          units_per_floor: n(per),
+          start_floor: firstFloor,
+          area: common,
+          areas: pos.some((a) => a !== null) ? pos : undefined,
+        })
+        const filled = r.area_filled ? ` · متراژ ${fa(r.area_filled)} واحد قبلی ثبت شد` : ''
+        onDone(r.created ? `${fa(r.created)} واحد ساخته شد${r.skipped ? ` (${fa(r.skipped)} واحد از قبل بود)` : ''}${filled}` : r.area_filled ? `متراژ ${fa(r.area_filled)} واحد قبلی ثبت شد` : 'همه‌ی این واحدها از قبل وجود داشتند')
       } else {
         await residentsApi.createUnit(buildingId, { unit_number: no.trim(), floor: floor ? n(floor) : undefined, area: area ? n(area) : undefined })
         onDone(`واحد ${fa(no.trim())} ساخته شد`)
         setNo('')
       }
     } catch (e) {
-      setErr(errText(e))
+      setErr(e instanceof Error && !('status' in e) ? e.message : errText(e))
     } finally {
       setBusy(false)
     }
@@ -440,6 +462,46 @@ function UnitsSheet({ open, buildingId, onClose, onDone }: { open: boolean; buil
               <Field label="شروع از طبقه" value={startFloor} onChange={setStartFloor} inputMode="numeric" />
             </FieldCard>
             <p className="text-xs text-[var(--hm-t2)] px-2">{total > 0 ? `${fa(total)} واحد ساخته می‌شود · واحدهای تکراری نادیده گرفته می‌شوند (حداکثر ۵۰۰ واحد در هر بار)` : ' '}</p>
+
+            {positions > 0 && (
+              <div className="hm-card p-4 flex flex-col gap-3" style={{ borderRadius: 24 }}>
+                <div>
+                  <p className="text-sm font-bold">متراژ واحدها</p>
+                  <p className="mt-1 text-xs leading-6 text-[var(--hm-t2)]">
+                    متراژ هر واحد را یک‌بار بنویسید؛ برای همه‌ی طبقات اعمال می‌شود (مثلاً واحد ۱ = {fa(firstFloor * 100 + 1)}، {fa((firstFloor + 1) * 100 + 1)}، …). آفرهای رایگان خدمات هر واحد از روی همین متراژ تعیین می‌شود. خالی بگذارید تا بعداً در پرونده‌ی واحد ثبت شود.
+                  </p>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  {Array.from({ length: positions }, (_, i) => (
+                    <label key={i} className="rounded-2xl border border-[var(--hm-line,rgba(0,0,0,0.08))] px-3 py-2 block">
+                      <span className="block text-xs font-bold text-[var(--hm-t1)]">واحد {fa(i + 1)} هر طبقه</span>
+                      <span className="block text-xs text-[var(--hm-t3)]">مثل {fa(firstFloor * 100 + i + 1)}</span>
+                      <span className="flex items-baseline gap-1.5">
+                        <input
+                          className="hm-input min-w-0 flex-1"
+                          value={areas[i] ?? ''}
+                          onChange={(e) => setAreaAt(i, e.target.value)}
+                          inputMode="decimal"
+                          list="tier-areas"
+                          placeholder="—"
+                          aria-label={`متراژ واحد ${i + 1} هر طبقه`}
+                        />
+                        <span className="text-xs text-[var(--hm-t3)] shrink-0">متر</span>
+                      </span>
+                    </label>
+                  ))}
+                </div>
+                {tierAreas.length > 0 && (
+                  <>
+                    <datalist id="tier-areas">{tierAreas.map((a) => <option key={a} value={a} />)}</datalist>
+                    <p className="text-xs text-[var(--hm-t3)]">متراژهای جدول آفرها: {tierAreas.map((a) => fa(a)).join('، ')}</p>
+                  </>
+                )}
+                <FieldCard>
+                  <Field label="متراژ یکسان برای واحدهای خالی‌مانده (اختیاری)" value={sameArea} onChange={setSameArea} inputMode="numeric" />
+                </FieldCard>
+              </div>
+            )}
           </>
         ) : (
           <>

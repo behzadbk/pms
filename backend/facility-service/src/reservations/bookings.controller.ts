@@ -2,7 +2,7 @@ import {
   BadRequestException, Body, ConflictException, Controller, ForbiddenException, Get, HttpCode, HttpException, NotFoundException,
   Param, ParseUUIDPipe, Post, Query,
 } from '@nestjs/common'
-import { IsIn, IsInt, IsISO8601, Matches, IsOptional, IsString, Max, MaxLength, Min, MinLength } from 'class-validator'
+import { IsBoolean, IsIn, IsInt, IsISO8601, Matches, IsOptional, IsString, Max, MaxLength, Min, MinLength } from 'class-validator'
 import { Type } from 'class-transformer'
 import { randomUUID } from 'crypto'
 import type { PoolClient } from 'pg'
@@ -12,6 +12,7 @@ import { CurrentUser, JwtPayload } from '../auth/decorators/current-user.decorat
 import { Roles } from '../auth/decorators/roles.decorator'
 import { buildSlots, tehranToday, tehranInstant } from './slots'
 import { dayPlan } from './schedule'
+import { genderAt, type GenderSplit } from './gender'
 import { tehranWhen } from './jalali'
 import { isDesk } from './amenities.controller'
 import { amenityLock, unitOfResident } from './debtor-lock'
@@ -26,6 +27,8 @@ export class CreateBookingDto {
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(12) hours?: number
   /** فقط ثبت دستی مسئول مشاعات/مدیر (هماهنگی تلفنی) */
   @IsOptional() @Matches(UUID_RE, { message: 'شناسه نامعتبر است' }) unit_id?: string
+  /** رزرو خصوصی (فقط مشاعی که private_enabled دارد) */
+  @IsOptional() @IsBoolean() private?: boolean
 }
 
 export class RejectBookingDto {
@@ -78,7 +81,7 @@ export class BookingsController {
         date: day,
         closed: plan.closed,
         lock: lock?.locked ? { code: 'debtor_restricted', overdue_days: lock.overdue_days, message: lock.message } : null,
-        slots: buildSlots(day, plan.hours, busy.rows.map((b) => ({ start: new Date(b.start_at), end: new Date(b.end_at), status: b.status }))),
+        slots: buildSlots(day, plan.hours, busy.rows.map((b) => ({ start: new Date(b.start_at), end: new Date(b.end_at), status: b.status }))).map((sl) => ({ ...sl, gender: genderAt(a.gender_split, day, sl.hour) })),
       }
     })
   }
@@ -90,6 +93,7 @@ export class BookingsController {
     const out = await this.db.withTenant(tenantId, async (client) => {
       const a = await this.amenity(client, dto.amenity_id)
       if (!a.is_active) throw new ConflictException('این مشاع فعلاً قابل رزرو نیست')
+      if (dto.private && !a.private_enabled) throw new BadRequestException('رزرو خصوصی برای این مشاع تعریف نشده است')
       const hours = dto.hours ?? 1
       if (hours > a.max_hours) throw new BadRequestException(`حداکثر ${a.max_hours} ساعت`)
       const start = new Date(dto.start)
@@ -146,9 +150,9 @@ export class BookingsController {
       if (clash.rowCount) throw new ConflictException('این ساعت رزرو شده است')
       const status = manual || !a.requires_approval ? 'confirmed' : 'pending'
       const res = await client.query<{ id: string; status: string; start_at: string; end_at: string }>(
-        `INSERT INTO facility.reservations (tenant_id, amenity_id, unit_id, requested_by, user_id, start_at, end_at, status, source)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id, status, start_at, end_at`,
-        [tenantId, a.id, unitId, user.sub, personId, start, end, status, manual ? 'manual' : 'app'],
+        `INSERT INTO facility.reservations (tenant_id, amenity_id, unit_id, requested_by, user_id, start_at, end_at, status, source, kind)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id, status, start_at, end_at`,
+        [tenantId, a.id, unitId, user.sub, personId, start, end, status, manual ? 'manual' : 'app', dto.private ? 'private' : 'general'],
       )
       const r = res.rows[0]
       const unitNo = (await client.query<{ unit_number: string }>(`SELECT unit_number FROM property.units WHERE id = $1`, [unitId])).rows[0]?.unit_number
@@ -346,8 +350,8 @@ export class BookingsController {
   }
 
   private async amenity(client: PoolClient, id: string) {
-    const a = (await client.query<{ id: string; name: string; icon: string | null; requires_approval: boolean; max_hours: number; max_advance_days: number; capacity: number | null; slot_hours: number[]; rule_text: string | null; description: string | null; is_active: boolean }>(
-      `SELECT id, name, icon, requires_approval, max_hours, max_advance_days, capacity, slot_hours, rule_text, description, is_active FROM facility.amenities WHERE id = $1`, [id])).rows[0]
+    const a = (await client.query<{ id: string; name: string; icon: string | null; requires_approval: boolean; max_hours: number; max_advance_days: number; capacity: number | null; slot_hours: number[]; rule_text: string | null; description: string | null; is_active: boolean; private_enabled: boolean; private_rules: string | null; gender_split: GenderSplit | null }>(
+      `SELECT id, name, icon, requires_approval, max_hours, max_advance_days, capacity, slot_hours, rule_text, description, is_active, private_enabled, private_rules, gender_split FROM facility.amenities WHERE id = $1`, [id])).rows[0]
     if (!a) throw new NotFoundException('مشاع یافت نشد')
     return { ...a, needs_approval: a.requires_approval }
   }

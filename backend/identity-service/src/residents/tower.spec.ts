@@ -1,4 +1,4 @@
-import { bulkNumbers, normalizeUnitNumber } from './tower.service'
+import { areasForRows, bulkNumbers, normalizeUnitNumber } from './tower.service'
 import { applyDebtorLocks, isRestrictionKey, restrictedAmenities, restrictedModules, roleMatrix } from './residents.constants'
 
 describe('ساخت واحد', () => {
@@ -13,6 +13,25 @@ describe('ساخت واحد', () => {
   })
   it('شروع از طبقه‌ی دلخواه', () => {
     expect(bulkNumbers(1, 2, 5).map((x) => x.unit_number)).toEqual(['501', '502'])
+  })
+})
+
+describe('متراژ ساخت گروهی', () => {
+  const rows = bulkNumbers(2, 3, 1)
+  it('جایگاه واحد در طبقه را برمی‌گرداند', () => {
+    expect(rows.map((r) => r.pos)).toEqual([1, 2, 3, 1, 2, 3])
+  })
+  it('متراژ هر جایگاه در همه‌ی طبقات یکی است', () => {
+    expect(areasForRows(rows, [250, 340, 305], undefined)).toEqual([250, 340, 305, 250, 340, 305])
+  })
+  it('خانه‌ی خالی از متراژ یکسان پر می‌شود و بدون آن null می‌ماند', () => {
+    expect(areasForRows(rows, [250, null], 280)).toEqual([250, 280, 280, 250, 280, 280])
+    expect(areasForRows(rows, undefined, undefined)).toEqual([null, null, null, null, null, null])
+  })
+  it('متراژ نامعتبر خطا می‌دهد، نه نادیده‌گرفته می‌شود', () => {
+    expect(() => areasForRows(rows, [250, 0], undefined)).toThrow(/واحد ۲/)
+    expect(() => areasForRows(rows, [9999], undefined)).toThrow()
+    expect(() => areasForRows(rows, [Number.NaN], undefined)).toThrow()
   })
 })
 

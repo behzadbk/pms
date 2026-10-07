@@ -65,7 +65,6 @@ export function SuperAdminBilling() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold">تراکنش‌های پلتفرم</h1>
-          <p className="text-muted text-sm mt-1">صورتحساب اشتراک ماهانه هر مجتمع به شرکت ارائه‌دهنده — جدا از دفترداری داخلی ساختمان‌ها</p>
         </div>
         <div className="flex items-center gap-2">
           <button onClick={load} className="flex items-center gap-2 border border-line bg-card px-3 py-2.5 rounded-xl text-sm hover:bg-canvas" aria-label="بازخوانی">

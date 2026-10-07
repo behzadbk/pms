@@ -54,7 +54,7 @@ export function NotificationPrompt() {
         <BellRing size={18} className="shrink-0 mt-0.5" />
         <div className="min-w-0">
           <p className="text-sm leading-6">
-            {ios ? 'برای دریافت اعلان روی آیفون، همین را به صفحه‌ی اصلی اضافه کنید (Share ← Add to Home Screen) و از همان آیکن باز کنید.' : 'با فعال‌سازی اعلان‌ها، نتیجه‌ی رزرو، مرسوله‌ها و پیام‌های مهم را همان لحظه روی گوشی می‌بینید.'}
+            {ios ? 'برای اعلان: Share ← Add to Home Screen' : 'اعلان‌ها را فعال کنید'}
           </p>
           {err && <p className="text-xs mt-1 text-bad">{err}</p>}
         </div>

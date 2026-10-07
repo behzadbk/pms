@@ -6,6 +6,7 @@ import { GuardGuestCheck } from '../guard/GuestCheck'
 import { GuardParcels } from '../guard/Parcels'
 import { GuardTraffic } from '../guard/Traffic'
 import { AmenityManager } from '../admin/AmenityManager'
+import { EntitlementDesk } from './EntitlementDesk'
 import { useStaffNav } from '../../lib/access'
 
 /** چند صفحه‌ی موجود را زیر یک پنل با تب کنار هم می‌گذارد (مثلاً میز لابی) */
@@ -65,9 +66,21 @@ export function StaffSecurityDesk() {
   )
 }
 
-/** پنل مسئول مشاعات — مسئول اصلی تایید رزروها */
+/**
+ * پنل مسئول مشاعات: تأیید رزروها + کارهای روزانه‌ی خدمات واحدها (اسکن بلیت QR مهمان استخر،
+ * ثبت مصرف کارواش/نظافت/بولینگ و ابطال). تنظیم سهمیه و نرخ‌ها کار مدیر ساختمان است، نه این پنل.
+ */
 export function StaffAmenityDesk() {
-  return <AmenityManager />
+  return (
+    <Tabbed
+      title="مسئول مشاعات"
+      subtitle="رزرو مشاعات، اسکن بلیت مهمان استخر و ثبت مصرف خدمات واحدها"
+      tabs={[
+        { id: 'amenities', label: 'رزرو مشاعات', node: <AmenityManager /> },
+        { id: 'services', label: 'خدمات واحدها', node: <EntitlementDesk /> },
+      ]}
+    />
+  )
 }
 
 /** /staff → اولین پنلی که کارمند به آن دسترسی دارد */

@@ -99,8 +99,6 @@ export function Login() {
         <div className="flex flex-col items-center gap-2 mb-6">
           <img src="/icons/icon-192.png" alt="همین" className="w-16 h-16 rounded-2xl shadow-sm" />
           <h1 className="font-bold text-xl text-ink-text">همین</h1>
-          <p className="text-xs text-muted -mt-1">سامانه مدیریت ساختمان</p>
-          <p className="text-sm text-muted">برای ورود، اطلاعات حساب کاربری خود را وارد کنید</p>
         </div>
 
         {mode === 'family' ? (

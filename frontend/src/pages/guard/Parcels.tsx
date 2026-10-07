@@ -68,7 +68,6 @@ export function GuardParcels() {
     <div className="space-y-6">
       <div>
         <h1 className="text-xl font-bold">مرسولات پستی</h1>
-        <p className="text-muted text-sm mt-1">ثبت مرسوله با انتخاب واحد و اعلان خودکار به ساکن</p>
       </div>
 
       <Card>

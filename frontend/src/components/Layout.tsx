@@ -1,5 +1,5 @@
-import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom'
-import { Building2, ChevronDown, ChevronLeft, Lock, LogOut, Menu, Palette, ShieldCheck, X } from 'lucide-react'
+import { NavLink, Outlet, useNavigate, useLocation, useOutletContext } from 'react-router-dom'
+import { Bell, Building2, ChevronDown, ChevronLeft, LayoutGrid, Lock, LogOut, Menu, Palette, ShieldCheck } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { ROLE_SWITCHER_ENABLED, useRole, useRoleInfo } from '../context/RoleContext'
@@ -16,20 +16,6 @@ import type { Role } from '../lib/types'
 import { NotificationPrompt } from './NotificationPrompt'
 import { NotificationBell } from './NotificationBell'
 
-/** true وقتی viewport به‌اندازه breakpoint دسکتاپ (lg = 1024px) یا بزرگ‌تر است */
-function useIsDesktop() {
-  const [isDesktop, setIsDesktop] = useState(
-    () => typeof window !== 'undefined' && window.matchMedia('(min-width: 1024px)').matches,
-  )
-  useEffect(() => {
-    const mql = window.matchMedia('(min-width: 1024px)')
-    const onChange = () => setIsDesktop(mql.matches)
-    mql.addEventListener('change', onChange)
-    return () => mql.removeEventListener('change', onChange)
-  }, [])
-  return isDesktop
-}
-
 export function Layout() {
   const { role, setRole } = useRole()
   const info = useRoleInfo()
@@ -43,15 +29,13 @@ export function Layout() {
   const location = useLocation()
   const [pinOpen, setPinOpen] = useState(false)
   const [switcherOpen, setSwitcherOpen] = useState(false)
-  const [drawerOpen, setDrawerOpen] = useState(false)
-  const isDesktop = useIsDesktop()
 
   // فقط وقتی مسیر فعلی متعلق به نقش دیگری است به خانه‌ی نقش برو — قبلاً با هر رفرش صفحه
   // (مثلاً روی /admin/charges) کاربر به داشبورد پرتاب می‌شد و لینک مستقیم کار نمی‌کرد.
   useEffect(() => {
     const section = `/${nav[0].to.split('/')[1]}`
     // /settings و /more مشترک بین همه‌ی نقش‌ها هستند — رفرش روی آن‌ها نباید به داشبورد پرت کند
-    const shared = location.pathname === '/settings' || location.pathname === '/more'
+    const shared = ['/settings', '/more', '/account'].includes(location.pathname)
     if (!shared && location.pathname !== section && !location.pathname.startsWith(`${section}/`)) {
       navigate(nav[0].to)
     }
@@ -64,19 +48,6 @@ export function Layout() {
     if (m && !visible(m)) navigate(nav[0].to, { replace: true })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.pathname, perms])
-
-  // بستن خودکار drawer موبایل با هر تغییر مسیر
-  useEffect(() => {
-    setDrawerOpen(false)
-  }, [location.pathname])
-
-  // قفل اسکرول پس‌زمینه وقتی drawer باز است
-  useEffect(() => {
-    document.body.style.overflow = drawerOpen ? 'hidden' : ''
-    return () => {
-      document.body.style.overflow = ''
-    }
-  }, [drawerOpen])
 
   function handleLogout() {
     // قفل خروج حالت والدین: خروج از حساب کودک رمز والد می‌خواهد
@@ -97,7 +68,7 @@ export function Layout() {
   const { tabs: tabItems, more: moreItems } = splitTabs(nav)
   const hasMore = moreItems.length > 0
   const onOverflow =
-    location.pathname === '/more' || location.pathname === '/settings' ||
+    location.pathname === '/more' || location.pathname === '/settings' || location.pathname === '/account' ||
     moreItems.some((i) => location.pathname === i.to || location.pathname.startsWith(i.to + '/'))
   const isChild = role === 'child'
 
@@ -148,12 +119,8 @@ export function Layout() {
           padding ناچ از داخل h-14 کم می‌شد، پس محتوای هدر زیر نوار وضعیت/ناچ می‌رفت. */}
       <header className="lg:hidden sticky top-0 z-30 bg-[var(--hdr-bg)] text-white pt-safe shrink-0">
        <div className="h-14 px-4 flex items-center justify-between gap-3">
-        <button
-          onClick={() => setDrawerOpen(true)}
-          className="p-2 -mr-2 rounded-lg active:bg-white/10 transition-colors"
-          aria-label="باز کردن منو"
-        >
-          <Menu size={22} />
+        <button onClick={() => navigate('/account')} className="rounded-full active:scale-95 transition-transform" aria-label="حساب کاربری">
+          <Avatar name={user?.fullName ?? info.label} size={40} ring />
         </button>
         <div className="flex items-center gap-2 min-w-0">
           <div className="bg-[var(--hdr-acc)] rounded-lg p-1.5 shrink-0">
@@ -172,28 +139,10 @@ export function Layout() {
        </div>
       </header>
 
-      {/* ---------- Backdrop موبایل ---------- */}
-      <AnimatePresence>
-        {drawerOpen && (
-          <motion.div
-            className="fixed inset-0 z-40 lg:hidden bg-black/45"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            onClick={() => setDrawerOpen(false)}
-          />
-        )}
-      </AnimatePresence>
-
       {/* ---------- سایدبار: ثابت روی دسکتاپ، Drawer روی موبایل ---------- */}
       <motion.aside
         key="sidebar"
-        className="w-72 lg:w-64 shrink-0 bg-[var(--hdr-bg)] text-white flex flex-col fixed lg:static inset-y-0 right-0 z-50 lg:z-auto"
-        initial={false}
-        animate={{ x: isDesktop || drawerOpen ? 0 : '100%' }}
-        transition={{ type: 'tween', duration: 0.28, ease: [0.32, 0.72, 0, 1] }}
-        style={{ willChange: 'transform' }}
+        className="hidden lg:flex w-64 shrink-0 bg-[var(--hdr-bg)] text-white flex-col"
       >
         {/* همان اصلاح هدر موبایل: pt-safe روی المان بیرونی، h-16 روی ردیف داخلی */}
         <div className="border-b border-white/10 pt-safe lg:pt-0 shrink-0">
@@ -204,16 +153,8 @@ export function Layout() {
             </div>
             <div className="min-w-0">
               <p className="font-bold leading-none truncate">{user?.tenantName ?? 'همین'}</p>
-              <p className="text-xs text-white/50 mt-1 truncate">همین — سامانه مدیریت ساختمان</p>
             </div>
           </div>
-          <button
-            onClick={() => setDrawerOpen(false)}
-            className="lg:hidden p-1.5 -ml-1.5 rounded-lg active:bg-white/10 shrink-0"
-            aria-label="بستن منو"
-          >
-            <X size={20} />
-          </button>
         </div>
         </div>
 
@@ -306,11 +247,6 @@ export function Layout() {
             خروج
           </button>
 
-          {ROLE_SWITCHER_ENABLED && (
-            <p className="text-[11px] text-white/60 text-center mt-2">
-              {user ? 'سوییچر نقش فقط برای پیش‌نمایش پنل‌های دیگر' : 'نمای دمو — تعویض نقش برای پیش‌نمایش پنل‌ها'}
-            </p>
-          )}
         </div>
       </motion.aside>
 
@@ -338,7 +274,7 @@ export function Layout() {
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.18, ease: 'easeOut' }}
             >
-              <Outlet />
+              <Outlet context={{ logout: handleLogout }} />
             </motion.div>
           </AnimatePresence>
         </main>
@@ -449,38 +385,88 @@ function ExitLockSheet({ open, onClose, onUnlocked }: { open: boolean; onClose: 
   )
 }
 
-/**
- * صفحه‌ی «بیشتر»: بخش‌های پنجم به بعدِ هر نقش (فهرست شیشه‌ای گروهی: آیکن + عنوان + زیرعنوان)
- * به‌علاوه‌ی «حساب و ظاهر». تا وقتی یکی از این بخش‌ها باز است، تب «بیشتر» روشن می‌ماند.
- */
+declare const __APP_VERSION__: string
+const APP_VERSION = typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : '1.0.0'
+
+/** آواتار کاربر: حرف اول نام روی دایره‌ی رنگی (عکس پروفایل هنوز ذخیره نمی‌شود) */
+export function Avatar({ name, size = 40, ring }: { name: string; size?: number; ring?: boolean }) {
+  return (
+    <span
+      className="rounded-full grid place-items-center font-bold shrink-0 bg-brass text-[#1d1a12]"
+      style={{ width: size, height: size, fontSize: size * 0.42, boxShadow: ring ? '0 0 0 2px rgba(255,255,255,.35)' : undefined }}
+    >
+      {(name || '؟').trim()[0]}
+    </span>
+  )
+}
+
+function Group({ children }: { children: React.ReactNode }) {
+  return <div className="hm-card px-2 py-1 hm-divided">{children}</div>
+}
+function Row({ icon: Icon, label, onClick, tone, trailing }: { icon: React.ElementType; label: string; onClick: () => void; tone?: 'bad'; trailing?: React.ReactNode }) {
+  return (
+    <button onClick={onClick} className="w-full min-h-[56px] flex items-center gap-3 px-2 py-2 text-right">
+      <span className={`hm-icon-tile ${tone === 'bad' ? 'hm-tone-bad' : ''}`}>
+        <Icon size={22} />
+      </span>
+      <span className={`flex-1 text-[15px] font-medium ${tone === 'bad' ? 'text-[var(--hm-bad)]' : ''}`}>{label}</span>
+      {trailing}
+      {tone !== 'bad' && <ChevronLeft size={20} className="text-[var(--hm-t3)]" />}
+    </button>
+  )
+}
+
+/** صفحه‌ی حساب (به سبک تنظیمات آیفون/تلگرام): کارت پروفایل، گروه‌های گزینه، خروج، و پایین صفحه نسخه + نام شرکت */
+export function AccountScreen() {
+  const { role } = useRole()
+  const info = useRoleInfo()
+  const { user } = useAuth()
+  const navigate = useNavigate()
+  const { logout } = useOutletContext<{ logout: () => void }>()
+  const staffNav = useStaffNav()
+  const { visible } = usePermissions()
+  const nav = (role === 'staff' ? staffNav : navByRole[role]).filter((i) => visible((i as NavItem).module))
+  const hasMore = splitTabs(nav).more.length > 0
+  const name = user?.fullName ?? info.label
+  return (
+    <div className="flex flex-col gap-6 hm-fade-in max-w-xl mx-auto">
+      <div className="flex flex-col items-center gap-2 pt-2">
+        <Avatar name={name} size={96} />
+        <p className="text-xl font-bold mt-2">{name}</p>
+        <p className="text-sm text-[var(--hm-t2)]">{user?.role === 'staff' ? departmentLabel(user.department) : info.label}{user?.tenantName ? ` · ${user.tenantName}` : ''}</p>
+      </div>
+      <Group>
+        <Row icon={Palette} label="حساب و ظاهر" onClick={() => navigate('/settings')} />
+        <Row icon={Bell} label="اعلان‌ها" onClick={() => navigate('/settings')} />
+        {hasMore && <Row icon={LayoutGrid} label="همه‌ی بخش‌ها" onClick={() => navigate('/more')} />}
+      </Group>
+      <Group>
+        <Row icon={LogOut} label="خروج از حساب" tone="bad" onClick={logout} />
+      </Group>
+      <div className="flex flex-col items-center gap-1 pt-4 pb-6 text-[var(--hm-t3)]">
+        <p className="text-xs font-bold">همین · نسخه {APP_VERSION.replace(/\./g, '٫').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[+d])}</p>
+        <p className="text-xs">باروکو</p>
+      </div>
+    </div>
+  )
+}
+
+/** صفحه‌ی «بیشتر»: بخش‌های پنجم به بعدِ هر نقش (فهرست شیشه‌ای گروهی) */
 export function MoreScreen() {
   const { role } = useRole()
   const staffNav = useStaffNav()
   const { visible } = usePermissions()
   const navigate = useNavigate()
   const nav = (role === 'staff' ? staffNav : navByRole[role]).filter((i) => visible((i as NavItem).module))
-  const items: NavItem[] = [
-    ...splitTabs(nav).more,
-    { to: '/settings', label: 'حساب و ظاهر', icon: Palette, sub: 'حالت تیره، رنگ‌بندی، حالت آسان' },
-  ]
+  const items: NavItem[] = splitTabs(nav).more
   return (
     <div className="flex flex-col gap-4 hm-fade-in">
       <p className="text-xl font-bold">بیشتر</p>
-      <div className="hm-card px-2 py-1 hm-divided">
+      <Group>
         {items.map((m) => (
-          <button key={m.to} onClick={() => navigate(m.to)} className="w-full flex items-center gap-3 px-2 py-3 text-right">
-            <span className="hm-icon-tile">
-              <m.icon size={22} />
-            </span>
-            <span className="flex-1 min-w-0 flex flex-col gap-1">
-              <span className="text-sm font-bold">{m.label}</span>
-              {m.sub && <span className="text-xs text-[var(--hm-t2)]">{m.sub}</span>}
-            </span>
-            <ChevronLeft size={20} className="text-[var(--hm-t3)]" />
-          </button>
+          <Row key={m.to} icon={m.icon} label={m.label} onClick={() => navigate(m.to)} />
         ))}
-      </div>
-      <p className="text-xs text-[var(--hm-t2)] text-center">نوار پایین همیشه حداکثر ۵ دکمه دارد؛ بخش‌های جدید اینجا اضافه می‌شوند.</p>
+      </Group>
     </div>
   )
 }

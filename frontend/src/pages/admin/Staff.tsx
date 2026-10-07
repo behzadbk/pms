@@ -143,7 +143,6 @@ export function AdminStaff() {
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
           <h1 className="text-xl font-bold">کارکنان</h1>
-          <p className="text-muted text-sm mt-1">تعریف کارکنان، بخش و شیفت، دسترسی به پنل‌ها و ساخت نام کاربری/رمز ورود</p>
         </div>
         <PrimaryButton onClick={() => setForm(emptyForm())}>
           <Plus size={16} /> کارمند جدید

@@ -90,6 +90,8 @@ export interface ImportResult {
   file: string
   total: number
   created: number
+  /** ردیف‌های «فقط متراژ» که واحد را ساخته یا متراژش را ثبت کرده‌اند */
+  units_set?: number
   errors: { row: number; reason: string; text: string }[]
 }
 
@@ -252,9 +254,11 @@ export interface Amenity {
   max_advance_days?: number
   /** مشاعِ بسته برای واحد بدهکار */
   locked?: boolean
+  private_enabled?: boolean
+  private_rules?: string | null
 }
 export interface SlotLock { code: 'debtor_restricted'; overdue_days: number; message: string }
-export interface Slot { hour: number; label: string; start: string; end: string; status: 'free' | 'taken' | 'past' }
+export interface Slot { hour: number; label: string; start: string; end: string; status: 'free' | 'taken' | 'past'; gender?: 'women' | 'men' | null }
 export interface ReservationRow {
   id: string
   status: 'pending' | 'confirmed' | 'rejected' | 'cancelled'
@@ -334,8 +338,9 @@ export const residentsApi = {
 
   // ── واحدها، حذف ساکن، قوانین برج ──
   createUnit: (buildingId: string, body: UnitSpecs & { unit_number: string }) => api.post<{ id: string; no: string }>(`${I}/buildings/${buildingId}/units`, body),
-  bulkUnits: (buildingId: string, body: { floors: number; units_per_floor: number; start_floor?: number; area?: number }) =>
-    api.post<{ created: number; skipped: number; total: number }>(`${I}/buildings/${buildingId}/units/bulk`, body),
+  /** areas[i] = متراژ واحد (i+1)ام هر طبقه؛ null = خالی (از area یکسان استفاده می‌شود) */
+  bulkUnits: (buildingId: string, body: { floors: number; units_per_floor: number; start_floor?: number; area?: number; areas?: (number | null)[] }) =>
+    api.post<{ created: number; skipped: number; total: number; area_filled: number }>(`${I}/buildings/${buildingId}/units/bulk`, body),
   updateUnit: (id: string, body: UnitSpecs) => api.patch<{ id: string; no: string }>(sc(`${I}/units/${id}`), body),
   deleteUnit: (id: string) => api.delete<{ ok: boolean }>(sc(`${I}/units/${id}`)),
   /** حذف ساکن = پایان عضویت با ردپا؛ پرونده‌ی تازه‌ی واحد برمی‌گردد */
@@ -400,7 +405,7 @@ export const residentsApi = {
   // ── رزرو مشاعات ──
   amenities: () => api.get<Amenity[]>(`${F}/amenities`),
   slots: (amenityId: string, date: string) => api.get<{ amenity: Amenity; date: string; closed: string | null; lock?: SlotLock | null; slots: Slot[] }>(`${F}/amenities/${amenityId}/slots${qs({ date })}`),
-  book: (body: { amenity_id: string; start: string; hours?: number; unit_id?: string }) =>
+  book: (body: { amenity_id: string; start: string; hours?: number; unit_id?: string; private?: boolean }) =>
     api.post<{ id: string; status: 'pending' | 'confirmed' | 'pending_parent'; amenity: string; start_at: string; end_at: string }>(`${F}/reservations`, body),
   myReservations: () => api.get<ReservationRow[]>(`${F}/me/reservations`),
   reservationQueue: (status = 'pending') => api.get<ReservationRow[]>(`${F}/reservations${qs({ status })}`),

@@ -5,6 +5,13 @@ const F = '/facility'
 
 export type ReservationStatus = 'pending' | 'confirmed' | 'rejected' | 'cancelled'
 
+export type Gender = 'women' | 'men'
+export type GenderSplit =
+  | { mode: 'parity'; even: Gender; odd: Gender }
+  | { mode: 'weekday'; days: Record<string, Gender | null> }
+  | { mode: 'hours'; ranges: { from: number; to: number; gender: Gender }[] }
+export const GENDER_LABEL: Record<Gender, string> = { women: 'بانوان', men: 'آقایان' }
+
 export interface WeekDay { weekday: number; hours: number[] }
 export interface ManagedAmenity {
   id: string
@@ -17,6 +24,9 @@ export interface ManagedAmenity {
   max_hours: number
   max_advance_days: number
   is_active: boolean
+  private_enabled: boolean
+  private_rules: string | null
+  gender_split: GenderSplit | null
   pending_count: number
   upcoming_count: number
   has_schedule: boolean
@@ -35,6 +45,9 @@ export interface AmenityInput {
   max_hours?: number
   max_advance_days?: number
   is_active?: boolean
+  private_enabled?: boolean
+  private_rules?: string
+  gender_split?: GenderSplit | null
 }
 
 export interface DeskReservation {
