@@ -188,6 +188,47 @@ export function Onboarding() {
         .ob-rise { animation: ob-rise .6s cubic-bezier(.32,.72,0,1) both }
         .ob-next { animation: ob-in-next .5s cubic-bezier(.32,.72,0,1) both }
         .ob-prev { animation: ob-in-prev .5s cubic-bezier(.32,.72,0,1) both }
+        /* چیدمان واکنش‌گرا: ستونی روی موبایل/پرتره، دو‌ستونه روی دسکتاپ و گوشی افقی */
+        .ob-body { display: flex; flex-direction: column; justify-content: center; gap: 20px; padding: 16px 0 8px; min-height: 0 }
+        .ob-art { display: flex; align-items: center; justify-content: center; flex: 0 1 auto; min-height: 0 }
+        .ob-card { width: 100%; max-width: 400px; padding: 12px; border-radius: 32px }
+        .ob-scene { display: block; width: 100%; height: auto; max-height: min(40dvh, 360px) }
+        .ob-copy { flex: 0 0 auto; text-align: center }
+        .ob-title { font-size: clamp(24px, 2.2vw + 15px, 48px); line-height: 1.25 }
+        .ob-text { font-size: clamp(14px, .45vw + 12px, 18px); line-height: 2; max-width: 30rem; margin-inline: auto }
+        .ob-cta-d { display: none }
+        .ob-world { --wh: min(46dvh, calc(min(100vw, 760px) * .7143)); position: absolute; inset-inline: 0; bottom: 0; display: flex; flex-direction: column; align-items: center; pointer-events: none }
+        .ob-world-svg { height: var(--wh); width: auto; max-width: 100%; aspect-ratio: 420 / 300; display: block }
+        .ob-ground { width: 100%; height: calc(var(--wh) * .04) }
+        @media (max-height: 700px) {
+          .ob-body { gap: 12px; padding-top: 8px }
+          .ob-scene { max-height: min(30dvh, 300px) }
+          .ob-card { padding: 8px }
+        }
+        @media (min-width: 1024px), (orientation: landscape) and (min-width: 640px) {
+          .ob-body { flex-direction: row; align-items: center; gap: clamp(32px, 5vw, 80px); padding: 0 }
+          .ob-art { flex: 1 1 0 }
+          .ob-card { max-width: 520px; padding: 24px }
+          .ob-scene { max-height: min(60dvh, 460px) }
+          .ob-copy { flex: 1 1 0; max-width: 36rem; text-align: right }
+          .ob-text { margin-inline: 0 }
+          .ob-cta-m { display: none }
+          .ob-cta-d { display: block }
+        }
+        @media (min-width: 640px) and (max-width: 1023px) and (orientation: portrait) {
+          .ob-card { max-width: 520px }
+          .ob-scene { max-height: min(44dvh, 460px) }
+        }
+        @media (max-height: 520px) {
+          .ob-brand svg { width: 56px; height: 56px }
+          .ob-world { --wh: min(40dvh, calc(min(100vw, 760px) * .7143)) }
+        }
+        @media (orientation: landscape) and (max-height: 520px) {
+          .ob-card { padding: 8px; border-radius: 24px }
+          .ob-scene { max-height: 58dvh }
+          .ob-title { font-size: clamp(20px, 3.4dvh + 8px, 32px) }
+        }
+        @media (min-width: 1024px) and (min-height: 900px) { .ob-scene { max-height: min(54dvh, 500px) } }
         @media (prefers-reduced-motion: reduce) {
           [data-onboarding] *, [data-onboarding] *::before { animation: none !important; transition: none !important }
         }
@@ -199,31 +240,36 @@ export function Onboarding() {
           type="button"
           onClick={() => go(1)}
           aria-label="شروع معرفی"
-          className="absolute inset-0 flex flex-col items-center text-center cursor-pointer"
+          className="absolute inset-0 flex flex-col items-center text-center cursor-pointer overflow-hidden"
           style={{
             background:
               'linear-gradient(180deg, color-mix(in srgb, var(--color-brass) 22%, var(--color-card)) 0%, color-mix(in srgb, var(--color-tile) 14%, var(--color-card)) 55%, var(--color-card) 100%)',
           }}
         >
-          {/* خورشید در حال طلوع */}
-          <div
-            className="absolute right-[9%] top-[7%] w-20 h-20 lg:w-32 lg:h-32 rounded-full pointer-events-none"
-            style={{
-              background: 'radial-gradient(circle at 38% 36%, color-mix(in srgb, var(--color-brass) 35%, white), var(--color-brass))',
-              boxShadow: '0 0 90px 28px color-mix(in srgb, var(--color-brass) 38%, transparent)',
-              animation: 'ob-sun 1.4s cubic-bezier(.32,.72,0,1) both',
-            }}
-          />
-          <div className="relative z-[2] flex flex-col items-center pt-[15vh] px-8">
-            <div className="ob-rise" style={{ animation: 'ob-rise .6s cubic-bezier(.32,.72,0,1) both, ob-float 6s ease-in-out .6s infinite' }}>
+          {/* خورشید در حال طلوع (داخل محدوده‌ی مرکزی تا روی صفحه‌ی عریض از افق دور نشود) */}
+          <div className="absolute inset-y-0 w-full max-w-[760px] pointer-events-none">
+            <div
+              className="absolute right-[9%] top-[7%] w-20 h-20 lg:w-28 lg:h-28 rounded-full"
+              style={{
+                background: 'radial-gradient(circle at 38% 36%, color-mix(in srgb, var(--color-brass) 35%, white), var(--color-brass))',
+                boxShadow: '0 0 90px 28px color-mix(in srgb, var(--color-brass) 38%, transparent)',
+                animation: 'ob-sun 1.4s cubic-bezier(.32,.72,0,1) both',
+              }}
+            />
+          </div>
+          <div className="relative z-[2] flex flex-col items-center px-8" style={{ paddingTop: 'clamp(20px, 15dvh, 160px)' }}>
+            <div className="ob-brand ob-rise" style={{ animation: 'ob-rise .6s cubic-bezier(.32,.72,0,1) both, ob-float 6s ease-in-out .6s infinite' }}>
               <BrandMark size={104} />
             </div>
-            <p className="ob-rise mt-6 text-[44px] lg:text-6xl font-extrabold tracking-tight" style={{ animationDelay: '.12s' }}>همین</p>
-            <p className="ob-rise mt-3 text-base lg:text-xl font-semibold text-muted" style={{ animationDelay: '.22s' }}>
+            <p className="ob-rise mt-6 font-extrabold tracking-tight" style={{ animationDelay: '.12s', fontSize: 'clamp(40px, 3vw + 24px, 64px)' }}>همین</p>
+            <p className="ob-rise mt-3 font-semibold text-muted" style={{ animationDelay: '.22s', fontSize: 'clamp(15px, .6vw + 12px, 20px)' }}>
               برای یک ساختمان، همین کافیست
             </p>
           </div>
-          <SplashScene className="absolute inset-x-0 bottom-0 w-full h-[44vh] lg:h-[48vh] z-[3]" />
+          <div className="ob-world z-[3]">
+            <SplashScene className="ob-world-svg" />
+            <div className="ob-ground" style={{ background: 'color-mix(in srgb, var(--color-tile) 45%, var(--color-ink))' }} />
+          </div>
         </button>
       )}
 
@@ -236,7 +282,7 @@ export function Onboarding() {
             transition: 'background .6s ease',
           }}
         >
-          <div className="w-full max-w-6xl mx-auto flex flex-col flex-1 min-h-0 px-6 lg:px-12">
+          <div className="w-full max-w-6xl mx-auto flex flex-col flex-1 min-h-0 overflow-y-auto px-6 lg:px-12">
             {/* نوار پیشرفت به سبک استوری */}
             <div className="pt-[max(env(safe-area-inset-top),20px)] lg:pt-10">
               <div className="flex items-center gap-1.5" role="tablist" aria-label="مراحل معرفی">
@@ -276,33 +322,33 @@ export function Onboarding() {
             {/* محتوا؛ با key جدا می‌شود تا هر اسلاید انیمیشن ورود خودش را داشته باشد */}
             <div
               key={step}
-              className={`flex-1 min-h-0 flex flex-col lg:flex-row lg:items-center lg:gap-16 justify-center ${dir === 1 ? 'ob-next' : 'ob-prev'}`}
+              className={`ob-body flex-1 ${dir === 1 ? 'ob-next' : 'ob-prev'}`}
               role="group"
               aria-roledescription="اسلاید"
               aria-label={`${fa(step)} از ${fa(SLIDES.length)}`}
             >
-              <div className="lg:order-2 lg:flex-1 flex items-center justify-center min-h-0 py-2">
-                <div className="lg4-card lg4-card-float w-full max-w-[400px] lg:max-w-[520px] p-3 lg:p-6" style={{ borderRadius: 32 }}>
-                  <slide.Scene className="w-full h-auto max-h-[38dvh] lg:max-h-none" />
+              <div className="ob-art lg:order-2 lg:flex-1">
+                <div className="ob-card lg4-card lg4-card-float">
+                  <slide.Scene className="ob-scene" />
                 </div>
               </div>
 
-              <div className="lg:order-1 lg:flex-1 lg:max-w-xl text-center lg:text-right pt-4 lg:pt-0">
+              <div className="ob-copy lg:order-1">
                 <span
                   className="inline-block px-3 py-1 rounded-full text-[12px] font-bold"
                   style={{ background: 'var(--color-brass-soft)', color: 'color-mix(in srgb, var(--color-brass) 78%, black)' }}
                 >
                   {slide.eyebrow}
                 </span>
-                <h1 className="mt-3 text-[28px] md:text-4xl lg:text-5xl lg:leading-tight font-extrabold tracking-tight">{slide.title}</h1>
-                <p className="mt-3 lg:mt-5 mx-auto lg:mx-0 max-w-[330px] md:max-w-[440px] text-[15px] md:text-base lg:text-lg leading-8 text-muted">{slide.body}</p>
-                {/* دسکتاپ: دکمه کنار متن */}
-                <div className="hidden lg:block mt-10 max-w-xs">{nextButton}</div>
+                <h1 className="ob-title mt-3 font-extrabold tracking-tight">{slide.title}</h1>
+                <p className="ob-text mt-3 text-muted">{slide.body}</p>
+                {/* دسکتاپ و گوشی افقی: دکمه کنار متن */}
+                <div className="ob-cta-d mt-8 max-w-xs">{nextButton}</div>
               </div>
             </div>
 
             {/* موبایل: دکمه در ناحیه‌ی شست */}
-            <div className="lg:hidden pt-4 pb-[max(env(safe-area-inset-bottom),28px)] w-full">{nextButton}</div>
+            <div className="ob-cta-m pt-3 pb-[max(env(safe-area-inset-bottom),24px)] w-full">{nextButton}</div>
           </div>
         </div>
       )}
@@ -310,14 +356,17 @@ export function Onboarding() {
       {/* ───────── ۵) صفحه‌ی پایانی: شب ───────── */}
       {step === FINAL && (
         <div className="absolute inset-0 flex flex-col">
-          <NightSky className="absolute inset-0 w-full h-full" />
-          <NightScene className="absolute inset-x-0 bottom-0 w-full h-[40vh] lg:h-[46vh]" />
+          <NightSky />
+          <div className="ob-world">
+            <NightScene className="ob-world-svg" />
+            <div className="ob-ground" style={{ background: 'color-mix(in srgb, var(--color-tile) 30%, black)' }} />
+          </div>
           <div
             className="absolute inset-0 pointer-events-none"
             style={{ background: 'linear-gradient(180deg, rgba(6,18,22,0) 52%, rgba(6,18,22,.7) 82%, rgba(6,18,22,.9) 100%)' }}
           />
-          <div className="relative z-[3] flex-1 flex flex-col items-center px-7 w-full max-w-md mx-auto pt-[max(env(safe-area-inset-top),64px)] pb-[max(env(safe-area-inset-bottom),28px)]">
-            <div className="ob-rise" style={{ animation: 'ob-rise .6s cubic-bezier(.32,.72,0,1) both, ob-float 6s ease-in-out .6s infinite' }}>
+          <div className="relative z-[3] flex-1 flex flex-col items-center px-7 w-full max-w-md mx-auto pb-[max(env(safe-area-inset-bottom),28px)]" style={{ paddingTop: 'max(env(safe-area-inset-top), clamp(16px, 10dvh, 120px))' }}>
+            <div className="ob-brand ob-rise" style={{ animation: 'ob-rise .6s cubic-bezier(.32,.72,0,1) both, ob-float 6s ease-in-out .6s infinite' }}>
               <BrandMark size={84} dark />
             </div>
             <h1 className="ob-rise mt-5 text-[38px] lg:text-5xl font-extrabold tracking-tight text-white" style={{ animationDelay: '.1s' }}>همین</h1>
