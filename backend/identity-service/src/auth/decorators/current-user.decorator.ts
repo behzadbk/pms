@@ -15,6 +15,8 @@ export interface JwtPayload {
   mid?: string
   /** دسترسی‌های مؤثر کارمند (برای بررسی در سرویس‌های دیگر بدون تماس با identity) */
   perms?: string[]
+  /** سطح سرویس ساختمان در زمان صدور توکن (simple | economic | professional) — ماتریس: platform/tiers.ts */
+  tier?: 'simple' | 'economic' | 'professional'
   iat?: number
 }
 
