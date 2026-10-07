@@ -1,4 +1,4 @@
-import type { ReactElement } from 'react'
+import { lazy, Suspense, type ReactElement } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { RoleProvider, useRole } from './context/RoleContext'
@@ -6,67 +6,78 @@ import { ThemeProvider } from './context/ThemeContext'
 import { Layout } from './components/Layout'
 import { Login } from './pages/Login'
 import { Onboarding, ONBOARDING_SEEN_KEY } from './pages/Onboarding'
-import { Settings } from './pages/shared/Settings'
-import { Notifications } from './pages/shared/Notifications'
 import { MoreScreen, AccountScreen } from './components/Layout'
 import { PermissionsProvider, usePermissions } from './context/PermissionsContext'
 import type { AppModule } from './lib/api/residents'
-import { AdminResidents } from './pages/admin/residents/Residents'
 import { SuperAdminBuildingScope } from './lib/residentsScope'
-import { AdminResidentForm } from './pages/admin/residents/ResidentForm'
-import { AdminUnitFile } from './pages/admin/residents/UnitFile'
-import { AdminJoinRequests } from './pages/admin/residents/JoinRequests'
-import { AdminMoveOut } from './pages/admin/residents/MoveOut'
-import { SuperAdminResidents, SuperAdminBuildingResidents, SuperAdminUserFile } from './pages/superadmin/Residents'
-import { ResidentHousehold } from './pages/resident/household/Household'
-import { ResidentHouseholdAdd } from './pages/resident/household/AddMember'
-import { ResidentParentControl } from './pages/resident/household/ParentControl'
-import { ResidentChildLogin, ResidentChildRequests } from './pages/resident/household/ChildAccess'
-import { ResidentBook } from './pages/resident/Book'
-import { ChildHome, ChildWaiting, ChildQuiet, ChildBook } from './pages/child/ChildApp'
-import { LobbyJoin, AcceptInvite } from './pages/public/Join'
 
-import { AdminDashboard } from './pages/admin/Dashboard'
-import { AdminFinance } from './pages/admin/Finance'
-import { AdminTickets } from './pages/admin/Tickets'
-import { AdminAnnouncements } from './pages/admin/Announcements'
-import { AmenityManager } from './pages/admin/AmenityManager'
 import { DebtorLock } from './components/DebtorLock'
-import { AdminRules } from './pages/admin/Rules'
-import { AdminAuditLog } from './pages/admin/AuditLog'
-import { AnnouncementsFeed } from './pages/shared/AnnouncementsFeed'
-import { AccountantDashboard } from './pages/accountant/Dashboard'
-import { AccountantCharges } from './pages/accountant/Charges'
-import { AccountantInvoices } from './pages/accountant/Invoices'
 
-import { ResidentDashboard } from './pages/resident/Dashboard'
-import { ResidentCharges } from './pages/resident/Charges'
-import { ResidentFinance } from './pages/resident/Finance'
-import { ResidentGuestPass } from './pages/resident/GuestPass'
-import { ResidentTickets } from './pages/resident/Tickets'
-import { ResidentFoodOrder } from './pages/resident/FoodOrder'
-import { ResidentOffers } from './pages/resident/Offers'
-import { AdminEntitlements } from './pages/admin/Entitlements'
-
-import { GuardDashboard } from './pages/guard/Dashboard'
-import { GuardGuestCheck } from './pages/guard/GuestCheck'
-import { GuardParcels } from './pages/guard/Parcels'
-import { GuardTraffic } from './pages/guard/Traffic'
-
-import { StaffWorkOrders } from './pages/staff/WorkOrders'
-import { StaffSchedule } from './pages/staff/Schedule'
-import { StaffKitchenDisplay } from './pages/staff/KitchenDisplay'
-import { StaffMenuManager } from './pages/staff/MenuManager'
-import { StaffLobbyDesk, StaffSecurityDesk, StaffAmenityDesk, StaffHome, StaffNoAccess } from './pages/staff/Desks'
-import { AdminStaff } from './pages/admin/Staff'
 import { useHasPermission } from './lib/access'
 import type { StaffPermission } from './lib/staff'
 
-import { SuperAdminDashboard } from './pages/superadmin/Dashboard'
-import { SuperAdminPlans } from './pages/superadmin/Plans'
-import { SuperAdminBilling } from './pages/superadmin/Billing'
-import { SuperAdminBuildings } from './pages/superadmin/Buildings'
 import { SuperAdminLogin } from './pages/superadmin/Login'
+
+// صفحه‌ها lazy بارگذاری می‌شوند تا بسته‌ی اولیه کوچک بماند (هر پنل فقط وقتی لازم شد دانلود می‌شود)
+const Settings = lazy(() => import('./pages/shared/Settings').then((m) => ({ default: m.Settings })))
+const Notifications = lazy(() => import('./pages/shared/Notifications').then((m) => ({ default: m.Notifications })))
+const AdminResidents = lazy(() => import('./pages/admin/residents/Residents').then((m) => ({ default: m.AdminResidents })))
+const AdminResidentForm = lazy(() => import('./pages/admin/residents/ResidentForm').then((m) => ({ default: m.AdminResidentForm })))
+const AdminUnitFile = lazy(() => import('./pages/admin/residents/UnitFile').then((m) => ({ default: m.AdminUnitFile })))
+const AdminJoinRequests = lazy(() => import('./pages/admin/residents/JoinRequests').then((m) => ({ default: m.AdminJoinRequests })))
+const AdminMoveOut = lazy(() => import('./pages/admin/residents/MoveOut').then((m) => ({ default: m.AdminMoveOut })))
+const SuperAdminResidents = lazy(() => import('./pages/superadmin/Residents').then((m) => ({ default: m.SuperAdminResidents })))
+const SuperAdminBuildingResidents = lazy(() => import('./pages/superadmin/Residents').then((m) => ({ default: m.SuperAdminBuildingResidents })))
+const SuperAdminUserFile = lazy(() => import('./pages/superadmin/Residents').then((m) => ({ default: m.SuperAdminUserFile })))
+const ResidentHousehold = lazy(() => import('./pages/resident/household/Household').then((m) => ({ default: m.ResidentHousehold })))
+const ResidentHouseholdAdd = lazy(() => import('./pages/resident/household/AddMember').then((m) => ({ default: m.ResidentHouseholdAdd })))
+const ResidentParentControl = lazy(() => import('./pages/resident/household/ParentControl').then((m) => ({ default: m.ResidentParentControl })))
+const ResidentChildLogin = lazy(() => import('./pages/resident/household/ChildAccess').then((m) => ({ default: m.ResidentChildLogin })))
+const ResidentChildRequests = lazy(() => import('./pages/resident/household/ChildAccess').then((m) => ({ default: m.ResidentChildRequests })))
+const ResidentBook = lazy(() => import('./pages/resident/Book').then((m) => ({ default: m.ResidentBook })))
+const ChildHome = lazy(() => import('./pages/child/ChildApp').then((m) => ({ default: m.ChildHome })))
+const ChildWaiting = lazy(() => import('./pages/child/ChildApp').then((m) => ({ default: m.ChildWaiting })))
+const ChildQuiet = lazy(() => import('./pages/child/ChildApp').then((m) => ({ default: m.ChildQuiet })))
+const ChildBook = lazy(() => import('./pages/child/ChildApp').then((m) => ({ default: m.ChildBook })))
+const LobbyJoin = lazy(() => import('./pages/public/Join').then((m) => ({ default: m.LobbyJoin })))
+const AcceptInvite = lazy(() => import('./pages/public/Join').then((m) => ({ default: m.AcceptInvite })))
+const AdminDashboard = lazy(() => import('./pages/admin/Dashboard').then((m) => ({ default: m.AdminDashboard })))
+const AdminFinance = lazy(() => import('./pages/admin/Finance').then((m) => ({ default: m.AdminFinance })))
+const AdminTickets = lazy(() => import('./pages/admin/Tickets').then((m) => ({ default: m.AdminTickets })))
+const AdminAnnouncements = lazy(() => import('./pages/admin/Announcements').then((m) => ({ default: m.AdminAnnouncements })))
+const AmenityManager = lazy(() => import('./pages/admin/AmenityManager').then((m) => ({ default: m.AmenityManager })))
+const AdminRules = lazy(() => import('./pages/admin/Rules').then((m) => ({ default: m.AdminRules })))
+const AdminAuditLog = lazy(() => import('./pages/admin/AuditLog').then((m) => ({ default: m.AdminAuditLog })))
+const AnnouncementsFeed = lazy(() => import('./pages/shared/AnnouncementsFeed').then((m) => ({ default: m.AnnouncementsFeed })))
+const AccountantDashboard = lazy(() => import('./pages/accountant/Dashboard').then((m) => ({ default: m.AccountantDashboard })))
+const AccountantCharges = lazy(() => import('./pages/accountant/Charges').then((m) => ({ default: m.AccountantCharges })))
+const AccountantInvoices = lazy(() => import('./pages/accountant/Invoices').then((m) => ({ default: m.AccountantInvoices })))
+const ResidentDashboard = lazy(() => import('./pages/resident/Dashboard').then((m) => ({ default: m.ResidentDashboard })))
+const ResidentCharges = lazy(() => import('./pages/resident/Charges').then((m) => ({ default: m.ResidentCharges })))
+const ResidentFinance = lazy(() => import('./pages/resident/Finance').then((m) => ({ default: m.ResidentFinance })))
+const ResidentGuestPass = lazy(() => import('./pages/resident/GuestPass').then((m) => ({ default: m.ResidentGuestPass })))
+const ResidentTickets = lazy(() => import('./pages/resident/Tickets').then((m) => ({ default: m.ResidentTickets })))
+const ResidentFoodOrder = lazy(() => import('./pages/resident/FoodOrder').then((m) => ({ default: m.ResidentFoodOrder })))
+const ResidentOffers = lazy(() => import('./pages/resident/Offers').then((m) => ({ default: m.ResidentOffers })))
+const AdminEntitlements = lazy(() => import('./pages/admin/Entitlements').then((m) => ({ default: m.AdminEntitlements })))
+const GuardDashboard = lazy(() => import('./pages/guard/Dashboard').then((m) => ({ default: m.GuardDashboard })))
+const GuardGuestCheck = lazy(() => import('./pages/guard/GuestCheck').then((m) => ({ default: m.GuardGuestCheck })))
+const GuardParcels = lazy(() => import('./pages/guard/Parcels').then((m) => ({ default: m.GuardParcels })))
+const GuardTraffic = lazy(() => import('./pages/guard/Traffic').then((m) => ({ default: m.GuardTraffic })))
+const StaffWorkOrders = lazy(() => import('./pages/staff/WorkOrders').then((m) => ({ default: m.StaffWorkOrders })))
+const StaffSchedule = lazy(() => import('./pages/staff/Schedule').then((m) => ({ default: m.StaffSchedule })))
+const StaffKitchenDisplay = lazy(() => import('./pages/staff/KitchenDisplay').then((m) => ({ default: m.StaffKitchenDisplay })))
+const StaffMenuManager = lazy(() => import('./pages/staff/MenuManager').then((m) => ({ default: m.StaffMenuManager })))
+const StaffLobbyDesk = lazy(() => import('./pages/staff/Desks').then((m) => ({ default: m.StaffLobbyDesk })))
+const StaffSecurityDesk = lazy(() => import('./pages/staff/Desks').then((m) => ({ default: m.StaffSecurityDesk })))
+const StaffAmenityDesk = lazy(() => import('./pages/staff/Desks').then((m) => ({ default: m.StaffAmenityDesk })))
+const StaffHome = lazy(() => import('./pages/staff/Desks').then((m) => ({ default: m.StaffHome })))
+const StaffNoAccess = lazy(() => import('./pages/staff/Desks').then((m) => ({ default: m.StaffNoAccess })))
+const AdminStaff = lazy(() => import('./pages/admin/Staff').then((m) => ({ default: m.AdminStaff })))
+const SuperAdminDashboard = lazy(() => import('./pages/superadmin/Dashboard').then((m) => ({ default: m.SuperAdminDashboard })))
+const SuperAdminPlans = lazy(() => import('./pages/superadmin/Plans').then((m) => ({ default: m.SuperAdminPlans })))
+const SuperAdminBilling = lazy(() => import('./pages/superadmin/Billing').then((m) => ({ default: m.SuperAdminBilling })))
+const SuperAdminBuildings = lazy(() => import('./pages/superadmin/Buildings').then((m) => ({ default: m.SuperAdminBuildings })))
 
 function SessionLoading() {
   return <div className="min-h-screen flex items-center justify-center text-sm text-muted">در حال بررسی نشست…</div>
@@ -148,6 +159,7 @@ function RequireModule({ module, children }: { module: AppModule; children: Reac
 
 function AppRoutes() {
   return (
+    <Suspense fallback={<SessionLoading />}>
     <Routes>
       <Route path="/onboarding" element={<Onboarding />} />
       <Route path="/login" element={<Login />} />
@@ -258,6 +270,7 @@ function AppRoutes() {
         <Route path="/super-admin/billing" element={<RequireSuperAdmin><SuperAdminBilling /></RequireSuperAdmin>} />
       </Route>
     </Routes>
+    </Suspense>
   )
 }
 

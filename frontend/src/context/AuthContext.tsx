@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
-import { getToken } from '../lib/api/client'
+import { getToken, SESSION_EXPIRED_EVENT } from '../lib/api/client'
 import { identityApi, platformApi } from '../lib/api'
 import type { AuthUser } from '../lib/api/identity'
 import { ApiError } from '../lib/api/client'
@@ -53,6 +53,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true
     }
+  }, [])
+
+  // نشستی که دیگر قابل تمدید نیست (refresh token منقضی/باطل شده) → خروج و بازگشت به صفحه‌ی ورود
+  useEffect(() => {
+    const onExpired = () => setUser(null)
+    window.addEventListener(SESSION_EXPIRED_EVENT, onExpired)
+    return () => window.removeEventListener(SESSION_EXPIRED_EVENT, onExpired)
   }, [])
 
   async function login(email: string, password: string, tenantSubdomain: string) {
