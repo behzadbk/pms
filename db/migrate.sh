@@ -65,6 +65,7 @@ MIGRATIONS=(
   "backend/facility-service/prisma/migrations/005_entitlements.sql"
   "backend/facility-service/prisma/migrations/006_private_booking.sql"
   "db/migrations/901_rls_assertion_all_schemas.sql"
+  "db/migrations/902_fk_indexes.sql"
 )
 
 SEEDS=(
