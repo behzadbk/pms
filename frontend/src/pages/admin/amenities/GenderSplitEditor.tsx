@@ -19,7 +19,7 @@ export function GenderSplitEditor({ value, onChange }: { value: GenderSplit | nu
   }
   return (
     <div className="flex flex-col gap-3">
-      <Seg<Mode> small options={[['none', 'بدون تفکیک'], ['parity', 'زوج / فرد'], ['weekday', 'روز هفته'], ['hours', 'ساعتی']]} value={mode} onChange={pick} />
+      <Seg<Mode> options={[['none', 'بدون تفکیک'], ['parity', 'زوج / فرد'], ['weekday', 'روز هفته'], ['hours', 'ساعتی']]} value={mode} onChange={pick} />
       {value?.mode === 'parity' && (
         <div className="hm-card p-3 flex flex-col gap-2">
           <p className="text-sm font-bold">روزهای زوج</p>
@@ -32,10 +32,10 @@ export function GenderSplitEditor({ value, onChange }: { value: GenderSplit | nu
           {WEEKDAYS_FA.map((n, i) => {
             const cur = value.days[String(i)] ?? null
             return (
-              <div key={i} className="flex items-center gap-3 px-4 py-2">
+              <div key={i} className="flex items-center gap-3 px-3 py-2">
                 <p className="flex-1 text-sm font-bold">{n}</p>
                 <Seg<'all' | Gender>
-                  small
+                  className="w-[232px] shrink-0"
                   options={[['all', 'مشترک'], ...G_OPTS]}
                   value={cur ?? 'all'}
                   onChange={(g) => onChange({ mode: 'weekday', days: { ...value.days, [String(i)]: g === 'all' ? null : g } })}
@@ -63,7 +63,7 @@ export function GenderSplitEditor({ value, onChange }: { value: GenderSplit | nu
                     {Array.from({ length: 24 }, (_, h) => h + 1).map((h) => <option key={h} value={h}>{fa(String(h).padStart(2, '0'))}:۰۰</option>)}
                   </select>
                 </label>
-                <Seg<Gender> small options={G_OPTS} value={r.gender} onChange={(g) => upd({ gender: g })} />
+                <Seg<Gender> className="w-[168px] shrink-0" options={G_OPTS} value={r.gender} onChange={(g) => upd({ gender: g })} />
                 <button className="hm-back ms-auto" aria-label="حذف بازه" onClick={() => onChange({ mode: 'hours', ranges: value.ranges.filter((_, j) => j !== i) })}>
                   <Trash2 size={18} />
                 </button>

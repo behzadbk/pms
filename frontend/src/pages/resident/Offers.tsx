@@ -273,13 +273,20 @@ export function ResidentOffers() {
             {paid.length > 0 && (
               <div className="divide-y divide-line">
                 {paid.map((s) => (
-                  <div key={s.code} className="py-2.5 flex items-start justify-between gap-3 text-sm">
-                    <div className="min-w-0">
-                      <p className="font-medium">{s.title}</p>
-                      {s.used > 0 && <p className="text-xs text-muted mt-0.5">مصرف این ماه: {qtyUnit(s.used, s.unit_label)}</p>}
-                    </div>
-                    <div className="text-left text-xs text-muted shrink-0 space-y-0.5">
-                      {s.tariffs.map((t) => <p key={t.code}>{s.tariffs.length > 1 ? `${t.title}: ` : ''}{priceText(t, s.unit_label)}</p>)}
+                  <div key={s.code} className="py-3 text-sm">
+                    <p className="font-medium">{s.title}</p>
+                    {s.used > 0 && <p className="text-xs text-muted mt-0.5">مصرف این ماه: {qtyUnit(s.used, s.unit_label)}</p>}
+                    <div className="mt-1.5 space-y-1 text-xs text-muted">
+                      {s.tariffs.map((t) =>
+                        s.tariffs.length > 1 ? (
+                          <p key={t.code} className="flex items-baseline justify-between gap-3">
+                            <span className="min-w-0 break-words">{t.title}</span>
+                            <span className="shrink-0 whitespace-nowrap">{priceText(t, s.unit_label)}</span>
+                          </p>
+                        ) : (
+                          <p key={t.code}>{priceText(t, s.unit_label)}</p>
+                        ),
+                      )}
                     </div>
                   </div>
                 ))}
