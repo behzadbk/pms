@@ -107,3 +107,8 @@ export function tierHasFeature(tier: BuildingTier, feature: FeatureKey): boolean
 export function suggestMonthlyFee(tier: BuildingTier, unitCount: number): number {
   return getTier(tier).pricePerUnit * Math.max(unitCount, 0)
 }
+
+/** مقدار tier فقط اگر یکی از سطوح شناخته‌شده باشد وارد توکن/پاسخ می‌شود */
+export function isBuildingTier(v: unknown): v is BuildingTier {
+  return typeof v === 'string' && (TIER_IDS as string[]).includes(v)
+}
