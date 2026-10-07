@@ -31,7 +31,6 @@ export function SuperAdminDashboard() {
       <div className="flex items-start justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold">داشبورد پلتفرم</h1>
-          <p className="text-muted text-sm mt-1">نمای کلی سلامت کسب‌وکار SaaS — همه مجتمع‌های مشتری</p>
         </div>
         <button onClick={load} className="flex items-center gap-2 border border-line bg-card px-3 py-2.5 rounded-xl text-sm hover:bg-canvas" aria-label="بازخوانی">
           <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />

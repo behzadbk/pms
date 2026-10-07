@@ -40,7 +40,6 @@ export function Settings() {
         </button>
         <div className="min-w-0">
           <h1 className="text-xl font-bold">شخصی‌سازی</h1>
-          <p className="text-sm text-muted mt-0.5">ظاهر همین را به سلیقه خودتان تنظیم کنید</p>
         </div>
       </div>
 
@@ -61,7 +60,6 @@ export function Settings() {
       {/* حالت نمایش */}
       <section>
         <h2 className="text-sm font-bold mb-1">حالت نمایش</h2>
-        <p className="text-xs text-muted mb-3">روشن، تاریک یا هماهنگ با تنظیمات دستگاه شما</p>
         <div className="grid grid-cols-3 gap-3">
           {MODE_OPTIONS.map((m) => {
             const active = mode === m.id
@@ -86,7 +84,6 @@ export function Settings() {
       {/* رنگ‌بندی */}
       <section>
         <h2 className="text-sm font-bold mb-1">رنگ‌بندی</h2>
-        <p className="text-xs text-muted mb-3">رنگ اصلی دکمه‌ها، کارت قهرمان و نوار تب را انتخاب کنید</p>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
           {PALETTES.map((p) => {
             const active = palette === p.id
@@ -250,7 +247,6 @@ function NotificationsSection() {
   return (
     <section>
       <h2 className="text-sm font-bold mb-1">اعلان‌ها</h2>
-      <p className="text-xs text-muted mb-3">برای همین دستگاه تنظیم می‌شود</p>
       <div className="lg4-card p-4 space-y-3">
         <div className="flex items-center gap-3">
           <BellRing size={22} className="text-[var(--lg4-pri)] flex-none" />

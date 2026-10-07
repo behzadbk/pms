@@ -62,7 +62,6 @@ export function GuardTraffic() {
     <div className="space-y-6">
       <div>
         <h1 className="text-xl font-bold">تردد خودرو و پارکینگ</h1>
-        <p className="text-muted text-sm mt-1">ثبت ورود و خروج خودروها</p>
       </div>
 
       <Card>

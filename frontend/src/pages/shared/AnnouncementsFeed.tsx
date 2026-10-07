@@ -47,7 +47,6 @@ export function AnnouncementsFeed() {
   return (
     <div className="max-w-5xl mx-auto flex flex-col gap-4 hm-fade-in">
       <PageTitle kicker="تابلو" title="اعلانات و نظرسنجی‌ها" />
-      <p className="text-sm text-[var(--hm-t2)] -mt-2 leading-7">اطلاعیه‌های مدیریت ساختمان و نظرسنجی‌هایی که می‌توانید در آن شرکت کنید</p>
       {loading && !data ? (
         <Loading />
       ) : error || !data ? (

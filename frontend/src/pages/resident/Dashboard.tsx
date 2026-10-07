@@ -67,7 +67,6 @@ export function ResidentDashboard() {
     <div className="space-y-6">
       <div>
         <h1 className="text-xl font-bold">{household ? `داشبورد واحد ${fa(household.unit.no)}` : 'داشبورد'}</h1>
-        <p className="text-muted text-sm mt-1">خلاصه وضعیت شارژ، مهمان‌ها و رزروهای شما</p>
       </div>
 
       {loading && <Loading />}
