@@ -35,7 +35,7 @@ export function Layout() {
   useEffect(() => {
     const section = `/${nav[0].to.split('/')[1]}`
     // /settings و /more مشترک بین همه‌ی نقش‌ها هستند — رفرش روی آن‌ها نباید به داشبورد پرت کند
-    const shared = ['/settings', '/more', '/account'].includes(location.pathname)
+    const shared = ['/settings', '/more', '/account', '/notifications'].includes(location.pathname)
     if (!shared && location.pathname !== section && !location.pathname.startsWith(`${section}/`)) {
       navigate(nav[0].to)
     }
@@ -68,7 +68,7 @@ export function Layout() {
   const { tabs: tabItems, more: moreItems } = splitTabs(nav)
   const hasMore = moreItems.length > 0
   const onOverflow =
-    location.pathname === '/more' || location.pathname === '/settings' || location.pathname === '/account' ||
+    location.pathname === '/more' || location.pathname === '/settings' || location.pathname === '/account' || location.pathname === '/notifications' ||
     moreItems.some((i) => location.pathname === i.to || location.pathname.startsWith(i.to + '/'))
   const isChild = role === 'child'
 
@@ -437,7 +437,7 @@ export function AccountScreen() {
       </div>
       <Group>
         <Row icon={Palette} label="حساب و ظاهر" onClick={() => navigate('/settings')} />
-        <Row icon={Bell} label="اعلان‌ها" onClick={() => navigate('/settings')} />
+        <Row icon={Bell} label="اعلان‌ها" onClick={() => navigate('/notifications')} />
         {hasMore && <Row icon={LayoutGrid} label="همه‌ی بخش‌ها" onClick={() => navigate('/more')} />}
       </Group>
       <Group>

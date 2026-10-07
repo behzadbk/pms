@@ -82,7 +82,7 @@ export function NotificationBell({ variant }: { variant: 'dark' | 'light' }) {
   return (
     <div className="relative" ref={ref}>
       <button
-        onClick={() => setOpen((o) => !o)}
+        onClick={() => (variant === 'dark' ? navigate('/notifications') : setOpen((o) => !o))}
         className={`relative p-2 rounded-lg transition-colors ${variant === 'dark' ? '-ml-2 active:bg-white/10' : 'rounded-full hover:bg-canvas'}`}
         aria-label={`اعلان‌ها${unread ? ` — ${unread} خوانده‌نشده` : ''}`}
       >

@@ -413,6 +413,8 @@ a.hm-row:active {
 .hm-seg > button {
   flex: 1;
   min-height: 40px;
+  padding-inline: 12px;
+  white-space: nowrap;
   border-radius: 999px;
   font-size: 12px;
   font-weight: 700;

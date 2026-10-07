@@ -7,6 +7,7 @@ import { Layout } from './components/Layout'
 import { Login } from './pages/Login'
 import { Onboarding, ONBOARDING_SEEN_KEY } from './pages/Onboarding'
 import { Settings } from './pages/shared/Settings'
+import { Notifications } from './pages/shared/Notifications'
 import { MoreScreen, AccountScreen } from './components/Layout'
 import { PermissionsProvider, usePermissions } from './context/PermissionsContext'
 import type { AppModule } from './lib/api/residents'
@@ -168,6 +169,7 @@ function AppRoutes() {
         <Route path="/settings" element={<Settings />} />
         <Route path="/more" element={<MoreScreen />} />
         <Route path="/account" element={<AccountScreen />} />
+        <Route path="/notifications" element={<Notifications />} />
 
         <Route path="/admin" element={<RequireRole role="admin"><AdminDashboard /></RequireRole>} />
         {/* شارژ و فاکتور به پنل حسابداری منتقل شد؛ مدیر فقط گزارش می‌بیند */}

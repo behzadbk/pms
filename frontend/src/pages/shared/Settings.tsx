@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Sun, Moon, MonitorSmartphone, Check, Sparkles, Waves, RotateCcw, ChevronRight, BellRing, Send, KeyRound } from 'lucide-react'
-import { disablePush, enablePush, getPushState, sendTestPush, type PushState } from '../../lib/pushNotifications'
+import { Sun, Moon, MonitorSmartphone, Check, Sparkles, Waves, RotateCcw, ChevronRight, KeyRound } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { changePassword } from '../../lib/api/identity'
 import { ApiError } from '../../lib/api/client'
@@ -115,7 +114,6 @@ export function Settings() {
         </div>
       </section>
 
-      <NotificationsSection />
 
       {/* دسترسی‌پذیری */}
       <section>
@@ -192,91 +190,6 @@ function A11yToggle({
 }
 
 /** اعلان‌های گوشی (Web Push): روشن/خاموش برای همین دستگاه + ارسال آزمایشی */
-function NotificationsSection() {
-  const { user } = useAuth()
-  const [state, setState] = useState<PushState | null>(null)
-  const [busy, setBusy] = useState(false)
-  const [msg, setMsg] = useState<{ ok: boolean; t: string } | null>(null)
-  useEffect(() => {
-    void getPushState().then(setState)
-  }, [])
-  if (!user || user.role === 'super_admin') return null
-
-  async function toggle() {
-    setBusy(true)
-    setMsg(null)
-    try {
-      if (state === 'on') {
-        await disablePush()
-        setMsg({ ok: true, t: 'اعلان‌ها روی این دستگاه خاموش شد.' })
-      } else {
-        await enablePush()
-        setMsg({ ok: true, t: 'اعلان‌ها فعال شد. یک اعلان آزمایشی بفرستید تا مطمئن شوید.' })
-      }
-      setState(await getPushState())
-    } catch (e) {
-      setMsg({ ok: false, t: e instanceof Error ? e.message : 'خطا' })
-      setState(await getPushState())
-    } finally {
-      setBusy(false)
-    }
-  }
-  async function test() {
-    setBusy(true)
-    setMsg(null)
-    try {
-      const n = await sendTestPush()
-      setMsg(n > 0 ? { ok: true, t: 'اعلان آزمایشی ارسال شد؛ باید تا چند ثانیه‌ی دیگر برسد.' } : { ok: false, t: 'اشتراکی برای این حساب پیدا نشد. یک‌بار خاموش و دوباره روشن کنید.' })
-    } catch {
-      setMsg({ ok: false, t: 'ارسال ناموفق بود.' })
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  const hint =
-    state === 'needs-install'
-      ? 'در آیفون ابتدا همین را به صفحه‌ی اصلی اضافه کنید (Share ← Add to Home Screen) و از همان آیکن باز کنید.'
-      : state === 'unsupported'
-        ? 'این مرورگر از اعلان پشتیبانی نمی‌کند.'
-        : state === 'blocked'
-          ? 'اعلان برای این سایت مسدود است. از تنظیمات مرورگر/گوشی اجازه‌ی اعلان را بدهید.'
-          : 'نتیجه‌ی رزرو، درخواست‌های جدید، مرسوله و پیام‌های مهم همان لحظه روی گوشی می‌آید.'
-  const disabled = busy || state === null || state === 'unsupported' || state === 'needs-install' || state === 'blocked'
-
-  return (
-    <section>
-      <h2 className="text-sm font-bold mb-1">اعلان‌ها</h2>
-      <div className="lg4-card p-4 space-y-3">
-        <div className="flex items-center gap-3">
-          <BellRing size={22} className="text-[var(--lg4-pri)] flex-none" />
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-bold">اعلان‌های گوشی</p>
-            <p className="text-xs text-muted mt-0.5 leading-6">{hint}</p>
-          </div>
-          <button
-            role="switch"
-            aria-checked={state === 'on'}
-            aria-label="اعلان‌های گوشی"
-            disabled={disabled}
-            onClick={toggle}
-            className="relative w-12 h-7 rounded-full flex-none transition-colors disabled:opacity-50"
-            style={{ background: state === 'on' ? 'var(--lg4-pri)' : 'var(--lg-border-hairline)' }}
-          >
-            <span className="absolute top-1 w-5 h-5 rounded-full bg-white shadow transition-all" style={{ right: state === 'on' ? '4px' : '28px' }} />
-          </button>
-        </div>
-        {state === 'on' && (
-          <button onClick={test} disabled={busy} className="inline-flex items-center gap-2 text-sm font-bold text-[var(--lg4-pri)] min-h-[44px] disabled:opacity-60">
-            <Send size={16} /> ارسال اعلان آزمایشی
-          </button>
-        )}
-        {msg && <p className={`text-xs leading-6 ${msg.ok ? 'text-[var(--lg-text-secondary)]' : 'text-bad'}`}>{msg.t}</p>}
-      </div>
-    </section>
-  )
-}
-
 /** تغییر رمز عبور — ساکن با رمز اولیه (شماره واحد) وارد می‌شود و از همین‌جا رمز خودش را می‌گذارد */
 function PasswordSection() {
   const { user, markPasswordChanged } = useAuth()
