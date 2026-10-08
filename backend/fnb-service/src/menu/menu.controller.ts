@@ -3,6 +3,7 @@ import type { PoolClient } from 'pg'
 import { DatabaseService } from '../database/database.service'
 import { CurrentUser, JwtPayload } from '../auth/decorators/current-user.decorator'
 import { Roles } from '../auth/decorators/roles.decorator'
+import { RequireModule } from '../auth/decorators/require-module.decorator'
 import { EventsService } from '../events/events.service'
 import { FnbGateway } from '../realtime/fnb.gateway'
 import { assertCanManage, bad, hhmm, int, KINDS, manageKinds, notify, str, VENUE_COLS, VenueKind } from '../common/access'
@@ -21,6 +22,7 @@ function patchSql(table: string, sets: Record<string, unknown>, id: string) {
   return { sql: `UPDATE ${table} SET ${cols.map((c, i) => `${c} = $${i + 1}`).join(', ')} WHERE id = $${cols.length + 1} RETURNING *`, vals: [...vals, id] }
 }
 
+@RequireModule('fnb_ordering')
 @Controller()
 export class MenuController {
   constructor(
