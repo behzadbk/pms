@@ -654,9 +654,9 @@ npm run dev   # پورت ۵۱۷۳ — پروکسی /api/* را vite.config.ts م
 
 
 ۱. سه فایل `package-lock.json` رفع‌شده (notification/audit/fnb) در بک‌اند commit شوند.
-۲. `npm install` روی پوشه‌ی frontend اجرا شود تا `socket.io-client` جدید نصب شود.
-۳. اتصال داده‌ی ~۲۰ صفحه‌ی باقی‌مانده (داشبوردها، مالی، رزرو، تیکت، واحدها، نگهبانی، داشبورد و تراکنش‌های سوپرادمین) به API واقعی و حذف `mockData.ts` — زیرساخت auth/env/CORS، صفحات fnb/audit و صفحه‌ی ساختمان‌های سوپرادمین از قبل وصل‌اند.
-۴. صدور خودکار `accessToken` جدید با refresh token هنگام دریافت ۴۰۱ (توکن ذخیره می‌شود ولی interceptor خودکار هنوز نوشته نشده).
+۲. ~~نصب `socket.io-client`~~ — حذف شد؛ فرانت‌اند به‌روزرسانی زنده را با polling انجام می‌دهد (مثلاً صف آشپزخانه هر ۱۰ ثانیه) و به WebSocket وصل نیست.
+۳. ~~اتصال صفحات به API و حذف `mockData.ts`~~ — انجام شد: همه‌ی صفحات به API واقعی وصل‌اند و `mockData.ts` حذف شده است.
+۴. ~~صدور خودکار `accessToken` جدید با refresh token هنگام ۴۰۱~~ — انجام شد (`lib/api/client.ts`).
 ۵. ~~اعمال RBAC سمت فرانت‌اند~~ — انجام شد: هر مسیر با `RequireRole` محافظت می‌شود و پنل‌های کارکنان علاوه بر نقش، دسترسی بخش (`RequirePermission`) هم لازم دارند.
 ۵.۱. اعمال feature flagهای سطح سرویس داخل پنل خود مجتمع‌ها — یعنی مخفی کردن منوی نگهبانی/مشاعات برای یک ساختمان «ساده». ماتریس آماده است؛ فقط باید `tier` مجتمع در `/auth/me` برگردانده و در `nav.ts` فیلتر شود.
 ۶. اجرای واقعی `docker build` برای هر ۸ سرویس روی محیطی با دسترسی شبکه به رجیستری داکر (یا در CI).
@@ -671,7 +671,7 @@ npm run dev   # پورت ۵۱۷۳ — پروکسی /api/* را vite.config.ts م
 
 ## پشته‌ی فناوری
 
-- **فرانت‌اند:** React + TypeScript + Vite، PWA (service worker)، recharts، socket.io-client، طراحی Liquid Glass
+- **فرانت‌اند:** React + TypeScript + Vite، PWA (service worker)، recharts، طراحی Liquid Glass
 - **بک‌اند:** NestJS (۸ میکروسرویس مستقل)، Prisma
 - **دیتابیس:** PostgreSQL 16، Row-Level Security، migration اسکریپت سفارشی (`migrate.sh`)
 - **زیرساخت:** Docker (multi-stage builds)، Kubernetes (Deployment برای هر سرویس + یک migration Job واحد)، Ingress مشترک

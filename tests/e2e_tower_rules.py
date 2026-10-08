@@ -167,7 +167,7 @@ s, b = call("facility", "POST", "/reservations", {"amenity_id": POOL, "start": s
 check("debtor", "ثبت دستی مدیر از قفل مستثناست", s in (200, 201), (s, b))
 s, b = call("guard", "POST", f"/units/{UNIT_1204}/guest-passes", {"guestName": "مهمان", "validUntil": (dt.datetime.now(dt.timezone.utc).replace(tzinfo=None) + dt.timedelta(hours=5)).isoformat() + "Z"}, token=reza)
 check("debtor", "کارت مهمان برای واحد بدهکار → ۴۰۳", s == 403 and b.get("code") == "debtor_restricted", (s, b))
-s, b = call("fnb", "POST", "/fnb/orders", {"venueId": str(uuid.uuid4()), "unitId": UNIT_1204, "deliveryType": "in_unit", "items": [{"itemId": str(uuid.uuid4()), "quantity": 1}]}, token=reza)
+s, b = call("fnb", "POST", "/orders", {"venue_id": str(uuid.uuid4()), "unit_id": UNIT_1204, "delivery_type": "in_unit", "items": [{"item_id": str(uuid.uuid4()), "quantity": 1}]}, token=reza)
 check("debtor", "سفارش غذا برای واحد بدهکار → ۴۰۳", s == 403 and b.get("code") == "debtor_restricted", (s, b))
 # تسویه → بسته‌ها باز می‌شود
 sql(f"update finance.monthly_charges set status='paid' where unit_id='{UNIT_1204}'")

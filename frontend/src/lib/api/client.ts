@@ -80,6 +80,53 @@ export function getSessionId(): string {
   }
 }
 
+/** رویدادی که وقتی نشست قابل تمدید نیست (refresh token نامعتبر/منقضی) پخش می‌شود؛ AuthContext با آن به صفحه‌ی ورود برمی‌گردد */
+export const SESSION_EXPIRED_EVENT = 'pms:session-expired'
+
+/** مسیرهایی که خودشان توکن می‌سازند؛ 401 آن‌ها «اطلاعات ورود اشتباه» است، نه انقضای نشست */
+const AUTH_PATHS = ['/identity/auth/login', '/identity/auth/refresh', '/identity/auth/platform-login', '/identity/auth/family-code']
+
+let refreshing: Promise<boolean> | null = null
+
+/**
+ * accessToken فقط ۱۵ دقیقه اعتبار دارد (بک‌اند)، اما برنامه روزها باز می‌ماند (تبلت آشپزخانه، موبایل نگهبان).
+ * با اولین 401 یک‌بار (single-flight: همه‌ی درخواست‌های هم‌زمان منتظر همان تمدید می‌مانند) با refresh token توکن تازه
+ * می‌گیریم و درخواست را تکرار می‌کنیم. اگر تمدید ممکن نبود نشست پاک و رویداد انقضا پخش می‌شود.
+ */
+function refreshAccessToken(): Promise<boolean> {
+  if (refreshing) return refreshing
+  const refreshToken = getRefreshToken()
+  if (!refreshToken) return Promise.resolve(false)
+  refreshing = (async () => {
+    try {
+      const res = await fetch(`${API_BASE}/identity/auth/refresh`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'X-Session-Id': getSessionId() },
+        body: JSON.stringify({ refreshToken }),
+      })
+      if (!res.ok) {
+        // فقط رد صریح سرور، نشست را باطل می‌کند؛ قطعی شبکه/۵۰۰ موقتی است و توکن‌ها حفظ می‌شوند
+        if (res.status === 401 || res.status === 400 || res.status === 403) {
+          setToken(null)
+          setRefreshToken(null)
+          window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT))
+        }
+        return false
+      }
+      const data = (await res.json()) as { accessToken?: string; refreshToken?: string }
+      if (!data.accessToken) return false
+      setToken(data.accessToken)
+      if (data.refreshToken) setRefreshToken(data.refreshToken)
+      return true
+    } catch {
+      return false
+    } finally {
+      refreshing = null
+    }
+  })()
+  return refreshing
+}
+
 export interface ApiRequestOptions extends Omit<RequestInit, 'body' | 'method'> {
   body?: unknown
   idempotencyKey?: string
@@ -87,31 +134,41 @@ export interface ApiRequestOptions extends Omit<RequestInit, 'body' | 'method'> 
 
 async function request<T>(path: string, method: string, options: ApiRequestOptions = {}): Promise<T> {
   const { body, headers, idempotencyKey, ...rest } = options
-  const token = getToken()
+  // Trace-Id یک «اکشن» است؛ تکرار بعد از تمدید توکن همان اکشن است و باید همان شناسه را داشته باشد
+  const traceId = crypto.randomUUID()
 
-  const finalHeaders: Record<string, string> = {
-    Accept: 'application/json',
-    'X-Session-Id': getSessionId(),
-    'X-Trace-Id': crypto.randomUUID(),
-    ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    // کلید ایدمپوتنسی برای عملیات پولی/سفارش: یک کلید برای هر «قصد» کاربر ساخته می‌شود و اگر درخواست به‌خاطر قطعی شبکه
-    // دوباره ارسال شد همان کلید می‌رود؛ سرور (مثلاً initiate پرداخت) با آن جلوی ثبت دوباره را می‌گیرد.
-    ...(idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : {}),
-    // آخرین spread: هدرهای فراخواننده بر پیش‌فرض‌های بالا (حتی Authorization) غالب می‌شوند.
-    ...(headers as Record<string, string> | undefined),
+  const send = async (token: string | null): Promise<Response> => {
+    const finalHeaders: Record<string, string> = {
+      Accept: 'application/json',
+      'X-Session-Id': getSessionId(),
+      'X-Trace-Id': traceId,
+      ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      // کلید ایدمپوتنسی برای عملیات پولی/سفارش: یک کلید برای هر «قصد» کاربر ساخته می‌شود و اگر درخواست به‌خاطر قطعی شبکه
+      // دوباره ارسال شد همان کلید می‌رود؛ سرور (مثلاً initiate پرداخت) با آن جلوی ثبت دوباره را می‌گیرد.
+      ...(idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : {}),
+      // آخرین spread: هدرهای فراخواننده بر پیش‌فرض‌های بالا (حتی Authorization) غالب می‌شوند.
+      ...(headers as Record<string, string> | undefined),
+    }
+    try {
+      return await fetch(`${API_BASE}${path}`, {
+        ...rest,
+        method,
+        headers: finalHeaders,
+        body: body !== undefined ? JSON.stringify(body) : undefined,
+      })
+    } catch (err) {
+      throw new ApiError('اتصال به سرور برقرار نشد — اتصال اینترنت را بررسی کنید', 0, err)
+    }
   }
 
-  let res: Response
-  try {
-    res = await fetch(`${API_BASE}${path}`, {
-      ...rest,
-      method,
-      headers: finalHeaders,
-      body: body !== undefined ? JSON.stringify(body) : undefined,
-    })
-  } catch (err) {
-    throw new ApiError('اتصال به سرور برقرار نشد — اتصال اینترنت را بررسی کنید', 0, err)
+  const sentToken = getToken()
+  let res = await send(sentToken)
+  const callerSetAuth = !!headers && 'Authorization' in (headers as Record<string, string>)
+  if (res.status === 401 && sentToken && !callerSetAuth && !AUTH_PATHS.some((p) => path.startsWith(p))) {
+    // اگر درخواست دیگری هم‌زمان توکن را تمدید کرده، توکن فعلی از توکن ارسالی متفاوت است و نیازی به تمدید دوباره نیست
+    const renewed = getToken() !== sentToken || (await refreshAccessToken())
+    if (renewed) res = await send(getToken())
   }
 
   if (res.status === 204) return undefined as T
