@@ -1,0 +1,11 @@
+[Unit]
+Description=PMS daily database backup (validated pg_dump)
+After=docker.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/pms/current
+Environment=PMS_DOCKER=1
+Environment=BACKUP_DIR=/var/lib/pms-deploy/backups/daily
+Environment=KEEP_DAYS=14
+ExecStart=/opt/pms/current/scripts/backup-db.sh
