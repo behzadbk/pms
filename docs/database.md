@@ -106,3 +106,16 @@ cd db && DATABASE_URL="postgres://postgres@localhost:5432/pms" ./migrate.sh --se
 - جدول‌های اطلاعیه/نظرسنجی/تیکت هنوز در دیتابیس نیستند — کد فعلی
   notification-service فقط `delivery_log` را می‌نویسد؛ هر وقت آن ماژول‌ها
   پیاده شدند، مایگریشن جدید لازم دارند.
+
+## پشتیبان‌گیری و ریستور
+
+- پیش از هر deploy، `deploy-vps.sh` یک `pg_dump` فشرده می‌گیرد (`backups/*.sql.gz`)، اما **پشتیبان زمان‌بندی‌شده‌ی روزانه** نبود.
+- `scripts/backup-db.sh`: `pg_dump -Fc` + اعتبارسنجی (`pg_restore --list`) + sha256 + dump نقش‌ها (حاوی hash رمز؛ مجوز 600)،
+  نگهداری `KEEP_DAYS` (پیش‌فرض ۱۴) فقط برای فایل‌های پوشه‌ی `daily/`. روی VPS: `PMS_DOCKER=1`.
+- زمان‌بندی: `infra/systemd/pms-backup.{service,timer}` (۰۳:۱۰ هر شب؛ مسیر `/opt/pms/current` را با نصب خودتان تطبیق دهید) —
+  `systemctl enable --now pms-backup.timer`.
+- `scripts/restore-test.sh <dump> [roles.sql]` با `ADMIN_URL`: ریستور در دیتابیس موقت `pms_restore_test` (حذف در پایان)،
+  سپس بررسی تعداد مهاجرت‌ها، RLS+FORCE روی همه‌ی جدول‌های tenant‌دار، نبودن BYPASSRLS و وجود `platform.current_tenant_id()`.
+  **ماهی یک‌بار** (و بعد از هر تغییر بزرگ اسکیما) روی ماشین یا سرور جدا اجرا شود؛ نه روی دیتابیس زنده.
+- ریستور واقعی (فاجعه): `createdb pms && psql -f roles-<ts>.sql && pg_restore --no-owner -d pms pms-<ts>.dump` سپس `db/migrate.sh` (no-op اگر هم‌نسخه باشد).
+- یک کپی بیرون از VPS (مثلاً rclone/S3) لازم است؛ این PR آن را پیاده نمی‌کند.
