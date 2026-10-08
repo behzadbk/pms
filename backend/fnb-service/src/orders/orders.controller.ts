@@ -2,10 +2,12 @@ import { BadRequestException, Body, Controller, Get, HttpCode, Param, ParseUUIDP
 import { OrdersService, PlaceOrderDto } from './orders.service'
 import { CurrentUser, JwtPayload } from '../auth/decorators/current-user.decorator'
 import { Roles } from '../auth/decorators/roles.decorator'
+import { RequireModule } from '../auth/decorators/require-module.decorator'
 import { OrderStatus } from './order-status'
 
 const STATUSES = ['accepted', 'rejected', 'preparing', 'ready', 'out_for_delivery', 'delivered', 'cancelled']
 
+@RequireModule('fnb_ordering')
 @Controller()
 export class OrdersController {
   constructor(private readonly orders: OrdersService) {}
