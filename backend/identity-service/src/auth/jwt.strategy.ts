@@ -1,5 +1,5 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common'
-import { jwtSecret } from './jwt-secret'
+import { JWT_ALGORITHMS, jwtSecret } from './jwt-secret'
 import { PassportStrategy } from '@nestjs/passport'
 import { ExtractJwt, Strategy } from 'passport-jwt'
 import { JwtPayload } from './decorators/current-user.decorator'
@@ -15,6 +15,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       // استفاده می‌شود تا سرویس‌های دیگر بدون تماس gRPC به identity-svc بتوانند توکن را
       // خودشان اعتبارسنجی کنند (بخش ۲ سند ARCHITECTURE-SAAS.md — کاهش تماس‌های داخلی).
       secretOrKey: jwtSecret(),
+      algorithms: JWT_ALGORITHMS,
     })
   }
 
@@ -44,6 +45,15 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         return !r.rows[0]?.ok
       })
       if (revoked) throw new UnauthorizedException('نشست شما باطل شده است؛ دوباره وارد شوید')
+    } else if (payload.role === 'super_admin') {
+      // سوپرادمین: غیرفعال‌شدن یا تغییر رمز باید accessToken جاری را هم (نه فقط تمدید را) فوراً از کار بیندازد
+      const ok = await this.db.withPlatformAccess(async (c) => {
+        const r = await c.query<{ ok: boolean }>(
+          `SELECT (is_active AND to_timestamp($2) >= sessions_valid_after - interval '1 second') AS ok
+             FROM identity.platform_admins WHERE id = $1`, [payload.sub, payload.iat ?? 0])
+        return !!r.rows[0]?.ok
+      })
+      if (!ok) throw new UnauthorizedException('نشست شما باطل شده است؛ دوباره وارد شوید')
     }
     return payload
   }

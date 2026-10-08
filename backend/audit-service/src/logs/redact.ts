@@ -10,9 +10,10 @@ const SENSITIVE_KEYS = [
  * یا سرویس مبدأ) تا حتی اگر یک سرویس اشتباهاً داده حساس بفرستد، در لاگ ذخیره نشود.
  */
 export function redact(value: unknown, depth = 0): unknown {
-  // محافظ حلقه و ساختارهای خیلی عمیق: از عمق ۶ به بعد مقدار «بدون پاک‌سازی» برگردانده می‌شود؛ یعنی فیلد حساسی که
-  // عمیق‌تر از ۶ سطح تودرتو باشد redact نمی‌شود. اگر چنین ساختاری ممکن است، سقف را بالا ببرید.
-  if (depth > 6 || value === null || value === undefined) return value
+  if (value === null || value === undefined) return value
+  // محافظ حلقه و ساختارهای خیلی عمیق: از عمق ۶ به بعد، آبجکت/آرایه به‌جای «برگرداندن بدون پاک‌سازی» کوتاه می‌شود.
+  // (قبلاً فیلد حساسی که عمیق‌تر از ۶ سطح تودرتو بود، مثلاً password در ۷ لایه، عیناً در لاگ ذخیره می‌شد.)
+  if (depth > 6) return typeof value === 'object' ? '[TRUNCATED]' : value
   if (Array.isArray(value)) return value.map((v) => redact(v, depth + 1))
   if (typeof value !== 'object') return value
 
