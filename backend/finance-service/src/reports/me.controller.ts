@@ -40,6 +40,35 @@ export class MeController {
     })
   }
 
+  /**
+   * صورتحساب کافه و رستوران واحد من: سفارش‌های «تحویل‌شده» که مبلغشان به شارژ متغیر واحد می‌رود.
+   * فقط واحدهای خودِ ساکن (MY_UNITS)؛ charge_period = شارژی که سفارش در آن می‌نشیند (یا خواهد نشست).
+   */
+  @Get('me/fnb-bills')
+  fnbBills(@CurrentUser() user: JwtPayload) {
+    return this.db.withTenant(user.tenant_id!, async (client) => {
+      const r = await client.query<{ delivered_at: string; billed_charge_id: string | null; billed_period: string | null; charge_status: string | null } & Record<string, unknown>>(
+        `SELECT o.id, o.order_number, v.name AS venue_name, v.kind AS venue_kind, u.unit_number,
+                o.subtotal, o.surcharge, o.total, o.delivered_at, o.billed_charge_id,
+                c.period AS billed_period, c.status AS charge_status,
+                COALESCE((SELECT json_agg(json_build_object('name', oi.item_name_snapshot, 'quantity', oi.quantity,
+                                                            'unit_price', oi.unit_price, 'line_total', oi.line_total) ORDER BY oi.item_name_snapshot)
+                            FROM fnb.order_items oi WHERE oi.order_id = o.id), '[]'::json) AS items
+           FROM fnb.orders o
+           JOIN fnb.venues v ON v.id = o.venue_id
+           JOIN property.units u ON u.id = o.unit_id
+           LEFT JOIN finance.monthly_charges c ON c.id = o.billed_charge_id
+          WHERE o.status = 'delivered' AND NOT o.bill_exempt AND o.total > 0 AND o.unit_id IN (${MY_UNITS})
+          ORDER BY o.delivered_at DESC LIMIT 100`,
+        [user.pid ?? null],
+      )
+      return r.rows.map((o) => {
+        const deliveredPeriod = periodOfIso(tehranToday(new Date(o.delivered_at)))
+        return { ...o, delivered_period: deliveredPeriod, charge_period: o.billed_period ?? shiftPeriod(deliveredPeriod, 1), billed: !!o.billed_charge_id }
+      })
+    })
+  }
+
   /** هزینه‌های پرداخت‌شده‌ی ساختمان در ماه جاری و ماه قبل — کل‌ساختمان، بدون پیوست */
   @Get('resident/transparency')
   transparency(@CurrentUser() user: JwtPayload) {

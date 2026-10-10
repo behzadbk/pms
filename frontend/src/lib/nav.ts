@@ -33,7 +33,7 @@ export const navByRole: Record<Role, NavItem[]> = {
     { to: '/admin/tickets', label: 'تیکت‌ها', icon: Ticket },
     { to: '/admin/announcements', label: 'اعلانات', icon: Megaphone, sub: 'انتشار اطلاعیه و نظرسنجی' },
     // ── «بیشتر» ──
-    { to: '/admin/staff', label: 'کارکنان', icon: Contact, sub: 'افزودن کارمند، شیفت و دسترسی‌ها' },
+    { to: '/admin/staff', label: 'کارکنان', icon: Contact, sub: 'افزودن کارمند و حسابدار، شیفت و دسترسی‌ها' },
     { to: '/admin/reservations', label: 'مشاعات', icon: CalendarRange, sub: 'تعریف مشاع، تایم‌تیبل و تأیید درخواست‌ها' },
     { to: '/admin/entitlements', label: 'آفرها و خدمات', short: 'آفرها', icon: Gift, sub: 'سهمیه‌ی رایگان بر اساس متراژ، نرخ خدمات و سطوح متراژ' },
     { to: '/admin/finance', label: 'گزارش مالی', short: 'مالی', icon: Landmark, sub: 'خلاصه‌ی مالی، فاکتورها و وصول شارژ' },
@@ -71,6 +71,7 @@ export const navByRole: Record<Role, NavItem[]> = {
     { to: '/accountant', label: 'داشبورد حسابداری', short: 'داشبورد', icon: LayoutDashboard },
     { to: '/accountant/charges', label: 'شارژ و مطالبات', short: 'شارژ', icon: Wallet },
     { to: '/accountant/invoices', label: 'صندوق و فاکتورها', short: 'فاکتور', icon: FileText },
+    { to: '/accountant/entitlements', label: 'آفرها و خدمات', short: 'آفرها', icon: Gift, sub: 'سهمیه‌ی رایگان بر اساس متراژ، نرخ خدمات و سطوح متراژ' },
     { to: '/accountant/announcements', label: 'اعلانات', icon: Megaphone },
   ],
   super_admin: [

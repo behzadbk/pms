@@ -5,12 +5,13 @@ import { Card, CardHeader } from '../../components/ui/Card'
 import { StatusPill } from '../../components/ui/StatusPill'
 import { Loading, ErrorBlock, useLoad, useToast } from '../../components/hm'
 import { errText } from '../../lib/api/residents'
-import { dayFa, financeApi, instantFa, methodFa, periodFa, tomanText, type MyCharge } from '../../lib/api/finance'
+import { dayFa, financeApi, instantFa, methodFa, periodFa, tomanText, variableItemLabel, type MyCharge, type MyFnbBill } from '../../lib/api/finance'
 
 export function ResidentCharges() {
   const charges = useLoad(() => financeApi.myCharges(), [])
   const receipts = useLoad(() => financeApi.myReceipts(), [])
   const gateway = useLoad(() => financeApi.gateway(), [])
+  const fnbBills = useLoad(() => financeApi.myFnbBills(), [])
   const [params, setParams] = useSearchParams()
   const { toast, toastNode } = useToast()
   const [payingId, setPayingId] = useState<string | null>(null)
@@ -128,9 +129,14 @@ export function ResidentCharges() {
                       <tr className="border-b border-line bg-canvas/60">
                         <td colSpan={5} className="px-5 py-3 text-xs space-y-1.5">
                           <Row k="مبلغ پایه" v={tomanText(c.base_amount)} />
-                          {c.breakdown?.overage && c.breakdown.overage.items.map((it, i) => (
-                            <Row key={i} k={`مازاد ${it.service}${it.variant && it.variant !== it.service ? ` (${it.variant})` : ''} — ${periodFa(it.period)}`} v={tomanText(it.amount)} />
-                          ))}
+                          {c.breakdown?.overage && (
+                            <>
+                              <p className="text-muted pt-1">شارژ متغیر (مصرف خدمات و کافه/رستوران)</p>
+                              {c.breakdown.overage.items.map((it, i) => (
+                                <Row key={i} k={`${variableItemLabel(it)} — ${periodFa(it.period)}`} v={tomanText(it.amount)} />
+                              ))}
+                            </>
+                          )}
                           {c.late_fee_amount > 0 && <Row k="جریمه‌ی دیرکرد" v={tomanText(c.late_fee_amount)} />}
                           {c.status === 'paid' && <Row k="پرداخت" v={`${methodFa(c.pay_method)} · ${instantFa(c.paid_at)}`} />}
                           {c.formula_name && <Row k="فرمول" v={c.formula_name} />}
@@ -144,6 +150,8 @@ export function ResidentCharges() {
           </div>
         </Card>
       )}
+
+      {fnbBills.data && fnbBills.data.length > 0 && <FnbBills bills={fnbBills.data} />}
 
       {receipts.data && receipts.data.length > 0 && (
         <Card>
@@ -160,6 +168,48 @@ export function ResidentCharges() {
       )}
       {toastNode}
     </div>
+  )
+}
+
+/** صورتحساب کافه و رستوران: هر سفارش تحویل‌شده با ریز اقلام؛ مبلغ در شارژ متغیر ماه بعد می‌نشیند */
+function FnbBills({ bills }: { bills: MyFnbBill[] }) {
+  const [open, setOpen] = useState<string | null>(null)
+  const pendingTotal = bills.filter((b) => !b.billed).reduce((a, b) => a + b.total, 0)
+  return (
+    <Card>
+      <CardHeader title="صورتحساب کافه و رستوران" />
+      <div className="px-4 sm:px-5 pb-5 space-y-3">
+        <p className="text-xs leading-6 text-muted">مبلغ هر سفارش تحویل‌شده به «شارژ متغیر» واحد اضافه می‌شود و در شارژ ماه بعد می‌نشیند؛ ریز آن را اینجا می‌بینید.</p>
+        {pendingTotal > 0 && (
+          <div className="flex items-center justify-between rounded-xl bg-tile-soft text-tile px-3.5 py-2.5 text-sm">
+            <span>هنوز روی شارژی نرفته</span>
+            <b>{tomanText(pendingTotal)}</b>
+          </div>
+        )}
+        {bills.map((b) => (
+          <div key={b.id} className="rounded-xl border border-line text-sm">
+            <button type="button" onClick={() => setOpen(open === b.id ? null : b.id)} className="w-full flex items-center justify-between gap-3 p-3 text-right" aria-expanded={open === b.id}>
+              <div>
+                <p className="font-medium">{b.venue_name} · سفارش {b.order_number}</p>
+                <p className="text-xs text-muted mt-0.5">
+                  {instantFa(b.delivered_at)} · {b.billed ? `ثبت‌شده در شارژ ${periodFa(b.charge_period)}` : `در شارژ ${periodFa(b.charge_period)} می‌نشیند`}
+                </p>
+              </div>
+              <span className="font-semibold whitespace-nowrap flex items-center gap-1.5">{tomanText(b.total)}<ChevronDown size={14} className={open === b.id ? 'rotate-180' : ''} /></span>
+            </button>
+            {open === b.id && (
+              <div className="px-3 pb-3 pt-2 border-t border-line text-xs space-y-1.5 bg-canvas/60 rounded-b-xl">
+                {b.items.map((it, i) => (
+                  <Row key={i} k={`${it.name} × ${it.quantity.toLocaleString('fa-IR')}`} v={tomanText(it.line_total)} />
+                ))}
+                {b.surcharge > 0 && <Row k="هزینه‌ی تحویل" v={tomanText(b.surcharge)} />}
+                <Row k="جمع" v={tomanText(b.total)} />
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </Card>
   )
 }
 

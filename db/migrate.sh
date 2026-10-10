@@ -64,6 +64,7 @@ MIGRATIONS=(
   "backend/facility-service/prisma/migrations/004_maintenance.sql"
   "backend/facility-service/prisma/migrations/005_entitlements.sql"
   "backend/facility-service/prisma/migrations/006_private_booking.sql"
+  "backend/fnb-service/prisma/migrations/004_order_billing.sql"
   "db/migrations/901_rls_assertion_all_schemas.sql"
   "db/migrations/902_fk_indexes.sql"
   "backend/identity-service/prisma/migrations/008_platform_admin_sessions.sql"

@@ -105,4 +105,62 @@ export class ReportsController {
       return r.rows
     })
   }
+
+  /**
+   * ریز «شارژ متغیر» به تفکیک واحد برای یک ماه (مصرف خدمات + سفارش‌های تحویل‌شده‌ی کافه/رستوران) — مانیتورینگ مدیر.
+   * عمداً فقط مدیر ساختمان: ریز مصرف و وضعیت تسویه‌ی هر واحد نباید برای ساکنین دیگر، کارکنان یا نگهبانی دیده شود
+   * (ساکن فقط صورتحساب واحد خودش را می‌بیند: me/fnb-bills و me/charges).
+   */
+  @Roles('admin')
+  @Get('reports/variable-charges')
+  variableCharges(@Query('period') periodQ: string | undefined, @CurrentUser() user: JwtPayload) {
+    const period = periodQ ?? periodOfIso(tehranToday())
+    if (!parsePeriod(period)) bad('دوره باید شمسی و به شکل YYYY-MM باشد')
+    const { start, end } = periodRange(period)
+    return this.db.withTenant(user.tenant_id!, async (client) => {
+      const orders = await client.query<{ unit_id: string; unit_number: string; id: string; order_number: string; venue_name: string; total: number; delivered_at: string; billed: boolean; exempt: boolean }>(
+        `SELECT o.unit_id, u.unit_number, o.id, o.order_number, v.name AS venue_name, o.total::float8 AS total, o.delivered_at,
+                (o.billed_charge_id IS NOT NULL) AS billed, o.bill_exempt AS exempt
+           FROM fnb.orders o JOIN property.units u ON u.id = o.unit_id JOIN fnb.venues v ON v.id = o.venue_id
+          WHERE o.status = 'delivered' AND o.total > 0 AND (o.delivered_at AT TIME ZONE 'Asia/Tehran')::date BETWEEN $1::date AND $2::date
+          ORDER BY o.delivered_at DESC LIMIT 1000`, [start, end])
+      const services = await client.query<{ unit_id: string; unit_number: string; service: string; qty: number; amount: number; billed: boolean }>(
+        `SELECT e.unit_id, u.unit_number, s.title AS service, sum(e.overage_qty)::float8 AS qty, sum(e.amount)::float8 AS amount,
+                bool_and(e.billed_charge_id IS NOT NULL) AS billed
+           FROM entitlement.usage_events e JOIN entitlement.services s ON s.id = e.service_id JOIN property.units u ON u.id = e.unit_id
+          WHERE e.status = 'active' AND e.amount > 0 AND e.period = $1
+          GROUP BY e.unit_id, u.unit_number, s.title ORDER BY u.unit_number, s.title`, [period])
+
+      const byUnit = new Map<string, { unit_id: string; unit_number: string; fnb_orders: number; fnb_total: number; fnb_pending: number; service_total: number; service_pending: number }>()
+      const unit = (id: string, no: string) => {
+        let u = byUnit.get(id)
+        if (!u) { u = { unit_id: id, unit_number: no, fnb_orders: 0, fnb_total: 0, fnb_pending: 0, service_total: 0, service_pending: 0 }; byUnit.set(id, u) }
+        return u
+      }
+      // سفارش‌های معاف‌شده (قبل از راه‌اندازی صورتحساب) در جمع نمی‌آیند؛ فقط در فهرست سفارش‌ها علامت می‌خورند
+      for (const o of orders.rows) {
+        if (o.exempt) continue
+        const u = unit(o.unit_id, o.unit_number)
+        u.fnb_orders += 1
+        u.fnb_total += o.total
+        if (!o.billed) u.fnb_pending += o.total
+      }
+      for (const x of services.rows) {
+        const u = unit(x.unit_id, x.unit_number)
+        u.service_total += x.amount
+        if (!x.billed) u.service_pending += x.amount
+      }
+      const units = [...byUnit.values()]
+        .map((u) => ({ ...u, total: u.fnb_total + u.service_total, pending: u.fnb_pending + u.service_pending }))
+        .sort((a, b) => b.total - a.total || a.unit_number.localeCompare(b.unit_number, 'fa', { numeric: true }))
+      const sum = (f: (u: (typeof units)[number]) => number) => units.reduce((a, u) => a + f(u), 0)
+      return {
+        period,
+        totals: { fnb: sum((u) => u.fnb_total), services: sum((u) => u.service_total), total: sum((u) => u.total), pending: sum((u) => u.pending), units: units.length },
+        units,
+        orders: orders.rows.slice(0, 200),
+        services: services.rows,
+      }
+    })
+  }
 }

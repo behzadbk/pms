@@ -463,6 +463,7 @@ function VenueOrdering({
           </div>
         </div>
 
+        <p className="text-[11px] leading-5 text-[var(--lg-text-secondary)] mt-2.5">پرداخت جدا ندارد؛ پس از تحویل، مبلغ سفارش به «شارژ متغیر» واحد شما اضافه می‌شود و ریزش را در «شارژ و پرداخت» می‌بینید.</p>
         {!venue.open_now && <p className="text-xs text-[var(--lg-danger)] mt-2">{venue.name} الان بسته است.</p>}
         {venue.open_now && belowMin && <p className="text-xs text-[var(--lg-danger)] mt-2">حداقل مبلغ سفارش {toman(venue.min_order)} تومان است.</p>}
         {formErr && <p className="text-xs text-[var(--lg-danger)] mt-2">{formErr}</p>}

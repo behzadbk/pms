@@ -38,10 +38,48 @@ export interface FinanceSettings {
   opening_balance: number
 }
 
-/** مصرف مازاد بر سهمیه‌ی خدمات که در این شارژ اضافه شده (جزئیات هر خدمت) */
+/**
+ * «شارژ متغیر» این شارژ: مازاد مصرف خدمات (آفرها) + سفارش‌های تحویل‌شده‌ی کافه/رستوران.
+ * kind='fnb' ⇒ service = نام مجموعه، quantity = تعداد سفارش؛ بدون kind ⇒ مازاد خدمت.
+ */
 export interface OverageBreakdown {
   total: number
-  items: { service: string; variant: string | null; period: string; quantity: number; unit_label: string; amount: number }[]
+  items: { kind?: 'service' | 'fnb'; service: string; variant: string | null; period: string; quantity: number; unit_label: string; amount: number }[]
+}
+
+/** سفارش تحویل‌شده‌ی کافه/رستوران که مبلغش روی شارژ متغیر واحد می‌نشیند — صورتحساب ساکن */
+export interface MyFnbBill {
+  id: string
+  order_number: string
+  venue_name: string
+  venue_kind: 'restaurant' | 'cafe'
+  unit_number: string
+  subtotal: number
+  surcharge: number
+  total: number
+  delivered_at: string
+  /** ماه تحویل ('1405-07') و ماهی که مبلغ در شارژش می‌نشیند */
+  delivered_period: string
+  charge_period: string
+  /** true = قبلاً در یک شارژ صادرشده نشسته */
+  billed: boolean
+  charge_status: ChargeStatus | null
+  items: { name: string; quantity: number; unit_price: number; line_total: number }[]
+}
+
+/** ریز شارژ متغیر به تفکیک واحد در یک ماه — مانیتورینگ مدیر (GET /reports/variable-charges) */
+export interface VariableChargesReport {
+  period: string
+  totals: { fnb: number; services: number; total: number; pending: number; units: number }
+  units: { unit_id: string; unit_number: string; fnb_orders: number; fnb_total: number; fnb_pending: number; service_total: number; service_pending: number; total: number; pending: number }[]
+  orders: { unit_id: string; unit_number: string; id: string; order_number: string; venue_name: string; total: number; delivered_at: string; billed: boolean; exempt: boolean }[]
+  services: { unit_id: string; unit_number: string; service: string; qty: number; amount: number; billed: boolean }[]
+}
+
+/** برچسب یک ردیف شارژ متغیر در ریز شارژ */
+export function variableItemLabel(it: OverageBreakdown['items'][number]) {
+  if (it.kind === 'fnb') return `${it.service} — ${it.quantity.toLocaleString('fa-IR')} سفارش`
+  return `مازاد ${it.service}${it.variant && it.variant !== it.service ? ` (${it.variant})` : ''}`
 }
 
 export interface Charge {
@@ -158,7 +196,6 @@ export interface MonthExpenses {
   invoices: { id: string; vendor: string; category: string; description: string; amount: number; paid_on: string }[]
 }
 
-export interface Accountant { id: string; fullName: string; email: string | null; phone: string | null; isActive: boolean; lastLoginAt: string | null; createdAt: string; tempPassword?: string }
 export interface GatewayInfo { online: boolean; gateway: string | null; sandbox: boolean }
 
 export interface ImportChargeRow { line: number; unit_number: string; period: string; amount: number; status: ChargeStatus; due_date?: string; paid_on?: string }
@@ -205,14 +242,11 @@ export const financeApi = {
   // ساکن
   myCharges: () => api.get<MyCharge[]>(`${F}/me/charges`),
   myReceipts: () => api.get<Receipt[]>(`${F}/me/receipts`),
+  myFnbBills: () => api.get<MyFnbBill[]>(`${F}/me/fnb-bills`),
+  variableCharges: (period?: string) => api.get<VariableChargesReport>(`${F}/reports/variable-charges${qs({ period })}`),
   transparency: () => api.get<Transparency>(`${F}/resident/transparency`),
   gateway: () => api.get<GatewayInfo>(`${F}/payments/gateway`),
   initiatePayment: (chargeId: string) => api.post<{ redirectUrl: string }>(`${F}/payments/initiate`, { chargeId }),
-
-  // حسابدارها (identity-service)
-  accountants: () => api.get<Accountant[]>('/identity/accountants'),
-  createAccountant: (b: { fullName: string; email: string; phone?: string; password?: string }) => api.post<Accountant>('/identity/accountants', b),
-  updateAccountant: (id: string, b: { fullName?: string; phone?: string; isActive?: boolean }) => api.patch<Accountant>(`/identity/accountants/${id}`, b),
 }
 
 /** باز کردن پیوست فاکتور (نیازمند توکن؛ در تب جدید) */
