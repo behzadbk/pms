@@ -15,7 +15,7 @@ export interface PlanRow {
   residents: number
   /** مبلغ کل شارژ (فرمول + مازاد) */
   amount: number
-  /** مازاد مصرف خدمات که در این شارژ می‌نشیند (۰ اگر نباشد) */
+  /** شارژ متغیر (مازاد مصرف خدمات + سفارش‌های کافه/رستوران) که در این شارژ می‌نشیند (۰ اگر نباشد) */
   overage: number
   breakdown: ChargeBreakdown
   existing: { id: string; status: string; total_amount: number } | null
@@ -41,7 +41,7 @@ export class ChargeEngine {
     return (await this.build(client, tenantId, input)).plan
   }
 
-  private async build(client: PoolClient, tenantId: string, input: { period: string; formulaId?: string; dueDate?: string }): Promise<{ plan: ChargePlan; eventIds: Map<string, string[]> }> {
+  private async build(client: PoolClient, tenantId: string, input: { period: string; formulaId?: string; dueDate?: string }): Promise<{ plan: ChargePlan; eventIds: Map<string, { events: string[]; orders: string[] }> }> {
     if (!parsePeriod(input.period)) bad('دوره باید شمسی و به شکل YYYY-MM باشد (مثلاً 1405-07)')
     if (input.dueDate !== undefined && !isIsoDate(input.dueDate)) bad('سررسید باید به شکل YYYY-MM-DD باشد')
     const settings = await this.settings.get(client, tenantId)
@@ -70,14 +70,14 @@ export class ChargeEngine {
     // LEFT JOIN با شارژِ همین دوره (ex_*) نشان می‌دهد کدام واحد قبلاً شارژ گرفته؛ پیش‌نمایش با همین «تفاوت» ساخته می‌شود.
     // مازاد مصرف خدمات (آفرها): مصرف ماه‌های قبل از این دوره که هنوز به شارژی نرفته
     const overages = await pendingOverage(client, input.period)
-    const eventIds = new Map<string, string[]>()
+    const eventIds = new Map<string, { events: string[]; orders: string[] }>()
     const rows: PlanRow[] = units.rows.map((u) => {
       const ov = overages.get(u.id)
       // مازاد خدمات فقط روی شارژِ «تازه» می‌نشیند؛ واحدی که برای این دوره شارژ دارد دست نمی‌خورد، وگرنه مازاد دوبار
       // حساب می‌شد. eventIds مشخص می‌کند کدام رویدادهای مصرف باید بعد از صدور «فریز» (billed) شوند.
       const fresh = !u.ex_id
       const breakdown = withOverage(calcCharge(formula!, { area: u.area ?? 0, residents: u.residents }), fresh ? ov : undefined)
-      if (fresh && ov) eventIds.set(u.id, ov.event_ids)
+      if (fresh && ov) eventIds.set(u.id, { events: ov.event_ids, orders: ov.order_ids })
       return {
         unit_id: u.id,
         unit_number: u.unit_number,
@@ -125,7 +125,8 @@ export class ChargeEngine {
       if (ins.rows[0]) {
         created.push(ins.rows[0])
         // مصرف‌های مازاد داخل این شارژ فریز می‌شوند تا دوباره روی شارژ بعدی نیایند
-        await markOverageBilled(client, ins.rows[0].id, eventIds.get(r.unit_id) ?? [])
+        const ids = eventIds.get(r.unit_id)
+        await markOverageBilled(client, ins.rows[0].id, ids?.events ?? [], ids?.orders ?? [])
       }
     }
 
@@ -138,7 +139,7 @@ export class ChargeEngine {
       await notify(client, tenantId, persons.map((p) => ({ person: p })), {
         kind: 'charge_issued',
         title: `شارژ ${plan.period_label} صادر شد`,
-        body: `مبلغ ${c.total_amount.toLocaleString('fa-IR')} تومان${overageById.get(c.unit_id) ? ` (شامل ${overageById.get(c.unit_id)!.toLocaleString('fa-IR')} تومان مازاد خدمات)` : ''} — سررسید ${dueFa}`,
+        body: `مبلغ ${c.total_amount.toLocaleString('fa-IR')} تومان${overageById.get(c.unit_id) ? ` (شامل ${overageById.get(c.unit_id)!.toLocaleString('fa-IR')} تومان شارژ متغیر: خدمات و کافه/رستوران)` : ''} — سررسید ${dueFa}`,
         link: '/resident/charges',
         ref: c.id,
       })

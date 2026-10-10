@@ -8,16 +8,16 @@ import { InvoiceDetail } from '../../components/finance/InvoiceDetail'
 import { ChargeManager } from '../../components/finance/ChargeManager'
 import { FormulaEditor } from '../../components/finance/FormulaEditor'
 import { SettingsCard } from '../../components/finance/SettingsCard'
-import { AccountantsCard } from '../../components/finance/AccountantsCard'
+import { VariableChargesReport } from '../../components/finance/VariableChargesReport'
 import { TH, TD } from '../../components/finance/parts'
 import { Loading, ErrorBlock, useLoad } from '../../components/hm'
 import { dayFa, financeApi, tomanText, type Invoice } from '../../lib/api/finance'
 
-type Tab = 'overview' | 'invoices' | 'charges' | 'setup'
+type Tab = 'overview' | 'invoices' | 'charges' | 'consumption' | 'setup'
 
 /**
  * گزارش و تنظیمات مالی مدیر ساختمان.
- * مدیر: فرمول شارژ، نرخ جریمه، حساب‌های حسابدار و صدور شارژ را مدیریت می‌کند؛ ثبت فاکتور هزینه با حسابدار است.
+ * مدیر: فرمول شارژ و نرخ جریمه را تنظیم و گزارش‌ها را مانیتور می‌کند؛ حساب حسابدار از «کارکنان» ساخته می‌شود و ثبت فاکتور/صدور شارژ با حسابدار است.
  */
 export function AdminFinance() {
   const [params, setParams] = useSearchParams()
@@ -36,7 +36,7 @@ export function AdminFinance() {
       </div>
 
       <div className="flex gap-2 flex-wrap">
-        {([['overview', 'خلاصه'], ['invoices', 'فاکتورها و هزینه‌ها'], ['charges', 'شارژ و مطالبات'], ['setup', 'فرمول و تنظیمات']] as [Tab, string][]).map(([id, label]) => (
+        {([['overview', 'خلاصه'], ['invoices', 'فاکتورها و هزینه‌ها'], ['charges', 'شارژ و مطالبات'], ['consumption', 'ریز مصرف واحدها'], ['setup', 'فرمول و تنظیمات']] as [Tab, string][]).map(([id, label]) => (
           <button key={id} onClick={() => setTab(id)} className={`px-3.5 py-2 rounded-xl text-sm border ${tab === id ? 'bg-ink text-white border-ink' : 'border-line hover:border-ink-soft'}`}>{label}</button>
         ))}
       </div>
@@ -78,11 +78,12 @@ export function AdminFinance() {
 
       {tab === 'charges' && <ChargeManager />}
 
+      {tab === 'consumption' && <VariableChargesReport />}
+
       {tab === 'setup' && (
         <div className="space-y-5">
           <FormulaEditor />
           <SettingsCard canEdit />
-          <AccountantsCard />
         </div>
       )}
 

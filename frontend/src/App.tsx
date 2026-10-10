@@ -251,6 +251,7 @@ function AppRoutes() {
         <Route path="/accountant" element={<RequireRole role="accountant"><AccountantDashboard /></RequireRole>} />
         <Route path="/accountant/charges" element={<RequireRole role="accountant"><AccountantCharges /></RequireRole>} />
         <Route path="/accountant/invoices" element={<RequireRole role="accountant"><AccountantInvoices /></RequireRole>} />
+        <Route path="/accountant/entitlements" element={<RequireRole role="accountant"><AdminEntitlements /></RequireRole>} />
         <Route path="/accountant/announcements" element={<RequireRole role="accountant"><AnnouncementsFeed /></RequireRole>} />
 
         <Route path="/super-admin" element={<RequireSuperAdmin><SuperAdminDashboard /></RequireSuperAdmin>} />

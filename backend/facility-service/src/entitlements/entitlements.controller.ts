@@ -68,7 +68,7 @@ function needDesk(user: JwtPayload) {
  * آفرها و سهمیه‌ی واحد
  *   ساکن    : GET me · GET me/events · GET|POST me/tickets · POST me/tickets/:id/void
  *   مسئول   : GET catalog · desk/units · desk/units/:id/summary · desk/events · POST desk/usage · POST desk/events/:id/void · POST desk/scan
- *   مدیر    : GET config · PUT config/quotas · PATCH config/tariffs|services/:id · POST|PATCH|DELETE config/tiers · POST config/apply-template · POST config/recompute
+ *   مدیر و حسابدار : GET config · PUT config/quotas · PATCH config/tariffs|services/:id · POST|PATCH|DELETE config/tiers · POST config/apply-template · POST config/recompute
  * مازاد مصرف (بعد از سهمیه) در صدور شارژ ماه بعد توسط finance-service به شارژ واحد اضافه می‌شود.
  */
 @Controller('entitlements')
@@ -194,13 +194,13 @@ export class EntitlementsController {
 
   // ───────────── مدیر: تنظیم سهمیه و تعرفه ─────────────
 
-  @Roles('admin')
+  @Roles('admin', 'accountant')
   @Get('config')
   config(@CurrentUser() user: JwtPayload) {
     return this.db.withTenant(user.tenant_id!, (client) => this.svc.catalog(client))
   }
 
-  @Roles('admin')
+  @Roles('admin', 'accountant')
   @Put('config/quotas')
   setQuota(@Body() body: QuotaDto, @CurrentUser() user: JwtPayload) {
     return this.db.withTenant(user.tenant_id!, async (client) => {
@@ -218,7 +218,7 @@ export class EntitlementsController {
     })
   }
 
-  @Roles('admin')
+  @Roles('admin', 'accountant')
   @Patch('config/tariffs/:id')
   patchTariff(@Param('id', ParseUUIDPipe) id: string, @Body() body: TariffPatchDto, @CurrentUser() user: JwtPayload) {
     return this.db.withTenant(user.tenant_id!, async (client) => {
@@ -240,7 +240,7 @@ export class EntitlementsController {
     })
   }
 
-  @Roles('admin')
+  @Roles('admin', 'accountant')
   @Patch('config/services/:id')
   patchService(@Param('id', ParseUUIDPipe) id: string, @Body() body: ServicePatchDto, @CurrentUser() user: JwtPayload) {
     return this.db.withTenant(user.tenant_id!, async (client) => {
@@ -258,7 +258,7 @@ export class EntitlementsController {
     })
   }
 
-  @Roles('admin')
+  @Roles('admin', 'accountant')
   @Post('config/tiers')
   createTier(@Body() body: TierDto, @CurrentUser() user: JwtPayload) {
     return this.db.withTenant(user.tenant_id!, async (client) => {
@@ -271,7 +271,7 @@ export class EntitlementsController {
     })
   }
 
-  @Roles('admin')
+  @Roles('admin', 'accountant')
   @Patch('config/tiers/:id')
   patchTier(@Param('id', ParseUUIDPipe) id: string, @Body() body: TierPatchDto, @CurrentUser() user: JwtPayload) {
     return this.db.withTenant(user.tenant_id!, async (client) => {
@@ -289,7 +289,7 @@ export class EntitlementsController {
     })
   }
 
-  @Roles('admin')
+  @Roles('admin', 'accountant')
   @Delete('config/tiers/:id')
   deleteTier(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: JwtPayload) {
     return this.db.withTenant(user.tenant_id!, async (client) => {
@@ -301,7 +301,7 @@ export class EntitlementsController {
   }
 
   /** اعمال الگوی آماده (فعلاً «برج باران ۳»). overwrite=false ⇒ ردیف‌های ویرایش‌شده‌ی مدیر حفظ می‌شود */
-  @Roles('admin')
+  @Roles('admin', 'accountant')
   @HttpCode(200)
   @Post('config/apply-template')
   applyTemplate(@Body() body: TemplateDto, @CurrentUser() user: JwtPayload) {
@@ -313,7 +313,7 @@ export class EntitlementsController {
   }
 
   /** محاسبه‌ی مجدد سهم‌بندی مصرف‌های هنوز-به-شارژ-نرفته (مثلاً بعد از تغییر متراژ واحدها) */
-  @Roles('admin')
+  @Roles('admin', 'accountant')
   @HttpCode(200)
   @Post('config/recompute')
   recompute(@CurrentUser() user: JwtPayload) {

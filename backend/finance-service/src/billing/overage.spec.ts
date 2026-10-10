@@ -29,6 +29,25 @@ describe('groupOverage — مازاد هر واحد برای ریز شارژ', (
   })
 })
 
+describe('groupOverage — سفارش‌های کافه/رستوران (شارژ متغیر)', () => {
+  const fnb = (over: Partial<PendingOverageRow> = {}): PendingOverageRow => row({ kind: 'fnb', service: 'کافی‌شاپ', variant: null, unit_label: 'سفارش', overage_qty: 1, amount: 180000, ...over })
+  it('سفارش‌ها به‌صورت آیتم kind=fnb جمع می‌شوند و شناسه‌شان در order_ids می‌رود (نه event_ids)', () => {
+    const u = groupOverage([fnb({ event_id: 'o1' }), fnb({ event_id: 'o2', amount: 70000 }), row({ event_id: 'e1' })]).get('u1')!
+    expect(u.order_ids).toEqual(['o1', 'o2'])
+    expect(u.event_ids).toEqual(['e1'])
+    expect(u.total).toBe(180000 + 70000 + 400000)
+    const item = u.items.find((i) => i.kind === 'fnb')!
+    expect(item).toMatchObject({ service: 'کافی‌شاپ', quantity: 2, amount: 250000, unit_label: 'سفارش' })
+  })
+  it('کافه و رستوران آیتم‌های جدا هستند و با خدمتِ هم‌نام قاطی نمی‌شوند', () => {
+    const u = groupOverage([fnb({ event_id: 'a' }), fnb({ event_id: 'b', service: 'رستوران', amount: 520000 }), row({ event_id: 'c', service: 'کافی‌شاپ', variant: null })]).get('u1')!
+    expect(u.items).toHaveLength(3)
+  })
+  it('خدمات قدیمی kind ندارند (سازگاری با شارژهای صادرشده)', () => {
+    expect(groupOverage([row()]).get('u1')!.items[0].kind).toBeUndefined()
+  })
+})
+
 describe('withOverage — اضافه شدن مازاد به شارژ ماهانه', () => {
   const b = calcCharge({ base_amount: 1_500_000, amount_per_sqm: 25_000, per_resident_amount: 0, fixed_items: [], round_to: 1000 }, { area: 92.5, residents: 0 })
   it('بدون مازاد، breakdown همان است', () => {

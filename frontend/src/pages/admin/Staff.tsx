@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Copy, KeyRound, Pencil, Plus, RefreshCw, Search, ShieldCheck, Trash2, UserRound, Users } from 'lucide-react'
+import { Calculator, KeyRound, Pencil, Plus, RefreshCw, Search, ShieldCheck, Trash2, UserRound, Users } from 'lucide-react'
 import { Card } from '../../components/ui/Card'
 import { Modal, TextField, TextArea, SelectField, PrimaryButton, GhostButton } from '../../components/ui/Modal'
 import { staffApi, ApiError } from '../../lib/api'
@@ -15,7 +15,9 @@ import {
   type StaffPermission,
 } from '../../lib/staff'
 import { faDateTime } from '../../lib/jalali'
-import { LAST_TENANT_KEY } from '../Login'
+import { Credentials } from '../../components/staff/credentials'
+import { generatePassword, toEnDigits } from '../../lib/accountCredentials'
+import { AccountantsPanel } from '../../components/staff/AccountantsPanel'
 
 type FormState = {
   id?: string
@@ -44,19 +46,25 @@ const emptyForm = (): FormState => ({
   profile: { shift: 'morning' },
 })
 
-function generatePassword() {
-  const chars = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789'
-  let out = ''
-  const arr = new Uint32Array(8)
-  crypto.getRandomValues(arr)
-  arr.forEach((n) => (out += chars[n % chars.length]))
-  return out
+/** کارکنان و حسابداران ساختمان — هر دو توسط مدیر تعریف می‌شوند و هرکدام پنل مخصوص خودشان را دارند */
+export function AdminStaff() {
+  const [tab, setTab] = useState<'staff' | 'accountants'>('staff')
+  return (
+    <div className="space-y-6">
+      <h1 className="text-xl font-bold">کارکنان</h1>
+      <div className="flex gap-2 flex-wrap">
+        {([['staff', 'کارکنان', Users], ['accountants', 'حسابداران', Calculator]] as const).map(([id, label, Icon]) => (
+          <button key={id} onClick={() => setTab(id)} className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm border ${tab === id ? 'bg-ink text-white border-ink' : 'border-line hover:border-ink-soft'}`}>
+            <Icon size={15} /> {label}
+          </button>
+        ))}
+      </div>
+      {tab === 'staff' ? <StaffList /> : <AccountantsPanel />}
+    </div>
+  )
 }
 
-/** اعداد فارسی/عربی → انگلیسی (کد ملی و موبایل را کاربر ممکن است با کیبورد فارسی بزند) */
-const toEnDigits = (s: string) => s.replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d))).replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)))
-
-export function AdminStaff() {
+function StaffList() {
   const [list, setList] = useState<StaffMember[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -140,10 +148,7 @@ export function AdminStaff() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div>
-          <h1 className="text-xl font-bold">کارکنان</h1>
-        </div>
+      <div className="flex items-center justify-end gap-3 flex-wrap">
         <PrimaryButton onClick={() => setForm(emptyForm())}>
           <Plus size={16} /> کارمند جدید
         </PrimaryButton>
@@ -296,34 +301,6 @@ export function AdminStaff() {
       >
         {created && <Credentials {...created} />}
       </Modal>
-    </div>
-  )
-}
-
-function Credentials({ name, username, password }: { name: string; username: string; password: string }) {
-  const [copied, setCopied] = useState(false)
-  let tenant = ''
-  try {
-    tenant = localStorage.getItem(LAST_TENANT_KEY) ?? ''
-  } catch {
-    /* ignore */
-  }
-  const text = `ورود به پنل «همین»\n${tenant ? `مجتمع: ${tenant}\n` : ''}نام کاربری: ${username}\nرمز عبور: ${password}`
-  return (
-    <div className="space-y-4">
-      <p className="text-sm">حساب «{name}» ساخته شد. این اطلاعات را به او بدهید — رمز بعداً قابل مشاهده نیست (فقط قابل تغییر است).</p>
-      <div className="bg-canvas rounded-xl p-4 space-y-2 text-sm" dir="ltr">
-        {tenant && <p><span className="text-muted">building:</span> <b className="font-mono">{tenant}</b></p>}
-        <p><span className="text-muted">username:</span> <b className="font-mono">{username}</b></p>
-        <p><span className="text-muted">password:</span> <b className="font-mono">{password}</b></p>
-      </div>
-      <GhostButton
-        onClick={() => {
-          navigator.clipboard?.writeText(text).then(() => setCopied(true)).catch(() => undefined)
-        }}
-      >
-        <Copy size={15} /> {copied ? 'کپی شد' : 'کپی اطلاعات ورود'}
-      </GhostButton>
     </div>
   )
 }

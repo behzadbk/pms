@@ -1,9 +1,12 @@
 import type { PoolClient } from 'pg'
 import type { OverageItem, OverageSummary } from './charge-calc'
+import { periodOfIso, tehranToday } from '../common/jalali'
 
 export interface PendingOverageRow {
   unit_id: string
+  /** شناسه‌ی رویداد مصرف (kind='service') یا سفارش (kind='fnb') */
   event_id: string
+  kind?: 'service' | 'fnb'
   service: string
   variant: string | null
   period: string
@@ -12,7 +15,7 @@ export interface PendingOverageRow {
   amount: number
 }
 
-export interface UnitOverage extends OverageSummary { event_ids: string[] }
+export interface UnitOverage extends OverageSummary { event_ids: string[]; order_ids: string[] }
 
 /** گروه‌بندی ردیف‌های مازاد هر واحد به «خدمت × نوع × دوره» (برای نمایش در ریز شارژ) — تابع خالص */
 export function groupOverage(rows: PendingOverageRow[]): Map<string, UnitOverage> {
@@ -21,18 +24,19 @@ export function groupOverage(rows: PendingOverageRow[]): Map<string, UnitOverage
   for (const r of rows) {
     if (!(r.amount > 0)) continue
     let u = out.get(r.unit_id)
-    if (!u) { u = { total: 0, items: [], event_ids: [] }; out.set(r.unit_id, u) }
-    const key = `${r.unit_id}|${r.service}|${r.variant ?? ''}|${r.period}`
+    if (!u) { u = { total: 0, items: [], event_ids: [], order_ids: [] }; out.set(r.unit_id, u) }
+    const kind = r.kind ?? 'service'
+    const key = `${r.unit_id}|${kind}|${r.service}|${r.variant ?? ''}|${r.period}`
     let it = index.get(key)
     if (!it) {
-      it = { service: r.service, variant: r.variant, period: r.period, quantity: 0, unit_label: r.unit_label, amount: 0 }
+      it = { ...(kind === 'fnb' ? { kind } : {}), service: r.service, variant: r.variant, period: r.period, quantity: 0, unit_label: r.unit_label, amount: 0 }
       index.set(key, it)
       u.items.push(it)
     }
     it.quantity = Math.round((it.quantity + r.overage_qty) * 100) / 100
     it.amount += r.amount
     u.total += r.amount
-    u.event_ids.push(r.event_id)
+    ;(kind === 'fnb' ? u.order_ids : u.event_ids).push(r.event_id)
   }
   return out
 }
@@ -52,15 +56,40 @@ export async function pendingOverage(client: PoolClient, beforePeriod: string): 
       ORDER BY e.unit_id, e.period, e.occurred_at`,
     [beforePeriod],
   )
-  return groupOverage(r.rows.map((x) => ({ ...x, overage_qty: Number(x.overage_qty), amount: Number(x.amount) })))
+  const service: PendingOverageRow[] = r.rows.map((x) => ({ ...x, overage_qty: Number(x.overage_qty), amount: Number(x.amount) }))
+
+  // سفارش‌های تحویل‌شده‌ی کافه/رستوران که هنوز به شارژی نرفته‌اند (سفارش ماه P روی شارژ ماه P+1 می‌نشیند).
+  // دوره از زمان «تحویل» به وقت تهران می‌آید؛ سفارش‌های قبل از راه‌اندازی صورتحساب (bill_exempt) شمرده نمی‌شوند.
+  const f = await client.query<{ unit_id: string; event_id: string; service: string; delivered_at: string; amount: string }>(
+    `SELECT o.unit_id, o.id AS event_id, v.name AS service, o.delivered_at, o.total AS amount
+       FROM fnb.orders o JOIN fnb.venues v ON v.id = o.venue_id
+      WHERE o.status = 'delivered' AND o.billed_charge_id IS NULL AND NOT o.bill_exempt
+        AND o.total > 0 AND o.delivered_at IS NOT NULL
+      ORDER BY o.unit_id, o.delivered_at`,
+  )
+  const fnb: PendingOverageRow[] = f.rows
+    .map((x) => ({ unit_id: x.unit_id, event_id: x.event_id, kind: 'fnb' as const, service: x.service, variant: null, period: periodOfIso(tehranToday(new Date(x.delivered_at))), overage_qty: 1, unit_label: 'سفارش', amount: Number(x.amount) }))
+    .filter((x) => x.period < beforePeriod)
+  return groupOverage([...service, ...fnb])
 }
 
-/** مصرف‌های داخل شارژ صادرشده را «به شارژ رفته» علامت می‌زند؛ فریز می‌شوند (نه ابطال، نه محاسبه‌ی مجدد) */
-export async function markOverageBilled(client: PoolClient, chargeId: string, eventIds: string[]): Promise<void> {
-  if (!eventIds.length) return
-  await client.query(
-    `UPDATE entitlement.usage_events SET billed_charge_id = $1, billed_at = now()
-      WHERE id = ANY($2::uuid[]) AND billed_charge_id IS NULL`,
-    [chargeId, eventIds],
-  )
+/**
+ * مصرف‌ها و سفارش‌های داخل شارژ صادرشده را «به شارژ رفته» علامت می‌زند؛ فریز می‌شوند (نه ابطال، نه محاسبه‌ی مجدد).
+ * orderIds = سفارش‌های کافه/رستوران (fnb.orders)
+ */
+export async function markOverageBilled(client: PoolClient, chargeId: string, eventIds: string[], orderIds: string[] = []): Promise<void> {
+  if (eventIds.length) {
+    await client.query(
+      `UPDATE entitlement.usage_events SET billed_charge_id = $1, billed_at = now()
+        WHERE id = ANY($2::uuid[]) AND billed_charge_id IS NULL`,
+      [chargeId, eventIds],
+    )
+  }
+  if (orderIds.length) {
+    await client.query(
+      `UPDATE fnb.orders SET billed_charge_id = $1, billed_at = now()
+        WHERE id = ANY($2::uuid[]) AND billed_charge_id IS NULL`,
+      [chargeId, orderIds],
+    )
+  }
 }

@@ -1,8 +1,9 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common'
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common'
 import * as bcrypt from 'bcrypt'
 import { DatabaseService } from '../database/database.service'
 import { EventsService } from '../events/events.service'
 import { CreateAccountantDto, UpdateAccountantDto } from './dto/accountant.dto'
+import { passwordPolicyError } from '../auth/password.util'
 
 interface Row {
   id: string
@@ -58,12 +59,14 @@ export class AccountantsService {
   }
 
   async create(tenantId: string, dto: CreateAccountantDto, actorId: string) {
+    const bad = passwordPolicyError(dto.password, [dto.username, dto.phone])
+    if (bad) throw new BadRequestException(bad)
     const hash = await bcrypt.hash(dto.password, 10)
     const row = await this.db
       .withTenant(tenantId, async (client) => {
         const res = await client.query<Row>(
-          `INSERT INTO identity.users (tenant_id, full_name, username, email, phone, password_hash, role, is_active)
-           VALUES ($1, $2, $3, $4, $5, $6, 'accountant', $7) RETURNING ${COLUMNS}`,
+          `INSERT INTO identity.users (tenant_id, full_name, username, email, phone, password_hash, role, is_active, must_change_password)
+           VALUES ($1, $2, $3, $4, $5, $6, 'accountant', $7, true) RETURNING ${COLUMNS}`,
           [tenantId, dto.fullName.trim(), dto.username.trim().toLowerCase(), dto.email?.trim().toLowerCase() || null, dto.phone || null, hash, dto.isActive ?? true],
         )
         return res.rows[0]
@@ -80,15 +83,24 @@ export class AccountantsService {
       vals.push(v)
       sets.push(`${col} = $${vals.length}`)
     }
+    let invalidate = false
     if (dto.fullName !== undefined) set('full_name', dto.fullName.trim())
     if (dto.username !== undefined) set('username', dto.username.trim().toLowerCase())
     if (dto.email !== undefined) set('email', dto.email ? dto.email.trim().toLowerCase() : null)
     if (dto.phone !== undefined) set('phone', dto.phone || null)
-    if (dto.isActive !== undefined) set('is_active', dto.isActive)
-    if (dto.password) {
-      set('password_hash', await bcrypt.hash(dto.password, 10))
-      sets.push('sessions_valid_after = now()')
+    if (dto.isActive !== undefined) {
+      set('is_active', dto.isActive)
+      if (!dto.isActive) invalidate = true // نشست‌های فعلی حسابدار غیرفعال‌شده باطل شود
     }
+    if (dto.password) {
+      const bad = passwordPolicyError(dto.password, [dto.username, dto.phone])
+      if (bad) throw new BadRequestException(bad)
+      set('password_hash', await bcrypt.hash(dto.password, 10))
+      // رمزی که مدیر تعیین/بازنشانی می‌کند موقت است: حسابدار در اولین ورود باید عوضش کند
+      sets.push('must_change_password = true')
+      invalidate = true
+    }
+    if (invalidate) sets.push('sessions_valid_after = now()')
     const row = await this.db
       .withTenant(tenantId, async (client) => {
         if (sets.length === 0) return (await client.query<Row>(`SELECT ${COLUMNS} FROM identity.users WHERE id = $1 AND role = 'accountant'`, [id])).rows[0]

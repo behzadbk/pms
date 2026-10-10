@@ -23,8 +23,13 @@ export interface Formula {
 
 export interface UnitFacts { area: number; residents: number }
 
-/** مازاد مصرف خدمات (آفرها) که روی همین شارژ نشسته — از entitlement.usage_events خوانده می‌شود */
+/**
+ * «شارژ متغیر» که روی همین شارژ نشسته: مازاد مصرف خدمات (آفرها؛ entitlement.usage_events)
+ * و سفارش‌های تحویل‌شده‌ی کافه/رستوران (fnb.orders؛ kind='fnb' — service = نام مجموعه، quantity = تعداد سفارش)
+ */
 export interface OverageItem {
+  /** پیش‌فرض 'service' (سازگار با شارژهای قدیمی که این کلید را ندارند) */
+  kind?: 'service' | 'fnb'
   service: string
   variant: string | null
   period: string
