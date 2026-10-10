@@ -1,11 +1,13 @@
 import {
-  Body, Controller, Delete, Get, HttpCode, Param, ParseUUIDPipe, Patch, Post, Put, Query, Res, UploadedFile, UseInterceptors,
+  Body, Controller, Delete, Get, HttpCode, Param, ParseUUIDPipe, Patch, Post, Put, Query, Req, Res, UnauthorizedException, UploadedFile, UseInterceptors,
 } from '@nestjs/common'
 import { FileInterceptor } from '@nestjs/platform-express'
 import type { Response } from 'express'
 import { Roles } from '../auth/decorators/roles.decorator'
 import { Public } from '../auth/decorators/public.decorator'
 import { CurrentUser, JwtPayload } from '../auth/decorators/current-user.decorator'
+import { clientIp } from '../auth/client-ip'
+import { LoginThrottleService } from '../auth/login-throttle.service'
 import { ReqCtx, RequestCtx, scopeTenant } from './context'
 import { ManagerService, UnitFilter } from './manager.service'
 import { JoinService } from './join.service'
@@ -320,13 +322,27 @@ export class MeController {
   constructor(
     private readonly child: ChildService,
     private readonly hk: HousekeepingService,
+    private readonly throttle: LoginThrottleService,
   ) {}
 
+  /**
+   * ورود کودک با کد ۶ رقمی (فقط ۱٬۰۰۰٬۰۰۰ حالت) — بدون محدودیت، حدس‌زدن کد زنده‌ی یک خانواده ممکن بود. شمارنده‌ی خطا
+   * بر اساس IP کلاینت است (نه ساختمان/کد)، تا مهاجم نتواند ورود عادی بقیه‌ی خانواده‌ها را قفل کند؛ ۵ خطا آزاد و بعد
+   * قفل نمایی تا ۱۵ دقیقه (همان سازوکار ورود).
+   */
   @Public()
   @Post('auth/family-code')
   @HttpCode(200)
-  familyCode(@Body() dto: FamilyCodeLoginDto) {
-    return this.child.familyCodeLogin(dto)
+  async familyCode(@Body() dto: FamilyCodeLoginDto, @Req() req: any) {
+    const ip = clientIp(req) || 'unknown'
+    await this.throttle.assertAllowed('family-code', ip, ip)
+    try {
+      // موفقیت شمارنده را صفر نمی‌کند: وگرنه کسی که کد معتبر خودش را دارد می‌توانست بین حدس‌ها وارد شود و قفل را بشکند
+      return await this.child.familyCodeLogin(dto)
+    } catch (e) {
+      if (e instanceof UnauthorizedException) await this.throttle.recordFailure('family-code', ip, ip)
+      throw e
+    }
   }
 
   /** نقشه‌ی دسترسی ماژول‌ها برای شِل اپ (تب‌ها، کاشی‌ها و لینک‌های پنهان حذف می‌شوند) */

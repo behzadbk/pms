@@ -11,6 +11,7 @@ import { effectivePermissions } from '../users/staff.constants'
 import { LoginThrottleService } from './login-throttle.service'
 import { passwordPolicyError } from './password.util'
 import { toLatinDigits } from '../residents/phone'
+import { JWT_ALGORITHMS } from './jwt-secret'
 
 interface UserRow {
   person_id: string | null
@@ -77,6 +78,8 @@ interface PlatformAdminRow {
   password_hash: string
   is_active: boolean
   must_change_password: boolean
+  /** توکن‌های صادرشده قبل از این لحظه باطل‌اند (تغییر رمز سوپرادمین) */
+  sessions_valid_after: Date | null
 }
 
 export interface AuthResult {
@@ -181,7 +184,7 @@ export class AuthService {
     await this.throttle.assertAllowed('platform', username, ip)
     const admin = await this.db.withPlatformAccess(async (client) => {
       const res = await client.query<PlatformAdminRow>(
-        'SELECT id, username, full_name, password_hash, is_active, must_change_password FROM identity.platform_admins WHERE username = $1',
+        'SELECT id, username, full_name, password_hash, is_active, must_change_password, sessions_valid_after FROM identity.platform_admins WHERE username = $1',
         [username],
       )
       return res.rows[0]
@@ -207,7 +210,7 @@ export class AuthService {
   async refresh(refreshToken: string): Promise<AuthResult> {
     let payload: JwtPayload
     try {
-      payload = this.jwt.verify<JwtPayload>(refreshToken)
+      payload = this.jwt.verify<JwtPayload>(refreshToken, { algorithms: JWT_ALGORITHMS })
     } catch {
       throw new UnauthorizedException('refresh token نامعتبر یا منقضی‌شده است')
     }
@@ -221,6 +224,9 @@ export class AuthService {
       const admin = await this.fetchPlatformAdmin(payload.sub)
       if (!admin || !admin.is_active) {
         throw new UnauthorizedException('کاربر یافت نشد')
+      }
+      if (tokenRevoked(payload.iat, admin.sessions_valid_after)) {
+        throw new UnauthorizedException('نشست شما باطل شده است؛ دوباره وارد شوید')
       }
       return this.platformLoginResult(admin)
     }
@@ -277,8 +283,10 @@ export class AuthService {
       const bad = passwordPolicyError(newPassword, [admin.username])
       if (bad) throw new BadRequestException(bad)
       const newHash = await bcrypt.hash(newPassword, 10)
+      // sessions_valid_after = now(): همه‌ی توکن‌های قبلی (حتی refreshToken ۳۰ روزه‌ی دزدیده‌شده) باطل می‌شوند؛ توکن تازه‌ی
+      // همین درخواست بعد از آن صادر می‌شود و همین دستگاه بیرون نمی‌افتد.
       await this.db.withPlatformAccess((c) =>
-        c.query('UPDATE identity.platform_admins SET password_hash = $2, must_change_password = false WHERE id = $1', [admin.id, newHash]),
+        c.query('UPDATE identity.platform_admins SET password_hash = $2, must_change_password = false, sessions_valid_after = now() WHERE id = $1', [admin.id, newHash]),
       )
       return this.platformLoginResult({ ...admin, must_change_password: false })
     }
@@ -365,7 +373,7 @@ export class AuthService {
   private fetchPlatformAdmin(adminId: string): Promise<PlatformAdminRow | undefined> {
     return this.db.withPlatformAccess(async (client) => {
       const res = await client.query<PlatformAdminRow>(
-        'SELECT id, username, full_name, password_hash, is_active, must_change_password FROM identity.platform_admins WHERE id = $1',
+        'SELECT id, username, full_name, password_hash, is_active, must_change_password, sessions_valid_after FROM identity.platform_admins WHERE id = $1',
         [adminId],
       )
       return res.rows[0]

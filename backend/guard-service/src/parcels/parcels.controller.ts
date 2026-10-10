@@ -65,13 +65,21 @@ export class ParcelsController {
     if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(body.unitId)) throw new BadRequestException('شناسه‌ی واحد نامعتبر است')
     const courier = (body.courierCompany ?? '').trim().slice(0, 60) || null
     const tracking = (body.trackingCode ?? '').trim().slice(0, 60) || null
+    // photoUrl بعداً در <img src> نمایش داده می‌شود: فقط https یا مسیر نسبی و کوتاه (نه javascript:/data: یا رشته‌ی بی‌نهایت)
+    let photoUrl: string | null = null
+    if (body.photoUrl !== undefined && body.photoUrl !== null && body.photoUrl !== '') {
+      if (typeof body.photoUrl !== 'string' || body.photoUrl.length > 500 || !/^(https:\/\/|\/)[^\s<>"']+$/i.test(body.photoUrl)) {
+        throw new BadRequestException('آدرس عکس نامعتبر است')
+      }
+      photoUrl = body.photoUrl
+    }
     const parcel = await this.db.withTenant(tenantId, async (client) => {
       const unit = await client.query<{ unit_number: string }>('SELECT unit_number FROM property.units WHERE id = $1', [body.unitId])
       if (!unit.rows[0]) throw new NotFoundException('واحد یافت نشد')
       const res = await client.query(
         `INSERT INTO guard.parcels (tenant_id, unit_id, courier_company, tracking_code, received_by, photo_url, status)
          VALUES ($1, $2, $3, $4, $5, $6, 'pending_pickup') RETURNING id`,
-        [tenantId, body.unitId, courier, tracking, user.sub, body.photoUrl ?? null])
+        [tenantId, body.unitId, courier, tracking, user.sub, photoUrl])
       // اعلان به ساکنان واحد (DB trigger + notification-service پوش را می‌فرستند)
       await notify(client, tenantId, await unitRecipients(client, body.unitId), {
         kind: 'parcel_received',

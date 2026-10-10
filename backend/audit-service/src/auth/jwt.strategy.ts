@@ -1,5 +1,5 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common'
-import { jwtSecret } from './jwt-secret'
+import { JWT_ALGORITHMS, jwtSecret } from './jwt-secret'
 import { PassportStrategy } from '@nestjs/passport'
 import { ExtractJwt, Strategy } from 'passport-jwt'
 import { JwtPayload } from './decorators/current-user.decorator'
@@ -14,6 +14,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       // استفاده می‌شود تا سرویس‌های دیگر بدون تماس gRPC به identity-svc بتوانند توکن را
       // خودشان اعتبارسنجی کنند (بخش ۲ سند ARCHITECTURE-SAAS.md — کاهش تماس‌های داخلی).
       secretOrKey: jwtSecret(),
+      algorithms: JWT_ALGORITHMS,
     })
   }
 

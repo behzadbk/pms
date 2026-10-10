@@ -6,12 +6,9 @@ import { PlatformLoginDto } from './dto/platform-login.dto'
 import { RefreshDto } from './dto/refresh.dto'
 import { Public } from './decorators/public.decorator'
 import { CurrentUser, JwtPayload } from './decorators/current-user.decorator'
+import { clientIp } from './client-ip'
 
-/** IP کلاینت (پشت gateway: اولین مقدار X-Forwarded-For) — فقط برای کلید محدودسازی ورود */
-export function clientIp(req: any): string {
-  const xff = String(req?.headers?.['x-forwarded-for'] ?? '').split(',')[0].trim()
-  return xff || req?.ip || req?.socket?.remoteAddress || ''
-}
+export { clientIp }
 
 @Controller('auth')
 export class AuthController {

@@ -63,9 +63,8 @@ export class PaymentsController {
     const key = idempotencyKey ?? randomUUID()
 
     return this.db.withTenant(tenantId, async (client) => {
-      const existing = await client.query(`SELECT * FROM finance.payments WHERE idempotency_key = $1`, [key])
-      if (existing.rows[0]) return existing.rows[0]
-
+      // اول مالکیت شارژ بررسی می‌شود، بعد idempotency: قبلاً با هر Idempotency-Key (حتی کلیدِ پرداخت دیگری در همین ساختمان)
+      // ردیف پرداخت همان کلید برمی‌گشت و ساکن می‌توانست پرداخت‌های واحدهای دیگر را ببیند.
       const chargeRes = await client.query(
         `SELECT c.* FROM finance.monthly_charges c
           WHERE c.id = $1 AND EXISTS (SELECT 1 FROM residency.memberships m WHERE m.unit_id = c.unit_id AND m.user_id = $2 AND ${FINANCE_ACCESS_SQL})`,
@@ -73,6 +72,9 @@ export class PaymentsController {
       )
       const charge = chargeRes.rows[0]
       if (!charge) throw new NotFoundException('شارژ یافت نشد')
+
+      const existing = await client.query(`SELECT * FROM finance.payments WHERE idempotency_key = $1 AND monthly_charge_id = $2`, [key, charge.id])
+      if (existing.rows[0]) return existing.rows[0]
       if (charge.status === 'paid') throw new ConflictException('این شارژ قبلاً پرداخت شده است')
 
       const ins = await client.query(

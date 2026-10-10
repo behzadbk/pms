@@ -30,6 +30,6 @@ import { EventsModule } from '../events/events.module'
     { provide: APP_GUARD, useClass: JwtAuthGuard }, // پیش‌فرض همه Route‌ها محافظت‌شده‌اند؛ با @Public() معاف می‌شوند
     { provide: APP_GUARD, useClass: RolesGuard },
   ],
-  exports: [JwtModule],
+  exports: [JwtModule, LoginThrottleService],
 })
 export class AuthModule {}

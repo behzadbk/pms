@@ -1,5 +1,6 @@
 import { Body, ConflictException, Controller, Delete, Get, NotFoundException, Param, ParseUUIDPipe, Patch, Post, Query, Res, StreamableFile } from '@nestjs/common'
 import type { Response } from 'express'
+import { randomInt } from 'crypto'
 import { DatabaseService } from '../database/database.service'
 import { CurrentUser, JwtPayload } from '../auth/decorators/current-user.decorator'
 import { Roles } from '../auth/decorators/roles.decorator'
@@ -18,6 +19,17 @@ export const EXPENSE_CATEGORIES = [
 const PAY_METHODS = ['bank_transfer', 'card_to_card', 'cheque', 'cash', 'online']
 const MAX_ATTACHMENT = 3 * 1024 * 1024
 const MIMES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf']
+
+/** امضای (magic bytes) هر نوع مجاز؛ جلوی ذخیره‌ی HTML/اسکریپت با mime جعلی را می‌گیرد */
+export function attachmentMatchesMime(d: Buffer, mime: string): boolean {
+  switch (mime) {
+    case 'image/jpeg': return d.length > 3 && d[0] === 0xff && d[1] === 0xd8 && d[2] === 0xff
+    case 'image/png': return d.length > 8 && d.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))
+    case 'image/webp': return d.length > 12 && d.subarray(0, 4).toString('latin1') === 'RIFF' && d.subarray(8, 12).toString('latin1') === 'WEBP'
+    case 'application/pdf': return d.length > 5 && d.subarray(0, 5).toString('latin1') === '%PDF-'
+    default: return false
+  }
+}
 
 const COLS = `id, number, vendor, category, description, items, amount, invoice_date, status, paid_on, pay_method,
   attachment_name, attachment_mime, (attachment_data IS NOT NULL) AS has_attachment, registered_by_name, created_at`
@@ -63,7 +75,14 @@ export class InvoicesController {
   async attachment(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: JwtPayload, @Res({ passthrough: true }) res: Response) {
     const row = await this.db.withTenant(user.tenant_id!, async (client) => (await client.query(`SELECT attachment_name, attachment_mime, attachment_data FROM finance.expense_invoices WHERE id = $1`, [id])).rows[0])
     if (!row?.attachment_data) throw new NotFoundException('پیوستی ثبت نشده است')
-    res.set({ 'Content-Type': row.attachment_mime ?? 'application/octet-stream', 'Content-Disposition': `inline; filename*=UTF-8''${encodeURIComponent(row.attachment_name ?? 'attachment')}` })
+    res.set({
+      'Content-Type': row.attachment_mime ?? 'application/octet-stream',
+      'Content-Disposition': `inline; filename*=UTF-8''${encodeURIComponent(row.attachment_name ?? 'attachment')}`,
+      // پیوند کاربر در origin خود برنامه باز می‌شود؛ مرورگر نباید نوع را حدس بزند و هیچ اسکریپتی در آن اجرا نشود
+      'X-Content-Type-Options': 'nosniff',
+      'Content-Security-Policy': "default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; sandbox",
+      'Cache-Control': 'private, no-store',
+    })
     return new StreamableFile(row.attachment_data)
   }
 
@@ -73,7 +92,7 @@ export class InvoicesController {
     const v = parseInvoice(body, true)
     return this.db.withTenant(user.tenant_id!, async (client) => {
       const who = await client.query<{ full_name: string }>(`SELECT full_name FROM identity.users WHERE id = $1`, [user.sub])
-      const number = v.number ?? `F-${String(Math.floor(Math.random() * 1e6)).padStart(6, '0')}`
+      const number = v.number ?? `F-${String(randomInt(1e6)).padStart(6, '0')}`
       const paidOn = v.status === 'paid' ? (v.paid_on ?? tehranToday()) : null
       const r = await client.query(
         `INSERT INTO finance.expense_invoices (tenant_id, number, vendor, category, description, items, amount, invoice_date, status, paid_on, pay_method,
@@ -174,6 +193,8 @@ function parseInvoice(body: unknown, full: boolean) {
     if (!MIMES.includes(mime)) bad('فقط تصویر (JPG/PNG/WebP) یا PDF مجاز است')
     const data = Buffer.from(str(a.base64, 'فایل پیوست', { required: true, max: 5_000_000 })!, 'base64')
     if (!data.length || data.length > MAX_ATTACHMENT) bad('حجم پیوست باید کمتر از ۳ مگابایت باشد')
+    // محتوای واقعی باید با mime اعلام‌شده بخواند (قبلاً هر بایتی با mime دلخواه ذخیره می‌شد)
+    if (!attachmentMatchesMime(data, mime)) bad('محتوای فایل با نوع اعلام‌شده نمی‌خواند')
     attachment = { name: str(a.name, 'نام پیوست', { max: 120 }) ?? 'attachment', mime, data }
   }
   return {
