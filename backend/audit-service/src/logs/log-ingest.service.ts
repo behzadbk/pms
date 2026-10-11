@@ -45,12 +45,19 @@ export class LogIngestService implements OnModuleDestroy {
     this.buffer = []
 
     // گروه‌بندی بر اساس tenant — چون هر درج باید داخل تراکنش RLS همان tenant انجام شود
+    // ورودی‌های بدون tenant_id (مثلاً لاگ کلاینتِ super_admin که به هیچ ساختمانی تعلق ندارد) را کنار می‌گذاریم: ستون
+    // tenant_id در audit.event_logs NOT NULL است و withTenant(null) کل گروه را شکست می‌داد؛ یعنی لاگ‌های معتبرِ هم‌دسته
+    // هم بی‌صدا از بین می‌رفتند. فقط ورودی نامعتبر حذف می‌شود و تعدادش هشدار داده می‌شود.
     const byTenant = new Map<string, LogEntry[]>()
+    let dropped = 0
     for (const e of batch) {
+      if (!e.tenant_id) { dropped++; continue }
       const list = byTenant.get(e.tenant_id) ?? []
       list.push(e)
       byTenant.set(e.tenant_id, list)
     }
+
+    if (dropped > 0) this.logger.warn(`${dropped} لاگ بدون tenant_id (مثلاً super_admin) نادیده گرفته شد`)
 
     for (const [tenantId, entries] of byTenant) {
       try {

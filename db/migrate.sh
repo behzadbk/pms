@@ -157,6 +157,18 @@ case "${1:-}" in
   --status) cmd_status ;;
   --seed)   cmd_migrate; cmd_seed ;;
   --reset)
+    # محافظ: --reset همه‌ی اسکیماها را DROP می‌کند؛ روی محیط production یا میزبان غیرمحلی اجرا نمی‌شود.
+    # برای دیتابیس راه‌دور تست عمداً می‌توانید ALLOW_REMOTE_RESET=1 بدهید (APP_ENV=production همیشه رد می‌شود).
+    if [[ "${APP_ENV:-}" == "production" ]]; then
+      log "✗ --reset روی APP_ENV=production مجاز نیست"; exit 1
+    fi
+    db_host="$(printf '%s' "$DATABASE_URL" | sed -E 's#^[a-z]+://([^@/]*@)?(\[[^]]*\]|[^:/?]*).*#\2#')"
+    case "$db_host" in
+      ""|localhost|127.0.0.1|"[::1]"|::1|postgres|db) ;;
+      *) if [[ "${ALLOW_REMOTE_RESET:-}" != "1" ]]; then
+           log "✗ --reset فقط روی میزبان محلی مجاز است (میزبان فعلی: $db_host). اگر مطمئن هستید ALLOW_REMOTE_RESET=1 بدهید."; exit 1
+         fi ;;
+    esac
     log "⚠  حذف کامل اسکیماها…"
     "${PSQL[@]}" -c "DROP SCHEMA IF EXISTS residency, identity, property, facility, finance, guard, notification, audit, fnb, platform CASCADE" >/dev/null
     cmd_migrate; cmd_seed ;;
