@@ -193,6 +193,28 @@ cur = conn.cursor()
 cur.execute("SELECT count(*) FROM residency.building_rules"); n = cur.fetchone()[0]; conn.commit()
 check("residency: بدون tenant context صفر ردیف (fail-closed)", n == 0, f"count={n}")
 
+# ۱۴) audit فقط-افزودنی: app_user روی event_logs و همه‌ی پارتیشن‌ها فقط SELECT/INSERT دارد (issue #24)
+cur = conn.cursor()
+cur.execute("""SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+                WHERE n.nspname = 'audit' AND c.relkind IN ('r','p')
+                  AND (has_table_privilege(current_user, c.oid, 'UPDATE')
+                    OR has_table_privilege(current_user, c.oid, 'DELETE')
+                    OR has_table_privilege(current_user, c.oid, 'TRUNCATE'))""")
+n = cur.fetchone()[0]; conn.commit()
+check("audit: app_user روی هیچ جدول/پارتیشنی UPDATE/DELETE/TRUNCATE ندارد", n == 0, f"violations={n}")
+cur = conn.cursor()
+try:
+    cur.execute("DELETE FROM audit.event_logs")
+    conn.rollback(); check("audit: DELETE مستقیم رد می‌شود", False, "DELETE موفق شد!")
+except errors.InsufficientPrivilege:
+    conn.rollback(); check("audit: DELETE مستقیم رد می‌شود", True)
+cur = conn.cursor()
+cur.execute("SELECT audit.ensure_month_partition((CURRENT_DATE + interval '40 month')::date)"); conn.commit()
+cur.execute("""SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+                WHERE n.nspname = 'audit' AND c.relkind = 'r' AND has_table_privilege(current_user, c.oid, 'DELETE')""")
+n = cur.fetchone()[0]; conn.commit()
+check("audit: پارتیشن تازه‌ساخته‌شده هم DELETE ندارد", n == 0, f"violations={n}")
+
 print("\n" + "="*60)
 print(f"نتیجه: {len(passed)} قبول / {len(failed)} رد")
 if failed:
