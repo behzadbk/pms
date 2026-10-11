@@ -430,3 +430,121 @@ html[data-kbd='on'] .lg5-sos {
 html[data-lg-easy='on'] main {
   padding-bottom: calc(var(--hm-tabbar-h) + 96px);
 }
+
+/* ============================================================================
+ * دارک مود لوکس — پس‌زمینه‌ی «هوشمند» (Liquid Glass v5.1)
+ * ----------------------------------------------------------------------------
+ * سه لایه، همه ثابت و بزرگ‌تر از صفحه، که فقط با transform آرام حرکت می‌کنند
+ * (کامپوزیتور GPU؛ بدون رنگ‌آمیزی دوباره، بدون انیمیشن filter/blur/box-shadow):
+ *   ۱) html     : مشکی-سرمه‌ای عمیق + ذرات ریز ستاره‌مانند (ثابت)
+ *   ۲) body::before : orbهای فیروزه‌ای/بنفش‌آبی که به‌آرامی شناورند
+ *   ۳) body::after  : هاله‌ی طلایی شامپاینی که خلاف جهت اول نفس می‌کشد
+ * حس: لابی یک برج لوکس شبانه؛ آرام، عمیق، زنده.
+ * ========================================================================== */
+[data-theme='dark'] {
+  --lg6-gold: #e8c46a;
+  --lg6-ink: #070b12;
+  --lg5-blur: 22px;
+}
+[data-theme='dark'] html,
+html[data-theme='dark'] {
+  background:
+    radial-gradient(1.2px 1.2px at 12% 18%, rgba(255, 255, 255, 0.5), transparent 60%),
+    radial-gradient(1px 1px at 34% 62%, rgba(255, 255, 255, 0.35), transparent 60%),
+    radial-gradient(1.4px 1.4px at 58% 9%, rgba(232, 196, 106, 0.55), transparent 60%),
+    radial-gradient(1px 1px at 77% 41%, rgba(255, 255, 255, 0.4), transparent 60%),
+    radial-gradient(1.2px 1.2px at 90% 83%, rgba(255, 255, 255, 0.3), transparent 60%),
+    radial-gradient(1px 1px at 22% 91%, rgba(232, 196, 106, 0.4), transparent 60%),
+    linear-gradient(170deg, #0a1020 0%, var(--lg6-ink) 55%, #05080e 100%);
+  background-size: 340px 340px, 420px 420px, 380px 380px, 460px 460px, 400px 400px, 360px 360px, 100% 100%;
+}
+
+html[data-theme='dark'] body::before,
+html[data-theme='dark'] body::after {
+  inset: -30%;
+  will-change: transform;
+  backface-visibility: hidden;
+}
+html[data-theme='dark'] body::before {
+  background:
+    radial-gradient(34% 28% at 72% 22%, color-mix(in srgb, var(--lg4-pri) 62%, transparent), transparent 70%),
+    radial-gradient(30% 26% at 24% 58%, color-mix(in srgb, var(--lg4-hero-a) 52%, transparent), transparent 70%),
+    radial-gradient(26% 22% at 80% 80%, rgba(110, 90, 220, 0.34), transparent 72%);
+  animation: lg6-drift-a 46s ease-in-out infinite alternate;
+}
+html[data-theme='dark'] body::after {
+  content: '';
+  position: fixed;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(24% 20% at 20% 20%, color-mix(in srgb, var(--lg6-gold) 34%, transparent), transparent 72%),
+    radial-gradient(22% 18% at 70% 70%, color-mix(in srgb, var(--lg6-gold) 20%, transparent), transparent 72%);
+  animation: lg6-drift-b 58s ease-in-out infinite alternate;
+}
+@keyframes lg6-drift-a {
+  0% { transform: translate3d(-4%, -3%, 0) scale(1) rotate(0deg); }
+  50% { transform: translate3d(3%, 4%, 0) scale(1.08) rotate(6deg); }
+  100% { transform: translate3d(5%, -2%, 0) scale(1.03) rotate(-4deg); }
+}
+@keyframes lg6-drift-b {
+  0% { transform: translate3d(4%, 3%, 0) scale(1.05) rotate(0deg); }
+  50% { transform: translate3d(-3%, -4%, 0) scale(1) rotate(-6deg); }
+  100% { transform: translate3d(-5%, 2%, 0) scale(1.1) rotate(4deg); }
+}
+
+/* دارک: لبه‌ی شیشه کمی طلایی، ظریف و گران‌قیمت */
+html[data-theme='dark'] :is(.lg4-card, .hm-card, .lg5-widget, .bg-card) {
+  border-color: color-mix(in srgb, var(--lg6-gold) 14%, rgba(255, 255, 255, 0.1));
+}
+html[data-theme='dark'] .lg5-w-icon {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 0 18px color-mix(in srgb, var(--lg5-tone, var(--lg4-pri)) 28%, transparent);
+}
+
+/* ---------- ورود نرم و پله‌ای ویجت‌ها (همه‌ی حالت‌ها) ---------- */
+@keyframes lg6-rise {
+  from { opacity: 0; transform: translate3d(0, 14px, 0) scale(0.97); }
+  to { opacity: 1; transform: none; }
+}
+.lg5-grid > * {
+  animation: lg6-rise 0.7s var(--lg-ease-fluid) both;
+}
+.lg5-grid > :nth-child(2) { animation-delay: 70ms; }
+.lg5-grid > :nth-child(3) { animation-delay: 140ms; }
+.lg5-grid > :nth-child(4) { animation-delay: 210ms; }
+.lg5-grid > :nth-child(5) { animation-delay: 280ms; }
+.lg5-grid > :nth-child(6) { animation-delay: 350ms; }
+.lg5-grid > :nth-child(n + 7) { animation-delay: 420ms; }
+
+/* درخشش ملایم و کند روی کارت قهرمان (فقط transform) */
+.lg5-widget-hero::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(115deg, transparent 38%, rgba(255, 255, 255, 0.22) 50%, transparent 62%);
+  transform: translate3d(-120%, 0, 0);
+  animation: lg6-sheen 9s ease-in-out 1.2s infinite;
+}
+@keyframes lg6-sheen {
+  0%, 55% { transform: translate3d(-120%, 0, 0); }
+  100% { transform: translate3d(120%, 0, 0); }
+}
+
+/* وقتی صفحه‌ی دیگری روی صفحه است (برگه/کیبورد) پس‌زمینه ثابت می‌ماند: بلور پشت برگه هر فریم دوباره حساب نشود */
+html[data-sheet='on'] body::before,
+html[data-sheet='on'] body::after,
+html[data-kbd='on'] body::before,
+html[data-kbd='on'] body::after {
+  animation-play-state: paused;
+}
+
+/* تنظیم خود سیستم‌عامل برای حرکت کمتر را محترم می‌شماریم (حرکت پس‌زمینه و ورود خاموش، شیشه می‌ماند) */
+@media (prefers-reduced-motion: reduce) {
+  html[data-theme='dark'] body::before,
+  html[data-theme='dark'] body::after,
+  .lg5-grid > *,
+  .lg5-widget-hero::after {
+    animation: none;
+  }
+}
