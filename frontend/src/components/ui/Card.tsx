@@ -7,7 +7,7 @@ export function Card({ children, className = '' }: { children: ReactNode; classN
       initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.22, ease: 'easeOut' }}
-      className={`bg-card rounded-2xl border border-line shadow-sm ${className}`}
+      className={`lg4-card rounded-3xl ${className}`}
     >
       {children}
     </motion.div>

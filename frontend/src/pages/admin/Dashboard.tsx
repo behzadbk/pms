@@ -2,6 +2,7 @@ import { Wallet, TrendingUp, TrendingDown, AlertTriangle } from 'lucide-react'
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
 import { Card, CardHeader } from '../../components/ui/Card'
 import { StatCard } from '../../components/ui/StatCard'
+import { EasyHide } from '../../components/ui/Widget'
 import { StatusPill } from '../../components/ui/StatusPill'
 import { TH, TD } from '../../components/finance/parts'
 import { Loading, ErrorBlock, useLoad } from '../../components/hm'
@@ -24,13 +25,14 @@ export function AdminDashboard() {
         <p className="text-muted text-sm mt-1">نمای کلی وضعیت مالی ساختمان — {periodFa(s.current_period)}</p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard glass label="موجودی صندوق" value={tomanText(s.fund_balance)} icon={Wallet} tone="ink" />
+      <div className="lg5-grid">
+        <StatCard label="موجودی صندوق" value={tomanText(s.fund_balance)} icon={Wallet} tone="ink" />
         <StatCard glass label="درآمد این ماه" value={tomanText(s.month_income)} icon={TrendingUp} tone="tile" />
         <StatCard glass label="هزینه این ماه" value={tomanText(s.month_expense)} icon={TrendingDown} tone="brass" />
         <StatCard glass label="مطالبات معوق" value={tomanText(s.overdue.total)} sub={`${s.overdue.count.toLocaleString('fa-IR')} شارژ`} icon={AlertTriangle} tone="bad" />
       </div>
 
+      <EasyHide>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         <Card className="lg:col-span-2">
           <CardHeader title="روند درآمد و هزینه (میلیون تومان)" />
@@ -91,6 +93,7 @@ export function AdminDashboard() {
           </div>
         )}
       </Card>
+      </EasyHide>
     </div>
   )
 }

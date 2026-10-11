@@ -37,13 +37,13 @@ export function Modal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 p-0 sm:p-4"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm p-0 sm:p-4"
       onMouseDown={(e) => e.target === e.currentTarget && onClose()}
       role="dialog"
       aria-modal="true"
       aria-label={title}
     >
-      <div className={`bg-card w-full ${width} max-h-[92vh] flex flex-col rounded-t-2xl sm:rounded-2xl border border-line shadow-xl`}>
+      <div className={`bg-card w-full ${width} max-h-[92vh] flex flex-col rounded-t-3xl sm:rounded-3xl border border-line shadow-xl`}>
         <div className="flex items-center justify-between px-5 py-4 border-b border-line shrink-0">
           <h2 className="font-semibold">{title}</h2>
           <button onClick={onClose} className="text-muted hover:text-ink-text p-1" aria-label="بستن">

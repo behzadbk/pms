@@ -14,7 +14,7 @@ export function FinanceOverview() {
   const maxCat = Math.max(1, ...s.expense_by_category.map((c) => c.amount))
   return (
     <div className="space-y-5">
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="lg5-grid">
         <StatCard label="موجودی صندوق" value={tomanText(s.fund_balance)} icon={Wallet} tone="ink" />
         <StatCard label={`وصول شارژ ${periodFa(s.collection.period)}`} value={`${s.collection.rate.toLocaleString('fa-IR')}٪`} sub={`${tomanText(s.collection.paid)} از ${tomanText(s.collection.total)}`} icon={Percent} tone="tile" />
         <StatCard label="مطالبات معوق" value={tomanText(s.overdue.total)} sub={`${s.overdue.count.toLocaleString('fa-IR')} واحد`} icon={AlertTriangle} tone="bad" />

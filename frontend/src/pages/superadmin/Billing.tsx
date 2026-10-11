@@ -80,7 +80,7 @@ export function SuperAdminBilling() {
       {note && <p className="text-sm text-good bg-good-soft rounded-lg px-3 py-2">{note}</p>}
       {err && <ErrorBlock message={err} retry={load} />}
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="lg5-grid">
         <StatCard label="درآمد ماهانه مکرر" value={summary ? fmtToman(summary.totalMrr) : '—'} icon={Wallet} tone="ink" />
         <StatCard label="فاکتورهای این ماه" value={summary ? fa(summary.invoices.thisPeriod) : '—'} sub={summary ? `${fa(summary.invoices.paid)} پرداخت‌شده · ${fa(summary.invoices.pending)} در انتظار` : undefined} icon={Receipt} tone="tile" />
         <StatCard label="پرداخت‌های ناموفق" value={summary ? fa(summary.invoices.failed) : '—'} icon={AlertCircle} tone="bad" />

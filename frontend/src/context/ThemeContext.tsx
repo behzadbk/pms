@@ -2,8 +2,8 @@ import { createContext, useContext, useEffect, useMemo, useState, type ReactNode
 
 /**
  * شخصی‌سازی ظاهر همین — بخش «Settings · Personalization» طراحی Liquid Glass نسخه ۴.
- * حالت نمایش (روشن/تاریک/سیستم)، رنگ‌بندی، حالت آسان (بزرگ‌نمایی برای ساکنان مسن‌تر)
- * و کاهش حرکت را روی <html> به‌صورت data-attribute تنظیم می‌کند تا liquid-glass.css
+ * حالت نمایش (روشن/تاریک/سیستم)، رنگ‌بندی و حالت آسان (بزرگ‌نمایی + رابط ساده‌شده برای
+ * ساکنان مسن‌تر) را روی <html> به‌صورت data-attribute تنظیم می‌کند تا liquid-glass.css
  * توکن‌های متناظر را اعمال کند. تنظیمات در localStorage ذخیره و بین جلسات حفظ می‌شود.
  */
 
@@ -17,10 +17,9 @@ interface ThemePrefs {
   mode: ThemeMode
   palette: Palette
   easy: boolean
-  reducedMotion: boolean
 }
 
-const DEFAULTS: ThemePrefs = { mode: 'system', palette: DEFAULT_PALETTE, easy: false, reducedMotion: false }
+const DEFAULTS: ThemePrefs = { mode: 'system', palette: DEFAULT_PALETTE, easy: false }
 const STORAGE_KEY = 'hamin.theme-prefs.v1'
 
 function readPrefs(): ThemePrefs {
@@ -28,7 +27,8 @@ function readPrefs(): ThemePrefs {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) return DEFAULTS
     const p = JSON.parse(raw)
-    return { ...DEFAULTS, ...p, palette: normalizePalette(p.palette) }
+    // reducedMotion گزینه‌ی حذف‌شده است؛ اگر در ذخیره‌ی قدیمی مانده، نادیده گرفته می‌شود
+    return { mode: p.mode ?? DEFAULTS.mode, palette: normalizePalette(p.palette), easy: p.easy === true }
   } catch {
     return DEFAULTS
   }
@@ -39,7 +39,6 @@ interface ThemeContextValue extends ThemePrefs {
   setMode: (m: ThemeMode) => void
   setPalette: (p: Palette) => void
   setEasy: (v: boolean) => void
-  setReducedMotion: (v: boolean) => void
   reset: () => void
 }
 
@@ -73,7 +72,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     root.setAttribute('data-theme', resolvedTheme)
     root.setAttribute('data-pal', prefs.palette)
     root.setAttribute('data-lg-easy', prefs.easy ? 'on' : 'off')
-    root.setAttribute('data-lg-motion', prefs.reducedMotion ? 'off' : 'on')
+    root.removeAttribute('data-lg-motion')
     root.style.colorScheme = resolvedTheme
 
     // همه‌ی توکن‌های رنگ پالت (هدر، کارت، دکمه، قهرمان) از یک منبع
@@ -82,7 +81,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     // نوار وضعیت گوشی/مرورگر هم همان رنگ هدر را بگیرد
     document.querySelector('meta[name="theme-color"]')?.setAttribute('content', paletteDef(prefs.palette)[resolvedTheme].hdr)
     document.querySelector('meta[name="color-scheme"]')?.setAttribute('content', resolvedTheme)
-  }, [resolvedTheme, prefs.palette, prefs.easy, prefs.reducedMotion])
+  }, [resolvedTheme, prefs.palette, prefs.easy])
 
   const value = useMemo<ThemeContextValue>(
     () => ({
@@ -91,7 +90,6 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       setMode: (mode) => setPrefs((p) => ({ ...p, mode })),
       setPalette: (palette) => setPrefs((p) => ({ ...p, palette })),
       setEasy: (easy) => setPrefs((p) => ({ ...p, easy })),
-      setReducedMotion: (reducedMotion) => setPrefs((p) => ({ ...p, reducedMotion })),
       reset: () => setPrefs(DEFAULTS),
     }),
     [prefs, resolvedTheme],

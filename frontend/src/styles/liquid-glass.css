@@ -42,20 +42,6 @@
   --lg-radius-card: 20px;
   --lg-radius-sheet: 28px;
   --lg-ease-fluid: cubic-bezier(0.32, 0.72, 0, 1);
-
-  /* مقیاس «حالت آسان» — بزرگ‌نمایی فونت/لمس برای کاربران مسن‌تر (اختیاری، پیش‌فرض ۱) */
-  --lg-easy-scale: 1;
-}
-
-/* روی هر container که data-lg-easy="on" دارد فعال می‌شود */
-[data-lg-easy='on'] {
-  --lg-easy-scale: 1.2;
-}
-/* روی هر container که data-lg-motion="off" دارد، همه انیمیشن/ترنزیشن‌های نسل V2 خاموش می‌شوند */
-[data-lg-motion='off'] .lg-motion,
-[data-lg-motion='off'] .lg-motion * {
-  transition: none !important;
-  animation: none !important;
 }
 
 [data-theme='dark'] {
@@ -132,11 +118,6 @@
   .lg-motion {
     transition-duration: 1ms;
   }
-  .lg-glass {
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
-    background-color: var(--lg-bg-elevated);
-  }
 }
 
 /**
@@ -201,10 +182,7 @@
 
 /* رنگ‌بندی‌ها: توکن‌ها را ThemeContext از lib/palettes.ts روی <html> می‌نویسد */
 
-/* حالت آسان: مقیاس فونت/لمس بزرگ‌تر برای ساکنان مسن‌تر */
-[data-lg-easy='on'] {
-  --lg-easy-scale: 1.16;
-}
+/* حالت آسان: در liquid-glass-v5.css پیاده شده است */
 
 /* ---------- کارت شیشه‌ای v4 — بلور واقعی، برای کارت‌های محتوایی و لیست‌ها ---------- */
 .lg4-card {
@@ -220,13 +198,6 @@
 }
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   .lg4-card {
-    background: var(--lg-bg-elevated);
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .lg4-card {
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
     background: var(--lg-bg-elevated);
   }
 }
