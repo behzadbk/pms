@@ -394,6 +394,7 @@ export class MenuController {
   zones(@CurrentUser() user: JwtPayload, @Query('all') all?: string) {
     const manager = all === '1' && manageKinds(user).length > 0
     return this.db.withTenant(user.tenant_id!, async (c) => {
+      await this.syncZonesWithAmenities(c, user.tenant_id!)
       const r = await c.query(
         `SELECT id, name, zone_type, amenity_id, is_active, surcharge, sort_order FROM fnb.delivery_zones
           ${manager ? '' : 'WHERE is_active'} ORDER BY zone_type, sort_order, name`)
@@ -454,6 +455,36 @@ export class MenuController {
       await c.query('DELETE FROM fnb.delivery_zones WHERE id = $1', [id])
       return { id, deleted: true, deactivated: false }
     })
+  }
+
+  /**
+   * مناطق تحویل خودکار: «لابی» + همه‌ی مشاعات ساختمان (رزرو داشته باشند یا نه).
+   * کارمند لازم نیست چیزی وارد کند؛ مشاع تازه خودکار اضافه، تغییر نام همگام و مشاعِ حذف‌شده غیرفعال می‌شود.
+   * منطقه‌ای که کارمند دستی غیرفعال کرده دوباره فعال نمی‌شود. هزینه‌ی تحویل را کارمند می‌تواند تنظیم کند.
+   */
+  private async syncZonesWithAmenities(c: PoolClient, tenantId: string) {
+    await c.query(
+      `INSERT INTO fnb.delivery_zones (tenant_id, name, zone_type, amenity_id, surcharge, sort_order)
+       SELECT $1, 'لابی', 'amenity_zone', NULL, 0, -1
+        WHERE NOT EXISTS (SELECT 1 FROM fnb.delivery_zones WHERE amenity_id IS NULL AND lower(name) = 'لابی')`,
+      [tenantId],
+    )
+    const has = await c.query(`SELECT to_regclass('facility.amenities') IS NOT NULL AS ok`)
+    if (!has.rows[0]?.ok) return
+    await c.query(
+      `INSERT INTO fnb.delivery_zones (tenant_id, name, zone_type, amenity_id, surcharge)
+       SELECT $1, a.name, 'amenity_zone', a.id, 0 FROM facility.amenities a
+        WHERE NOT EXISTS (SELECT 1 FROM fnb.delivery_zones z WHERE z.amenity_id = a.id OR lower(z.name) = lower(a.name))`,
+      [tenantId],
+    )
+    await c.query(
+      `UPDATE fnb.delivery_zones z SET name = a.name FROM facility.amenities a WHERE z.amenity_id = a.id AND z.name <> a.name`,
+    )
+    await c.query(
+      `UPDATE fnb.delivery_zones z SET is_active = false
+        WHERE z.amenity_id IS NOT NULL AND z.is_active
+          AND NOT EXISTS (SELECT 1 FROM facility.amenities a WHERE a.id = z.amenity_id)`,
+    )
   }
 
   private assertAnyManager(user: JwtPayload) {
