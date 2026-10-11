@@ -2,6 +2,7 @@ import { Wallet, TrendingUp, TrendingDown, AlertTriangle } from 'lucide-react'
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
 import { Card, CardHeader } from '../../components/ui/Card'
 import { StatCard } from '../../components/ui/StatCard'
+import { EasyHide } from '../../components/ui/Widget'
 import { StatusPill } from '../../components/ui/StatusPill'
 import { TH, TD } from '../../components/finance/parts'
 import { Loading, ErrorBlock, useLoad } from '../../components/hm'
@@ -24,13 +25,14 @@ export function AdminDashboard() {
         <p className="text-muted text-sm mt-1">نمای کلی وضعیت مالی ساختمان — {periodFa(s.current_period)}</p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard glass label="موجودی صندوق" value={tomanText(s.fund_balance)} icon={Wallet} tone="ink" />
+      <div className="lg5-grid">
+        <StatCard label="موجودی صندوق" value={tomanText(s.fund_balance)} icon={Wallet} tone="ink" />
         <StatCard glass label="درآمد این ماه" value={tomanText(s.month_income)} icon={TrendingUp} tone="tile" />
         <StatCard glass label="هزینه این ماه" value={tomanText(s.month_expense)} icon={TrendingDown} tone="brass" />
         <StatCard glass label="مطالبات معوق" value={tomanText(s.overdue.total)} sub={`${s.overdue.count.toLocaleString('fa-IR')} شارژ`} icon={AlertTriangle} tone="bad" />
       </div>
 
+      <EasyHide>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         <Card className="lg:col-span-2">
           <CardHeader title="روند درآمد و هزینه (میلیون تومان)" />
@@ -41,7 +43,7 @@ export function AdminDashboard() {
                   <linearGradient id="income" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#0E9594" stopOpacity={0.35} /><stop offset="95%" stopColor="#0E9594" stopOpacity={0} /></linearGradient>
                   <linearGradient id="expense" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#C08A3E" stopOpacity={0.3} /><stop offset="95%" stopColor="#C08A3E" stopOpacity={0} /></linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e2e6ea" vertical={false} />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-line)" vertical={false} />
                 <XAxis dataKey="month" tick={{ fontSize: 12, fill: '#64748b' }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fontSize: 12, fill: '#64748b' }} axisLine={false} tickLine={false} />
                 <Tooltip contentStyle={{ fontFamily: 'Vazirmatn', borderRadius: 12, border: '1px solid var(--color-line)', fontSize: 12, background: 'var(--color-card)', color: 'var(--color-ink-text)' }} labelStyle={{ color: 'var(--color-ink-text)' }} itemStyle={{ color: 'var(--color-ink-text)' }} />
@@ -91,6 +93,7 @@ export function AdminDashboard() {
           </div>
         )}
       </Card>
+      </EasyHide>
     </div>
   )
 }

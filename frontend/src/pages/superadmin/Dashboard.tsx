@@ -43,7 +43,7 @@ export function SuperAdminDashboard() {
 
       {s && (
         <>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="lg5-grid">
             <StatCard label="درآمد ماهانه مکرر (MRR)" value={fmtToman(s.totalMrr)} sub={s.totalOutstanding > 0 ? `مطالبات معوق: ${fmtToman(s.totalOutstanding)}` : undefined} icon={Wallet} tone="ink" />
             <StatCard label="مجتمع‌های فعال" value={fa(s.activeTenants)} sub={`${fa(s.trialTenants)} در دوره آزمایشی`} icon={Building2} tone="tile" />
             <StatCard label="کل واحدهای تحت مدیریت" value={fa(s.totalUnitsManaged)} sub={`${fa(s.totalResidents)} ساکن فعال`} icon={Users} tone="brass" />

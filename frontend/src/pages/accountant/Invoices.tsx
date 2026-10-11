@@ -52,7 +52,7 @@ export function AccountantInvoices() {
       </div>
 
       {s && (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="lg5-grid">
           <StatCard label="موجودی فعلی صندوق" value={tomanText(s.fund_balance)} icon={Wallet} tone="ink" />
           <StatCard label={`واریزی ${periodFa(s.current_period)}`} value={tomanText(s.month_income)} icon={ArrowDownCircle} tone="tile" />
           <StatCard label={`پرداختی ${periodFa(s.current_period)}`} value={tomanText(s.month_expense)} icon={ArrowUpCircle} tone="brass" />

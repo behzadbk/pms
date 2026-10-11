@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useNavigate, useLocation, useOutletContext } from 'react-router-dom'
-import { Bell, Building2, ChevronDown, ChevronLeft, LayoutGrid, Lock, LogOut, Menu, Palette, ShieldCheck } from 'lucide-react'
+import { Bell, Building2, ChevronDown, ChevronLeft, LayoutGrid, Lock, LogOut, Menu, Palette, Phone, ShieldCheck } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { ROLE_SWITCHER_ENABLED, useRole, useRoleInfo } from '../context/RoleContext'
@@ -7,7 +7,8 @@ import { useAuth } from '../context/AuthContext'
 import { navByRole, moduleForPath, splitTabs, type NavItem } from '../lib/nav'
 import { usePermissions } from '../context/PermissionsContext'
 import { residentsApi, errText } from '../lib/api/residents'
-import { Sheet, Cta } from './hm'
+import { Sheet, Cta, useToast } from './hm'
+import { useTheme } from '../context/ThemeContext'
 import { departmentLabel } from '../lib/staff'
 import { useStaffNav } from '../lib/access'
 import { roles } from '../lib/roles'
@@ -29,6 +30,7 @@ export function Layout() {
   const location = useLocation()
   const [pinOpen, setPinOpen] = useState(false)
   const [switcherOpen, setSwitcherOpen] = useState(false)
+  const { easy } = useTheme()
 
   // فقط وقتی مسیر فعلی متعلق به نقش دیگری است به خانه‌ی نقش برو — قبلاً با هر رفرش صفحه
   // (مثلاً روی /admin/charges) کاربر به داشبورد پرتاب می‌شد و لینک مستقیم کار نمی‌کرد.
@@ -318,6 +320,9 @@ export function Layout() {
         </div>
       </nav>
 
+      {/* حالت آسان: دکمه‌ی بزرگ تماس اضطراری با نگهبانی (فقط ساکنی که تماس اضطراری برایش مجاز است) */}
+      {easy && perms?.kind === 'resident' && perms.emergency && <EasySos />}
+
       <ExitLockSheet
         open={pinOpen}
         onClose={() => setPinOpen(false)}
@@ -327,6 +332,50 @@ export function Layout() {
         }}
       />
     </div>
+  )
+}
+
+/** دکمه‌ی تماس اضطراری حالت آسان — با تأیید، تا کسی ندانسته نزند. همان endpoint تماس اضطراری حالت والدین. */
+function EasySos() {
+  const [open, setOpen] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const { toast, toastNode } = useToast()
+  async function call() {
+    setBusy(true)
+    try {
+      const r = await residentsApi.emergency()
+      setOpen(false)
+      if (r.guard_phone) window.location.href = `tel:${r.guard_phone}`
+      else toast('اعلان اضطراری برای نگهبانی ارسال شد')
+    } catch (e) {
+      toast(errText(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+  return (
+    <>
+      <button type="button" className="lg5-sos" onClick={() => setOpen(true)} aria-label="تماس اضطراری با نگهبانی">
+        <Phone size={26} />
+        تماس اضطراری
+      </button>
+      <Sheet open={open} onClose={() => setOpen(false)} label="تماس اضطراری">
+        <div className="flex flex-col items-center text-center gap-3 pt-2">
+          <span className="hm-avatar hm-tone-bad" style={{ width: 72, height: 72 }}>
+            <Phone size={32} />
+          </span>
+          <p className="text-lg font-bold">با نگهبانی تماس گرفته شود؟</p>
+          <p className="text-sm text-[var(--hm-t2)]">نگهبانی هم‌زمان خبردار می‌شود و تماس برقرار می‌شود.</p>
+          <Cta onClick={call} busy={busy}>
+            بله، تماس بگیر
+          </Cta>
+          <button type="button" className="hm-cta-ghost w-full" onClick={() => setOpen(false)}>
+            نه، برگرد
+          </button>
+        </div>
+      </Sheet>
+      {toastNode}
+    </>
   )
 }
 

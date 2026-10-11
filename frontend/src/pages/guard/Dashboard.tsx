@@ -3,6 +3,7 @@ import { QrCode, PackageCheck, CarFront, UserCheck, ArrowDownLeft, ArrowUpRight,
 import { Link } from 'react-router-dom'
 import { Card, CardHeader } from '../../components/ui/Card'
 import { StatCard } from '../../components/ui/StatCard'
+import { EasyHide, Widget, WidgetGrid } from '../../components/ui/Widget'
 import { ErrorBlock, Loading } from '../../components/hm'
 import { guardApi, type FeedEntry, type GuardSummary, type Parcel } from '../../lib/api/guard'
 import { ago, errText, fa } from '../../lib/api/residents'
@@ -48,28 +49,17 @@ export function GuardDashboard() {
         <h1 className="text-xl font-bold">داشبورد نگهبانی</h1>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <WidgetGrid>
+        <Widget essential solid to="/guard/guest-check" icon={QrCode} label="تایید کد مهمان" />
+        <Widget essential to="/guard/parcels" icon={PackageCheck} label="ثبت مرسوله جدید" tone="acc" />
+        <Widget essential to="/guard/traffic" icon={CarFront} label="ثبت تردد خودرو" tone="ink" />
         <StatCard label="مرسولات در انتظار تحویل" value={fa(summary.pending_parcels)} icon={PackageCheck} tone="brass" />
         <StatCard label="مهمانان امروز" value={`${fa(summary.guests_today)} نفر`} icon={QrCode} tone="tile" />
         <StatCard label="مهمانان منتظر (کد فعال)" value={`${fa(summary.expected_guests)} کد`} icon={Users} tone="tile" />
         <StatCard label="تردد خودرو امروز" value={`${fa(summary.vehicles_today)} مورد`} icon={CarFront} tone="ink" />
-      </div>
+      </WidgetGrid>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Link to="/guard/guest-check" className="bg-tile text-white rounded-2xl p-5 flex items-center gap-3 hover:opacity-90 min-h-[64px]">
-          <QrCode size={22} />
-          <span className="font-medium text-sm">تایید کد مهمان</span>
-        </Link>
-        <Link to="/guard/parcels" className="bg-card border border-line rounded-2xl p-5 flex items-center gap-3 hover:border-tile min-h-[64px]">
-          <PackageCheck size={22} className="text-brass" />
-          <span className="font-medium text-sm">ثبت مرسوله جدید</span>
-        </Link>
-        <Link to="/guard/traffic" className="bg-card border border-line rounded-2xl p-5 flex items-center gap-3 hover:border-tile min-h-[64px]">
-          <CarFront size={22} className="text-muted" />
-          <span className="font-medium text-sm">ثبت تردد خودرو</span>
-        </Link>
-      </div>
-
+      <EasyHide>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         <Card>
           <CardHeader title="مرسولات در انتظار تحویل" />
@@ -107,6 +97,7 @@ export function GuardDashboard() {
           </div>
         </Card>
       </div>
+      </EasyHide>
     </div>
   )
 }

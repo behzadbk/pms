@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Wallet, QrCode, CalendarRange, PackageCheck } from 'lucide-react'
-import { Link } from 'react-router-dom'
 import { Card, CardHeader } from '../../components/ui/Card'
+import { EasyHide, Widget, WidgetGrid } from '../../components/ui/Widget'
 import { StatusPill } from '../../components/ui/StatusPill'
 import { Loading } from '../../components/hm'
 import { api } from '../../lib/api/client'
@@ -58,6 +58,7 @@ export function ResidentDashboard() {
 
   // قدیمی‌ترین شارژ پرداخت‌نشده (نزدیک‌ترین سررسید)
   const pending = [...charges].filter((c) => c.status !== 'paid').sort((a, b) => a.period.localeCompare(b.period))[0]
+  const activePasses = passes.filter((g) => g.status === 'active').length
   const upcoming = reservations
     .filter((r) => (r.status === 'confirmed' || r.status === 'pending') && new Date(r.end_at).getTime() > Date.now())
     .sort((a, b) => a.start_at.localeCompare(b.start_at))
@@ -71,26 +72,26 @@ export function ResidentDashboard() {
 
       {loading && <Loading />}
 
-      {pending && (
-        <div className="lg4-hero p-5 flex items-center justify-between flex-wrap gap-4">
-          <div>
-            <p className="text-white/78 text-sm">شارژ {periodLabel(pending.period)}{pending.status === 'overdue' ? ' — معوق' : ''}</p>
-            <p className="text-2xl font-bold mt-1">{toman(Number(pending.total_amount))} تومان</p>
-            <p className="text-white/70 text-xs mt-1">سررسید: {dueLabel(pending.due_date)}</p>
-          </div>
-          <Link to="/resident/charges" className="lg4-capsule px-5 py-2.5 text-sm">
-            پرداخت آنلاین
-          </Link>
-        </div>
-      )}
+      <WidgetGrid>
+        {pending && (
+          <Widget
+            hero
+            essential
+            to="/resident/charges"
+            icon={Wallet}
+            label={`شارژ ${periodLabel(pending.period)}${pending.status === 'overdue' ? ' — معوق' : ''}`}
+            value={`${toman(Number(pending.total_amount))} تومان`}
+            sub={`سررسید: ${dueLabel(pending.due_date)}`}
+            cta="پرداخت آنلاین"
+          />
+        )}
+        <Widget essential to="/resident/charges" icon={Wallet} label="شارژ و پرداخت" value={pending ? 'در انتظار' : 'تسویه'} sub={pending ? periodLabel(pending.period) : 'بدهی ندارید'} tone={pending ? 'acc' : 'ok'} />
+        <Widget essential to="/resident/guest" icon={QrCode} label="کد مهمان" value={`${fa(activePasses)} فعال`} sub="صدور کد جدید" tone="pri" />
+        <Widget essential to="/resident/reservations" icon={CalendarRange} label="رزرو مشاعات" value={`${fa(upcoming.length)} رزرو`} sub={upcoming[0] ? `بعدی: ${upcoming[0].amenity}` : 'رزرو پیش‌رو ندارید'} tone="acc" />
+        <Widget essential to="/resident/tickets" icon={PackageCheck} label="ثبت گزارش" sub="خرابی یا درخواست" tone="ink" />
+      </WidgetGrid>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <QuickLink to="/resident/charges" icon={Wallet} label="شارژ و پرداخت" />
-        <QuickLink to="/resident/guest" icon={QrCode} label="صدور کد مهمان" />
-        <QuickLink to="/resident/reservations" icon={CalendarRange} label="رزرو مشاعات" />
-        <QuickLink to="/resident/tickets" icon={PackageCheck} label="ثبت گزارش" />
-      </div>
-
+      <EasyHide>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         <Card>
           <CardHeader title="کدهای مهمان اخیر" />
@@ -124,15 +125,7 @@ export function ResidentDashboard() {
           </div>
         </Card>
       </div>
+      </EasyHide>
     </div>
-  )
-}
-
-function QuickLink({ to, icon: Icon, label }: { to: string; icon: typeof Wallet; label: string }) {
-  return (
-    <Link to={to} className="lg4-card p-4 flex flex-col items-center gap-2.5">
-      <Icon size={23} className="text-[var(--lg4-pri)]" />
-      <p className="text-sm font-medium text-center">{label}</p>
-    </Link>
   )
 }

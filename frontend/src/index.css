@@ -5,6 +5,7 @@
 @import "@fontsource/vazirmatn/700.css";
 @import "@fontsource/vazirmatn/800.css";
 @import "./styles/liquid-glass.css";
+@import "./styles/liquid-glass-v5.css";
 
 @theme {
   --font-sans: "Vazirmatn", ui-sans-serif, system-ui, sans-serif;
@@ -56,7 +57,7 @@
 }
 
 body {
-  background: var(--color-canvas);
+  background: transparent; /* رنگ زمینه روی html است تا aurora (body::before) روی آن دیده شود */
   color: var(--color-ink-text);
   font-feature-settings: "ss01";
   overscroll-behavior-y: none; /* جلوگیری از bounce/pull-to-refresh مرورگر در حالت PWA */

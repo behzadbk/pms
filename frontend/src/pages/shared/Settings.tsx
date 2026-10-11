@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Sun, Moon, MonitorSmartphone, Check, Sparkles, Waves, RotateCcw, ChevronRight, KeyRound } from 'lucide-react'
+import { Sun, Moon, MonitorSmartphone, Check, Sparkles, RotateCcw, ChevronRight, KeyRound } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { changePassword } from '../../lib/api/identity'
 import { ApiError } from '../../lib/api/client'
@@ -8,8 +8,7 @@ import { PALETTES, useTheme, type ThemeMode } from '../../context/ThemeContext'
 
 /**
  * صفحه‌ی «شخصی‌سازی» — بخش جدید طراحی Liquid Glass نسخه ۴ (Claude Design handoff).
- * حالت نمایش (روشن/تاریک/سیستم)، رنگ‌بندی، حالت آسان (بزرگ‌نمایی برای ساکنان
- * مسن‌تر) و کاهش حرکت. برای هر نقشِ لاگین‌شده در /settings در دسترس است.
+ * حالت نمایش (روشن/تاریک/سیستم)، رنگ‌بندی و حالت آسان (بزرگ‌نمایی + رابط ساده‌شده). برای هر نقشِ لاگین‌شده در /settings در دسترس است.
  */
 
 /** شناسه‌ی build (تاریخ/ساعت ساخت) — برای اینکه معلوم شود سرور کدام نسخه را سرو می‌کند */
@@ -25,7 +24,7 @@ const MODE_OPTIONS: { id: ThemeMode; label: string; icon: typeof Sun }[] = [
 
 export function Settings() {
   const navigate = useNavigate()
-  const { mode, setMode, palette, setPalette, easy, setEasy, reducedMotion, setReducedMotion, reset } = useTheme()
+  const { mode, setMode, palette, setPalette, easy, setEasy, reset } = useTheme()
 
   return (
     <div className="max-w-2xl mx-auto space-y-8" data-lg-easy={easy ? 'on' : 'off'}>
@@ -122,16 +121,9 @@ export function Settings() {
           <A11yToggle
             icon={Sparkles}
             label="حالت آسان"
-            hint="نوشته‌ها و دکمه‌ها بزرگ‌تر می‌شوند — مناسب ساکنان مسن‌تر"
+            hint="نوشته‌ها و دکمه‌ها بزرگ‌تر، فقط کارهای اصلی نمایش داده می‌شوند و دکمه‌ی تماس اضطراری ظاهر می‌شود"
             on={easy}
             onToggle={() => setEasy(!easy)}
-          />
-          <A11yToggle
-            icon={Waves}
-            label="کاهش حرکت"
-            hint="انیمیشن‌ها و ترنزیشن‌ها خاموش می‌شوند"
-            on={reducedMotion}
-            onToggle={() => setReducedMotion(!reducedMotion)}
           />
         </div>
       </section>
