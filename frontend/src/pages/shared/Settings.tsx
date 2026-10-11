@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Sun, Moon, MonitorSmartphone, Check, Sparkles, RotateCcw, ChevronRight, KeyRound } from 'lucide-react'
+import { Sun, Moon, MonitorSmartphone, Check, Sparkles, RotateCcw, ChevronRight, ChevronDown, KeyRound, ArrowUp, ArrowDown, Plus, X, PanelBottom } from 'lucide-react'
+import { useNavSplit } from '../../lib/tabPrefs'
+import { MAX_TABS } from '../../lib/nav'
 import { useAuth } from '../../context/AuthContext'
 import { changePassword } from '../../lib/api/identity'
 import { ApiError } from '../../lib/api/client'
@@ -37,11 +39,13 @@ export function Settings() {
           <ChevronRight size={22} />
         </button>
         <div className="min-w-0">
-          <h1 className="text-xl font-bold">شخصی‌سازی</h1>
+          <h1 className="text-xl font-bold">تنظیمات و حساب</h1>
         </div>
       </div>
 
       <PasswordSection />
+
+      <TabBarSection />
 
       {/* پیش‌نمایش زنده */}
       <div className="lg4-card p-4">
@@ -173,8 +177,8 @@ function A11yToggle({
         style={{ background: on ? 'var(--lg4-pri)' : 'var(--lg-border-hairline)' }}
       >
         <span
-          className="absolute top-1 w-5 h-5 rounded-full bg-white shadow transition-all"
-          style={{ right: on ? '4px' : '28px' }}
+          className="absolute top-1 right-1 w-5 h-5 rounded-full bg-white shadow transition-transform"
+          style={{ transform: on ? 'none' : 'translateX(-24px)' }}
         />
       </span>
     </button>
@@ -191,8 +195,11 @@ function PasswordSection() {
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
   const must = !!user?.mustChangePassword
+  // پیش‌فرض بسته؛ فقط با رمز موقت یا لینک #password خودکار باز می‌شود
+  const [open, setOpen] = useState(() => must || window.location.hash === '#password')
 
   useEffect(() => {
+    if (must) setOpen(true)
     if (must && window.location.hash === '#password') document.getElementById('password')?.scrollIntoView({ behavior: 'smooth' })
   }, [must])
 
@@ -221,19 +228,103 @@ function PasswordSection() {
 
   const input = 'w-full h-11 rounded-xl px-3 text-sm bg-transparent border border-[var(--lg-border-hairline)]'
   return (
-    <section id="password" className="lg4-card p-4 space-y-3">
-      <div className="flex items-center gap-2">
-        <KeyRound size={20} className="text-[var(--lg4-pri)]" />
-        <h2 className="text-sm font-bold">تغییر رمز عبور</h2>
-      </div>
-      {must && <p className="text-xs leading-6 text-[var(--lg4-pri)] font-bold">رمز شما هنوز رمز موقت اولیه است؛ برای امنیت حساب لطفاً همین حالا رمز جدید بگذارید.</p>}
-      <input className={input} type="password" autoComplete="current-password" placeholder="رمز فعلی" value={cur} onChange={(e) => setCur(e.target.value)} dir="ltr" />
-      <input className={input} type="password" autoComplete="new-password" placeholder="رمز جدید (حداقل ۸ کاراکتر)" value={next} onChange={(e) => setNext(e.target.value)} dir="ltr" />
-      <input className={input} type="password" autoComplete="new-password" placeholder="تکرار رمز جدید" value={again} onChange={(e) => setAgain(e.target.value)} dir="ltr" />
-      {msg && <p className={`text-xs font-bold ${msg.ok ? 'text-[var(--lg4-pri)]' : 'text-[var(--hm-bad)]'}`}>{msg.text}</p>}
-      <button className="lg4-capsule w-full h-11 text-sm font-bold" disabled={busy || !cur || !next || !again} onClick={() => void submit()}>
-        {busy ? 'در حال ذخیره…' : 'ذخیره‌ی رمز جدید'}
+    <section id="password" className="lg4-card overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        className="w-full min-h-[56px] flex items-center gap-3 p-4 text-right"
+      >
+        <KeyRound size={20} className="text-[var(--lg4-pri)] flex-none" />
+        <span className="flex-1 min-w-0">
+          <span className="block text-sm font-bold">تغییر رمز عبور</span>
+          {must && <span className="block text-xs text-[var(--lg4-pri)] font-bold mt-0.5">رمز موقت است؛ لطفاً رمز جدید بگذارید</span>}
+        </span>
+        <ChevronDown size={18} className="lg6-chev text-muted flex-none" data-open={open} />
       </button>
+      {open && (
+        <div className="lg6-extra px-4 pb-4 space-y-3">
+          {must && <p className="text-xs leading-6 text-[var(--lg4-pri)] font-bold">رمز شما هنوز رمز موقت اولیه است؛ برای امنیت حساب لطفاً همین حالا رمز جدید بگذارید.</p>}
+          <input className={input} type="password" autoComplete="current-password" placeholder="رمز فعلی" value={cur} onChange={(e) => setCur(e.target.value)} dir="ltr" />
+          <input className={input} type="password" autoComplete="new-password" placeholder="رمز جدید (حداقل ۸ کاراکتر)" value={next} onChange={(e) => setNext(e.target.value)} dir="ltr" />
+          <input className={input} type="password" autoComplete="new-password" placeholder="تکرار رمز جدید" value={again} onChange={(e) => setAgain(e.target.value)} dir="ltr" />
+          {msg && <p className={`text-xs font-bold ${msg.ok ? 'text-[var(--lg4-pri)]' : 'text-[var(--hm-bad)]'}`}>{msg.text}</p>}
+          <button className="lg4-capsule w-full h-11 text-sm font-bold" disabled={busy || !cur || !next || !again} onClick={() => void submit()}>
+            {busy ? 'در حال ذخیره…' : 'ذخیره‌ی رمز جدید'}
+          </button>
+        </div>
+      )}
+    </section>
+  )
+}
+
+/** شخصی‌سازی نوار پایین: تا ۴ بخش دلخواه + ترتیب؛ بقیه در «بیشتر» می‌مانند (ذخیره روی همین دستگاه) */
+function TabBarSection() {
+  const { nav, tabs, customized, save } = useNavSplit()
+  const [open, setOpen] = useState(false)
+  const chosen = tabs.map((t) => t.to)
+  const rest = nav.filter((i) => !chosen.includes(i.to))
+
+  const move = (idx: number, dir: -1 | 1) => {
+    const next = [...chosen]
+    const j = idx + dir
+    if (j < 0 || j >= next.length) return
+    ;[next[idx], next[j]] = [next[j], next[idx]]
+    save(next)
+  }
+  const btn = 'w-9 h-9 flex-none rounded-full flex items-center justify-center text-muted active:scale-90 transition-transform disabled:opacity-30'
+
+  return (
+    <section className="lg4-card overflow-hidden">
+      <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} className="w-full min-h-[56px] flex items-center gap-3 p-4 text-right">
+        <PanelBottom size={20} className="text-[var(--lg4-pri)] flex-none" />
+        <span className="flex-1 min-w-0">
+          <span className="block text-sm font-bold">نوار پایین</span>
+          <span className="block text-xs text-muted mt-0.5">بخش‌های پرکاربردتان را در نوار پایین بگذارید</span>
+        </span>
+        <ChevronDown size={18} className="lg6-chev text-muted flex-none" data-open={open} />
+      </button>
+      {open && (
+        <div className="lg6-extra px-4 pb-4 space-y-4">
+          <div className="space-y-2">
+            <p className="text-xs text-muted">در نوار پایین ({chosen.length.toLocaleString('fa-IR')} از {MAX_TABS.toLocaleString('fa-IR')})</p>
+            {tabs.map((t, i) => (
+              <div key={t.to} className="flex items-center gap-2 rounded-2xl border border-[var(--lg-border-hairline)] p-2 pr-3">
+                <t.icon size={20} className="text-[var(--lg4-pri)] flex-none" />
+                <span className="flex-1 min-w-0 truncate text-sm font-bold">{t.label}</span>
+                <button type="button" aria-label="بالاتر" className={btn} disabled={i === 0} onClick={() => move(i, -1)}><ArrowUp size={16} /></button>
+                <button type="button" aria-label="پایین‌تر" className={btn} disabled={i === tabs.length - 1} onClick={() => move(i, 1)}><ArrowDown size={16} /></button>
+                <button type="button" aria-label="حذف از نوار" className={btn} disabled={chosen.length <= 1} onClick={() => save(chosen.filter((x) => x !== t.to))}><X size={16} /></button>
+              </div>
+            ))}
+          </div>
+          {rest.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-xs text-muted">افزودن به نوار {chosen.length >= MAX_TABS && '(ابتدا یکی را حذف کنید)'}</p>
+              <div className="flex flex-wrap gap-2">
+                {rest.map((i) => (
+                  <button
+                    key={i.to}
+                    type="button"
+                    disabled={chosen.length >= MAX_TABS}
+                    onClick={() => save([...chosen, i.to])}
+                    className="min-h-[40px] px-3 rounded-full border border-[var(--lg-border-hairline)] flex items-center gap-1.5 text-xs font-medium active:scale-95 transition-transform disabled:opacity-40"
+                  >
+                    <Plus size={14} className="text-[var(--lg4-pri)]" />
+                    <i.icon size={16} />
+                    {i.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          {customized && (
+            <button type="button" onClick={() => save(null)} className="text-xs text-muted flex items-center gap-1.5">
+              <RotateCcw size={14} /> بازگرداندن نوار پیش‌فرض
+            </button>
+          )}
+        </div>
+      )}
     </section>
   )
 }

@@ -7,12 +7,14 @@ import { StatusPill } from '../../components/ui/StatusPill'
 import { TH, TD } from '../../components/finance/parts'
 import { Loading, ErrorBlock, useLoad } from '../../components/hm'
 import { dayFa, financeApi, instantFa, methodFa, periodFa, periodShortFa, tomanText } from '../../lib/api/finance'
+import { ExpandList, ExpandToggle, useExpandable } from '../../components/ui/ExpandList'
 
 /** داشبورد مدیر — همه‌ی ارقام از aggregateهای واقعی finance-service */
 export function AdminDashboard() {
   const { data: s, loading, error, reload } = useLoad(() => financeApi.summary({ months: 6 }), [])
   const period = s?.collection.period
   const charges = useLoad(() => (period ? financeApi.charges({ period }) : Promise.resolve([])), [period])
+  const chargeRows = useExpandable(charges.data ?? [], 10)
 
   if (loading) return <Loading />
   if (error || !s) return <ErrorBlock message={error ?? 'خطا در دریافت اطلاعات'} retry={reload} />
@@ -58,7 +60,7 @@ export function AdminDashboard() {
           <CardHeader title="آخرین پرداخت‌ها" />
           <div className="px-5 pb-5 space-y-3">
             {s.recent_payments.length === 0 && <p className="text-sm text-muted">هنوز پرداختی ثبت نشده است</p>}
-            {s.recent_payments.slice(0, 5).map((p) => (
+            <ExpandList className="space-y-3" items={s.recent_payments} render={(p) => (
               <div key={p.id} className="flex items-start justify-between gap-2 pb-3 border-b border-line last:border-0 last:pb-0">
                 <div className="min-w-0">
                   <p className="text-sm font-medium">واحد {p.unit_number} · {periodFa(p.period)}</p>
@@ -66,7 +68,7 @@ export function AdminDashboard() {
                 </div>
                 <span className="text-sm font-medium text-good whitespace-nowrap">{tomanText(p.amount)}</span>
               </div>
-            ))}
+            )} />
           </div>
         </Card>
       </div>
@@ -78,7 +80,7 @@ export function AdminDashboard() {
             <table className="w-full text-sm">
               <thead><tr className="text-right text-muted border-y border-line"><th className={TH}>واحد</th><th className={TH}>مبلغ پایه</th><th className={TH}>جریمه دیرکرد</th><th className={TH}>جمع کل</th><th className={TH}>سررسید</th><th className={TH}>وضعیت</th></tr></thead>
               <tbody>
-                {charges.data.map((c) => (
+                {chargeRows.visible.map((c) => (
                   <tr key={c.id} className="border-b border-line last:border-0">
                     <td className={`${TD} font-medium`}>{c.unit_number}</td>
                     <td className={`${TD} text-muted`}>{tomanText(c.base_amount)}</td>
@@ -90,6 +92,7 @@ export function AdminDashboard() {
                 ))}
               </tbody>
             </table>
+            <ExpandToggle hidden={chargeRows.hidden} open={chargeRows.open} onToggle={chargeRows.toggle} className="my-2" />
           </div>
         )}
       </Card>

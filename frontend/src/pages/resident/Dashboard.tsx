@@ -7,6 +7,7 @@ import { Loading } from '../../components/hm'
 import { api } from '../../lib/api/client'
 import { residentsApi, fa, toman, type Household, type ReservationRow } from '../../lib/api/residents'
 import { toJalali } from '../../lib/jalali'
+import { ExpandList } from '../../components/ui/ExpandList'
 
 interface ChargeRow { id: string; period: string; total_amount: string | number; due_date: string | null; status: string }
 interface GuestPassRow { id: string; guest_name: string; code: string; valid_until: string; status: string }
@@ -62,7 +63,6 @@ export function ResidentDashboard() {
   const upcoming = reservations
     .filter((r) => (r.status === 'confirmed' || r.status === 'pending') && new Date(r.end_at).getTime() > Date.now())
     .sort((a, b) => a.start_at.localeCompare(b.start_at))
-    .slice(0, 3)
 
   return (
     <div className="space-y-6">
@@ -97,7 +97,7 @@ export function ResidentDashboard() {
           <CardHeader title="کدهای مهمان اخیر" />
           <div className="px-5 pb-5 space-y-3">
             {!loading && passes.length === 0 && <p className="text-sm text-muted text-center py-6">هنوز کد مهمانی صادر نکرده‌اید</p>}
-            {passes.slice(0, 4).map((g) => (
+            <ExpandList className="space-y-3" items={passes} render={(g) => (
               <div key={g.id} className="flex items-center justify-between gap-3 p-3 rounded-xl border border-line">
                 <div className="min-w-0">
                   <p className="text-sm font-medium truncate">{g.guest_name}</p>
@@ -105,7 +105,7 @@ export function ResidentDashboard() {
                 </div>
                 <StatusPill status={g.status === 'revoked' ? 'cancelled' : g.status} />
               </div>
-            ))}
+            )} />
           </div>
         </Card>
 
@@ -113,7 +113,7 @@ export function ResidentDashboard() {
           <CardHeader title="رزروهای من" />
           <div className="px-5 pb-5 space-y-3">
             {!loading && upcoming.length === 0 && <p className="text-sm text-muted text-center py-6">رزرو پیش‌رویی ندارید</p>}
-            {upcoming.map((r) => (
+            <ExpandList className="space-y-3" items={upcoming} render={(r) => (
               <div key={r.id} className="flex items-center justify-between gap-3 p-3 rounded-xl border border-line">
                 <div className="min-w-0">
                   <p className="text-sm font-medium truncate">{r.amenity}</p>
@@ -121,7 +121,7 @@ export function ResidentDashboard() {
                 </div>
                 <StatusPill status={r.status} />
               </div>
-            ))}
+            )} />
           </div>
         </Card>
       </div>

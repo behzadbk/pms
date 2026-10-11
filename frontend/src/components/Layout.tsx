@@ -4,13 +4,13 @@ import { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { ROLE_SWITCHER_ENABLED, useRole, useRoleInfo } from '../context/RoleContext'
 import { useAuth } from '../context/AuthContext'
-import { navByRole, moduleForPath, splitTabs, type NavItem } from '../lib/nav'
+import { navByRole, moduleForPath, type NavItem } from '../lib/nav'
+import { useNavSplit } from '../lib/tabPrefs'
 import { usePermissions } from '../context/PermissionsContext'
 import { residentsApi, errText } from '../lib/api/residents'
 import { Sheet, Cta, useToast } from './hm'
 import { useTheme } from '../context/ThemeContext'
 import { departmentLabel } from '../lib/staff'
-import { useStaffNav } from '../lib/access'
 import { roles } from '../lib/roles'
 import { ForcePasswordChange } from './ForcePasswordChange'
 import type { Role } from '../lib/types'
@@ -21,11 +21,11 @@ export function Layout() {
   const { role, setRole } = useRole()
   const info = useRoleInfo()
   const { user, logout } = useAuth()
-  const staffNav = useStaffNav()
   // کارمند فقط پنل‌هایی را می‌بیند که دسترسی‌شان را دارد
   const { perms, visible } = usePermissions()
   // ساکن و کودک: بخش‌هایی که /me/permissions پنهان کرده از منو، تب و لینک حذف می‌شوند
-  const nav = (role === 'staff' ? staffNav : navByRole[role]).filter((i) => visible((i as NavItem).module))
+  // تب‌ها و «بیشتر» طبق شخصی‌سازی کاربر (تنظیمات ← نوار پایین) تعیین می‌شوند
+  const { nav, tabs: tabItems, more: moreItems } = useNavSplit()
   const navigate = useNavigate()
   const location = useLocation()
   const [pinOpen, setPinOpen] = useState(false)
@@ -67,7 +67,6 @@ export function Layout() {
     navigate(wasSuperAdmin ? '/super-admin/login' : '/login', { replace: true })
   }
 
-  const { tabs: tabItems, more: moreItems } = splitTabs(nav)
   const hasMore = moreItems.length > 0
   const onOverflow =
     location.pathname === '/more' || location.pathname === '/settings' || location.pathname === '/account' || location.pathname === '/notifications' ||
@@ -238,7 +237,7 @@ export function Layout() {
             }
           >
             <Palette size={18} strokeWidth={2} />
-            حساب و ظاهر
+            تنظیمات و حساب
           </NavLink>
 
           <button
@@ -467,15 +466,12 @@ function Row({ icon: Icon, label, onClick, tone, trailing }: { icon: React.Eleme
 
 /** صفحه‌ی حساب (به سبک تنظیمات آیفون/تلگرام): کارت پروفایل، گروه‌های گزینه، خروج، و پایین صفحه نسخه + نام شرکت */
 export function AccountScreen() {
-  const { role } = useRole()
   const info = useRoleInfo()
   const { user } = useAuth()
   const navigate = useNavigate()
   const { logout } = useOutletContext<{ logout: () => void }>()
-  const staffNav = useStaffNav()
-  const { visible } = usePermissions()
-  const nav = (role === 'staff' ? staffNav : navByRole[role]).filter((i) => visible((i as NavItem).module))
-  const hasMore = splitTabs(nav).more.length > 0
+  const { more } = useNavSplit()
+  const hasMore = more.length > 0
   const name = user?.fullName ?? info.label
   return (
     <div className="flex flex-col gap-6 hm-fade-in max-w-xl mx-auto">
@@ -485,7 +481,7 @@ export function AccountScreen() {
         <p className="text-sm text-[var(--hm-t2)]">{user?.role === 'staff' ? departmentLabel(user.department) : info.label}{user?.tenantName ? ` · ${user.tenantName}` : ''}</p>
       </div>
       <Group>
-        <Row icon={Palette} label="حساب و ظاهر" onClick={() => navigate('/settings')} />
+        <Row icon={Palette} label="تنظیمات و حساب" onClick={() => navigate('/settings')} />
         <Row icon={Bell} label="اعلان‌ها" onClick={() => navigate('/notifications')} />
         {hasMore && <Row icon={LayoutGrid} label="همه‌ی بخش‌ها" onClick={() => navigate('/more')} />}
       </Group>
@@ -502,12 +498,8 @@ export function AccountScreen() {
 
 /** صفحه‌ی «بیشتر»: بخش‌های پنجم به بعدِ هر نقش (فهرست شیشه‌ای گروهی) */
 export function MoreScreen() {
-  const { role } = useRole()
-  const staffNav = useStaffNav()
-  const { visible } = usePermissions()
   const navigate = useNavigate()
-  const nav = (role === 'staff' ? staffNav : navByRole[role]).filter((i) => visible((i as NavItem).module))
-  const items: NavItem[] = splitTabs(nav).more
+  const items: NavItem[] = useNavSplit().more
   return (
     <div className="flex flex-col gap-4 hm-fade-in">
       <p className="text-xl font-bold">بیشتر</p>

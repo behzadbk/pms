@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
 import { QrCode, PackageCheck, CarFront, UserCheck, ArrowDownLeft, ArrowUpRight, Users } from 'lucide-react'
-import { Link } from 'react-router-dom'
 import { Card, CardHeader } from '../../components/ui/Card'
 import { StatCard } from '../../components/ui/StatCard'
 import { EasyHide, Widget, WidgetGrid } from '../../components/ui/Widget'
@@ -8,6 +7,7 @@ import { ErrorBlock, Loading } from '../../components/hm'
 import { guardApi, type FeedEntry, type GuardSummary, type Parcel } from '../../lib/api/guard'
 import { ago, errText, fa } from '../../lib/api/residents'
 import { fmtTime } from './shared'
+import { ExpandList } from '../../components/ui/ExpandList'
 
 const feedIcon: Record<FeedEntry['type'], typeof UserCheck> = {
   guest_entry: UserCheck,
@@ -65,7 +65,7 @@ export function GuardDashboard() {
           <CardHeader title="مرسولات در انتظار تحویل" />
           <div className="px-5 pb-5 space-y-3">
             {parcels.length === 0 && <p className="text-sm text-muted py-4 text-center">مرسوله‌ی منتظری نیست</p>}
-            {parcels.slice(0, 8).map((p) => (
+            <ExpandList className="space-y-3" items={parcels} render={(p) => (
               <div key={p.id} className="flex items-center justify-between gap-3 p-3 rounded-xl border border-line">
                 <div className="min-w-0">
                   <p className="text-sm font-medium">واحد {fa(p.unit_number ?? '—')}</p>
@@ -73,8 +73,7 @@ export function GuardDashboard() {
                 </div>
                 <span className="text-xs text-warn bg-warn-soft rounded-full px-2.5 py-1 shrink-0">در انتظار</span>
               </div>
-            ))}
-            {parcels.length > 8 && <Link to="/guard/parcels" className="block text-center text-xs text-tile">مشاهده‌ی همه ({fa(parcels.length)})</Link>}
+            )} />
           </div>
         </Card>
 
@@ -82,7 +81,7 @@ export function GuardDashboard() {
           <CardHeader title="رویدادهای اخیر" />
           <div className="px-5 pb-5 space-y-3">
             {feed.length === 0 && <p className="text-sm text-muted py-4 text-center">هنوز رویدادی ثبت نشده</p>}
-            {feed.map((g) => {
+            <ExpandList className="space-y-3" items={feed} render={(g) => {
               const Icon = feedIcon[g.type]
               return (
                 <div key={g.id} className="flex items-center gap-3 text-sm">
@@ -93,7 +92,7 @@ export function GuardDashboard() {
                   <span className="text-xs text-muted shrink-0">{fmtTime(g.at)}</span>
                 </div>
               )
-            })}
+            }} />
           </div>
         </Card>
       </div>
