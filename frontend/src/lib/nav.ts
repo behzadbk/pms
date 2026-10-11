@@ -70,6 +70,7 @@ export const navByRole: Record<Role, NavItem[]> = {
   accountant: [
     { to: '/accountant', label: 'داشبورد حسابداری', short: 'داشبورد', icon: LayoutDashboard },
     { to: '/accountant/charges', label: 'شارژ و مطالبات', short: 'شارژ', icon: Wallet },
+    { to: '/accountant/profiles', label: 'پروفایل مالی', short: 'پروفایل', icon: Users, sub: 'حساب هر واحد و کارمند — فقط‌خواندنی از نرم‌افزار حسابداری' },
     { to: '/accountant/invoices', label: 'صندوق و فاکتورها', short: 'فاکتور', icon: FileText },
     { to: '/accountant/entitlements', label: 'آفرها و خدمات', short: 'آفرها', icon: Gift, sub: 'سهمیه‌ی رایگان بر اساس متراژ، نرخ خدمات و سطوح متراژ' },
     { to: '/accountant/announcements', label: 'اعلانات', icon: Megaphone },

@@ -51,6 +51,7 @@ const AdminAuditLog = lazy(() => import('./pages/admin/AuditLog').then((m) => ({
 const AnnouncementsFeed = lazy(() => import('./pages/shared/AnnouncementsFeed').then((m) => ({ default: m.AnnouncementsFeed })))
 const AccountantDashboard = lazy(() => import('./pages/accountant/Dashboard').then((m) => ({ default: m.AccountantDashboard })))
 const AccountantCharges = lazy(() => import('./pages/accountant/Charges').then((m) => ({ default: m.AccountantCharges })))
+const AccountantProfiles = lazy(() => import('./pages/accountant/Profiles').then((m) => ({ default: m.AccountantProfiles })))
 const AccountantInvoices = lazy(() => import('./pages/accountant/Invoices').then((m) => ({ default: m.AccountantInvoices })))
 const ResidentDashboard = lazy(() => import('./pages/resident/Dashboard').then((m) => ({ default: m.ResidentDashboard })))
 const ResidentCharges = lazy(() => import('./pages/resident/Charges').then((m) => ({ default: m.ResidentCharges })))
@@ -251,6 +252,7 @@ function AppRoutes() {
         <Route path="/accountant" element={<RequireRole role="accountant"><AccountantDashboard /></RequireRole>} />
         <Route path="/accountant/charges" element={<RequireRole role="accountant"><AccountantCharges /></RequireRole>} />
         <Route path="/accountant/invoices" element={<RequireRole role="accountant"><AccountantInvoices /></RequireRole>} />
+        <Route path="/accountant/profiles" element={<RequireRole role="accountant"><AccountantProfiles /></RequireRole>} />
         <Route path="/accountant/entitlements" element={<RequireRole role="accountant"><AdminEntitlements /></RequireRole>} />
         <Route path="/accountant/announcements" element={<RequireRole role="accountant"><AnnouncementsFeed /></RequireRole>} />
 
