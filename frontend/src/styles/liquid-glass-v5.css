@@ -85,16 +85,14 @@ body::before {
 }
 
 /* هدر موبایل و سایدبار: شیشه‌ی رنگی از رنگ پالت */
+/* هدر/سایدبار: رنگ تو‌پُر (بدون شفافیت و بلور). نسخه‌ی شفاف باعث می‌شد لوگو، زنگ اعلان و
+   عکس پروفایل زیر یک فید سفیدِ گل‌آلود بروند. */
 .bg-\[var\(--hdr-bg\)\] {
-  background-color: color-mix(in srgb, var(--hdr-bg) 80%, transparent);
-  -webkit-backdrop-filter: blur(22px) saturate(180%);
-  backdrop-filter: blur(22px) saturate(180%);
-  box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.14);
+  background-color: var(--hdr-bg);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.12), 0 8px 24px -12px rgba(0, 0, 0, 0.35);
 }
 .bg-\[var\(--hdr-soft\)\] {
-  background-color: color-mix(in srgb, var(--hdr-soft) 86%, transparent);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
-  backdrop-filter: blur(20px) saturate(180%);
+  background-color: var(--hdr-soft);
 }
 
 /* نوار تب شناور: لبه‌ی براق‌تر */
@@ -461,8 +459,7 @@ html[data-theme='dark'] {
 
 html[data-theme='dark'] body::before,
 html[data-theme='dark'] body::after {
-  inset: -30%;
-  will-change: transform;
+  inset: -12%;
   backface-visibility: hidden;
 }
 html[data-theme='dark'] body::before {
@@ -547,4 +544,31 @@ html[data-kbd='on'] body::after {
   .lg5-widget-hero::after {
     animation: none;
   }
+}
+
+
+/* ---------- v6: بازشدن نرم لیست‌ها/بخش‌ها (فقط opacity + transform) ---------- */
+@keyframes lg6-rise {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+.lg6-extra {
+  animation: lg6-rise 0.28s var(--lg-ease-fluid, ease-out) both;
+}
+.lg6-chev {
+  transition: transform 0.24s var(--lg-ease-fluid, ease-out);
+}
+.lg6-chev[data-open='true'] {
+  transform: rotate(180deg);
+}
+.lg6-expand {
+  background: color-mix(in srgb, var(--lg4-pri) 8%, transparent);
+  transition: transform 0.15s ease-out;
+}
+.lg6-expand:active {
+  transform: scale(0.98);
+}
+@media (prefers-reduced-motion: reduce) {
+  .lg6-extra { animation: none; }
+  .lg6-chev, .lg6-expand { transition: none; }
 }

@@ -88,7 +88,7 @@ function PushSwitch() {
             className="relative w-12 h-7 rounded-full flex-none transition-colors disabled:opacity-50"
             style={{ background: state === 'on' ? 'var(--lg4-pri)' : 'var(--lg-border-hairline)' }}
           >
-            <span className="absolute top-1 w-5 h-5 rounded-full bg-white shadow transition-all" style={{ right: state === 'on' ? '4px' : '28px' }} />
+            <span className="absolute top-1 right-1 w-5 h-5 rounded-full bg-white shadow transition-transform" style={{ transform: state === 'on' ? 'none' : 'translateX(-24px)' }} />
           </button>
         </div>
         {state === 'on' && (

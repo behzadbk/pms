@@ -111,7 +111,6 @@
   transition-timing-function: var(--lg-ease-fluid);
   transition-duration: 240ms;
   transition-property: transform, opacity;
-  will-change: transform, opacity;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -242,7 +241,7 @@
   -webkit-backdrop-filter: blur(16px) saturate(180%);
   cursor: pointer;
   font-weight: 500;
-  transition: all 0.2s var(--lg-ease-fluid);
+  transition: background-color 0.2s var(--lg-ease-fluid), border-color 0.2s var(--lg-ease-fluid), transform 0.2s var(--lg-ease-fluid);
 }
 
 /* متن روی رنگ اصلی را --on-pri می‌گذارد (سفید یا تیره، بر پایه‌ی روشنایی واقعی پالت) */
@@ -526,16 +525,17 @@ html[data-kbd='on'] .hm-sticky {
   content: '';
   position: absolute;
   top: 2px;
-  right: 22px;
+  right: 2px;
   width: 27px;
   height: 27px;
   border-radius: 50%;
   background: #fff;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
-  transition: right 0.22s cubic-bezier(0.34, 1.45, 0.64, 1);
+  transform: translateX(-20px);
+  transition: transform 0.22s cubic-bezier(0.34, 1.45, 0.64, 1);
 }
 .hm-toggle[data-on='true']::after {
-  right: 2px;
+  transform: none;
 }
 
 .hm-input {
