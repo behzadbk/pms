@@ -69,6 +69,7 @@ MIGRATIONS=(
   "db/migrations/902_fk_indexes.sql"
   "backend/identity-service/prisma/migrations/008_platform_admin_sessions.sql"
   "db/migrations/903_audit_append_only.sql"
+  "db/migrations/904_delivery_zones_unique.sql"
 )
 
 SEEDS=(
