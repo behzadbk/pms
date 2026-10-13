@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# اجرای هر ۸ سرویس روی پورت‌های محلی (بعد از nest build) — برای تست e2e
+# اجرای هر ۹ سرویس روی پورت‌های محلی (بعد از nest build) — برای تست e2e
 set -e
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 export DATABASE_URL="${DATABASE_URL:-postgresql://app_user:testpass@localhost:5432/pms}"
@@ -9,11 +9,11 @@ export PROPERTY_SVC_GRPC_URL="${PROPERTY_SVC_GRPC_URL:-localhost:50052}"
 export RESIDENTS_HOUSEKEEPING_THROTTLE_MS="${RESIDENTS_HOUSEKEEPING_THROTTLE_MS:-0}"
 export REDIS_HOST="${REDIS_HOST:-localhost}" RABBITMQ_URL="${RABBITMQ_URL:-amqp://guest:guest@localhost:5672}"
 i=1
-for s in identity property facility finance guard notification audit fnb; do
+for s in identity property facility finance guard notification audit fnb integration; do
   (cd "$ROOT/backend/$s-service" && PORT=300$i nohup node dist/main > "/tmp/svc-$s.log" 2>&1 &)
   i=$((i+1))
 done
 sleep 9
-for p in 3001 3002 3003 3004 3005 3006 3007 3008; do
+for p in 3001 3002 3003 3004 3005 3006 3007 3008 3009; do
   printf '%s %s\n' "$p" "$(curl -s -m3 localhost:$p/health/live >/dev/null && echo up || echo DOWN)"
 done

@@ -52,6 +52,7 @@ const AnnouncementsFeed = lazy(() => import('./pages/shared/AnnouncementsFeed').
 const AccountantDashboard = lazy(() => import('./pages/accountant/Dashboard').then((m) => ({ default: m.AccountantDashboard })))
 const AccountantCharges = lazy(() => import('./pages/accountant/Charges').then((m) => ({ default: m.AccountantCharges })))
 const AccountantInvoices = lazy(() => import('./pages/accountant/Invoices').then((m) => ({ default: m.AccountantInvoices })))
+const ErpIntegration = lazy(() => import('./pages/shared/ErpIntegration').then((m) => ({ default: m.ErpIntegration })))
 const ResidentDashboard = lazy(() => import('./pages/resident/Dashboard').then((m) => ({ default: m.ResidentDashboard })))
 const ResidentCharges = lazy(() => import('./pages/resident/Charges').then((m) => ({ default: m.ResidentCharges })))
 const ResidentFinance = lazy(() => import('./pages/resident/Finance').then((m) => ({ default: m.ResidentFinance })))
@@ -192,6 +193,7 @@ function AppRoutes() {
         <Route path="/admin/reservations" element={<RequireRole role="admin"><AmenityManager /></RequireRole>} />
         <Route path="/admin/entitlements" element={<RequireRole role="admin"><AdminEntitlements /></RequireRole>} />
         <Route path="/admin/rules" element={<RequireRole role="admin"><AdminRules /></RequireRole>} />
+        <Route path="/admin/erp" element={<RequireRole role="admin"><ErpIntegration /></RequireRole>} />
         <Route path="/admin/amenity-rules" element={<Navigate to="/admin/reservations?tab=setup" replace />} />
         {/* ساکنین (RESIDENTS.md §3) — صفحه‌ی قدیمی «واحدها» با پرونده‌ی واحد جایگزین شد */}
         <Route path="/admin/units" element={<Navigate to="/admin/residents" replace />} />
@@ -253,6 +255,7 @@ function AppRoutes() {
         <Route path="/accountant/invoices" element={<RequireRole role="accountant"><AccountantInvoices /></RequireRole>} />
         <Route path="/accountant/entitlements" element={<RequireRole role="accountant"><AdminEntitlements /></RequireRole>} />
         <Route path="/accountant/announcements" element={<RequireRole role="accountant"><AnnouncementsFeed /></RequireRole>} />
+        <Route path="/accountant/erp" element={<RequireRole role="accountant"><ErpIntegration /></RequireRole>} />
 
         <Route path="/super-admin" element={<RequireSuperAdmin><SuperAdminDashboard /></RequireSuperAdmin>} />
         <Route path="/super-admin/buildings" element={<RequireSuperAdmin><SuperAdminBuildings /></RequireSuperAdmin>} />

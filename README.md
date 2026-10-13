@@ -284,7 +284,7 @@ sudo NPM_REGISTRY=https://registry.npmjs.org bash install.sh        # میرور
 │       ├── lib/store.ts              ← استور مشترک بخش‌هایی که هنوز API ندارند
 │       ├── lib/staff.ts · lib/access.ts   ← بخش‌ها، دسترسی‌ها و منوی کارکنان
 │       └── lib/api/                  ← کلاینت API هر سرویس
-├── backend/                          ← ۸ میکروسرویس NestJS
+├── backend/                          ← ۹ میکروسرویس NestJS (integration-service = اتصال ERP)
 ├── db/                               ← migrate.sh، مایگریشن‌های مشترک، seed، تست RLS
 ├── infra/                            ← Dockerfileها و مانیفست‌های Kubernetes
 ├── windows/                          ← نسخه‌ی قابل‌حمل ویندوز (start.bat)
@@ -296,6 +296,7 @@ sudo NPM_REGISTRY=https://registry.npmjs.org bash install.sh        # میرور
 | سند | موضوع |
 |---|---|
 | [docs/SPEC.md](./docs/SPEC.md) · [ARCHITECTURE-SAAS.md](./docs/ARCHITECTURE-SAAS.md) | مشخصات اولیه و معماری SaaS |
+| [docs/09-ERP-INTEGRATION.md](./docs/09-ERP-INTEGRATION.md) | اتصال به ERP / نرم‌افزار حسابداری: API با Swagger، فید تغییرات، ارسال خودکار، فضای تست |
 | [docs/FEATURES-DEEP-DIVE.md](./docs/FEATURES-DEEP-DIVE.md) · [NEW-MODULES-SPEC.md](./docs/NEW-MODULES-SPEC.md) | رزرو هوشمند، تقویم زنده، شفافیت مالی؛ ماژول‌های جدید |
 | [docs/UPDATE-V2-AUDIT-FNB-DESIGN.md](./docs/UPDATE-V2-AUDIT-FNB-DESIGN.md) | طراحی لاگ متمرکز و سفارش غذا |
 | [docs/frontend.md](./docs/frontend.md) · [backend.md](./docs/backend.md) · [database.md](./docs/database.md) | گزارش فرانت‌اند، بک‌اند و دیتابیس |

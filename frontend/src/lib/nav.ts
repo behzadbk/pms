@@ -1,7 +1,7 @@
 import {
   LayoutDashboard, Wallet, Landmark, Ticket, Megaphone, CalendarRange,
   Building2, QrCode, PackageCheck, CarFront, SlidersHorizontal, PieChart,
-  Receipt, CreditCard, UtensilsCrossed, ScrollText, FileText, Users, Home, UsersRound, Contact, Gift,
+  Receipt, CreditCard, UtensilsCrossed, ScrollText, FileText, Users, Home, UsersRound, Contact, Gift, Plug,
 } from 'lucide-react'
 import type { Role } from './types'
 import type { AppModule } from './api/residents'
@@ -39,6 +39,7 @@ export const navByRole: Record<Role, NavItem[]> = {
     { to: '/admin/finance', label: 'گزارش مالی', short: 'مالی', icon: Landmark, sub: 'خلاصه‌ی مالی، فاکتورها و وصول شارژ' },
     { to: '/admin/rules', label: 'قوانین و برج', short: 'قوانین', icon: SlidersHorizontal, sub: 'مهلت بدهکاری، محدودیت مشاعات و رزرو هوشمند' },
     { to: '/admin/logs', label: 'داشبورد لاگ', short: 'لاگ', icon: ScrollText, sub: 'لاگ متمرکز رفتار کاربران و خطاها' },
+    { to: '/admin/erp', label: 'اتصال ERP', short: 'ERP', icon: Plug, sub: 'ارسال خودکار شارژ، پرداخت و هزینه‌ها به نرم‌افزار حسابداری' },
   ],
   resident: [
     { to: '/resident', label: 'خانه', icon: Home },
@@ -73,6 +74,7 @@ export const navByRole: Record<Role, NavItem[]> = {
     { to: '/accountant/invoices', label: 'صندوق و فاکتورها', short: 'فاکتور', icon: FileText },
     { to: '/accountant/entitlements', label: 'آفرها و خدمات', short: 'آفرها', icon: Gift, sub: 'سهمیه‌ی رایگان بر اساس متراژ، نرخ خدمات و سطوح متراژ' },
     { to: '/accountant/announcements', label: 'اعلانات', icon: Megaphone },
+    { to: '/accountant/erp', label: 'اتصال ERP', short: 'ERP', icon: Plug, sub: 'ارسال خودکار شارژ، پرداخت و هزینه‌ها به نرم‌افزار حسابداری' },
   ],
   super_admin: [
     { to: '/super-admin', label: 'داشبورد پلتفرم', short: 'داشبورد', icon: LayoutDashboard },

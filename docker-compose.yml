@@ -189,6 +189,20 @@ services:
       PORT: "3008"
       DATABASE_URL: postgresql://app_user:${APP_USER_PASSWORD}@postgres:5432/pms?schema=fnb
 
+  # اتصال به ERP / نرم‌افزار حسابداری (API با کلید + ارسال خودکار) — docs/09-ERP-INTEGRATION.md
+  integration-svc:
+    <<: *service
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile.nestjs
+      args: { <<: *build-args, SERVICE_PATH: backend/integration-service }
+    environment:
+      <<: *common-env
+      PORT: "3009"
+      DATABASE_URL: postgresql://app_user:${APP_USER_PASSWORD}@postgres:5432/pms
+      ERP_DISPATCH_INTERVAL_SEC: ${ERP_DISPATCH_INTERVAL_SEC:-15}
+      ERP_ALLOW_INSECURE_URLS: ${ERP_ALLOW_INSECURE_URLS:-false}
+
   # ───────────── فرانت‌اند و gateway ─────────────
   frontend:
     build:
@@ -213,6 +227,7 @@ services:
       - notification-svc
       - audit-svc
       - fnb-svc
+      - integration-svc
     ports:
       - "${HTTP_BIND_ADDRESS:-0.0.0.0}:${HTTP_PORT:-80}:80"
     volumes:

@@ -1,0 +1,77 @@
+# integration-svc — اتصال ERP (API با کلید + ارسال خودکار به ERP). مستندات: docs/09-ERP-INTEGRATION.md
+# مایگریشن آن (backend/integration-service/prisma/migrations/001_integration_schema.sql) در migrate.sh
+# و در نتیجه در migration-job.db.yaml اجرا می‌شود.
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: integration-svc
+  namespace: pms-prod
+  labels:
+    app: integration-svc
+spec:
+  # یک نمونه: صف ارسال به ERP (dispatcher) در همین پروسه اجرا می‌شود؛ برای چند نمونه ERP_DISPATCH_INTERVAL_SEC را
+  # فقط روی یکی فعال بگذارید (API خواندنی بدون حالت است و مقیاس‌پذیر).
+  replicas: 1
+  strategy: { type: Recreate }
+  selector:
+    matchLabels:
+      app: integration-svc
+  template:
+    metadata:
+      labels:
+        app: integration-svc
+    spec:
+      containers:
+        - name: integration-svc
+          image: ghcr.io/pms-saas/integration-svc:__IMAGE_TAG__ # در CI/CD با git-sha جایگزین می‌شود
+          ports:
+            - containerPort: 3009
+          envFrom:
+            - configMapRef:
+                name: pms-shared-config
+            - secretRef:
+                name: pms-secrets
+          env:
+            - name: PORT
+              value: "3009"
+            - name: ERP_DISPATCH_INTERVAL_SEC
+              value: "15"
+            - name: ERP_ALLOW_INSECURE_URLS
+              value: "false"
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 3009
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: 3009
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          securityContext:
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false  # NestJS به /tmp نیاز دارد؛ برای سخت‌گیری بیشتر با emptyDir mount کنید
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: integration-svc
+  namespace: pms-prod
+spec:
+  type: ClusterIP
+  selector:
+    app: integration-svc
+  ports:
+    - port: 3009
+      targetPort: 3009
