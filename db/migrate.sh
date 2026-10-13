@@ -68,6 +68,8 @@ MIGRATIONS=(
   "db/migrations/901_rls_assertion_all_schemas.sql"
   "db/migrations/902_fk_indexes.sql"
   "backend/identity-service/prisma/migrations/008_platform_admin_sessions.sql"
+  "backend/identity-service/prisma/migrations/009_cleaning_teams.sql"
+  "backend/facility-service/prisma/migrations/007_cleaning_sessions.sql"
   "db/migrations/903_audit_append_only.sql"
 )
 

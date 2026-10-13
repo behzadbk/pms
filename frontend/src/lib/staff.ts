@@ -8,13 +8,14 @@
  */
 import {
   ClipboardList, ConciergeBell, Coffee, ChefHat, ShieldCheck, Wrench, CalendarRange, Megaphone,
-  UtensilsCrossed, BookOpenText, type LucideIcon,
+  UtensilsCrossed, BookOpenText, SprayCan, type LucideIcon,
 } from 'lucide-react'
 
-export type StaffPermission = 'lobby' | 'amenity_desk' | 'kitchen' | 'cafe' | 'security' | 'maintenance'
-export type StaffDepartment = StaffPermission | 'cleaning'
+export type StaffPermission = 'lobby' | 'amenity_desk' | 'kitchen' | 'cafe' | 'security' | 'maintenance' | 'housekeeping'
+/** cleaning = نظافت مجموعه (کادر خود ساختمان) · cleaning_homes = نظافت منازل (داخل واحدها، با ثبت ساعت) */
+export type StaffDepartment = Exclude<StaffPermission, 'housekeeping'> | 'cleaning' | 'cleaning_homes'
 
-export const ALL_PERMISSIONS: StaffPermission[] = ['lobby', 'amenity_desk', 'kitchen', 'cafe', 'security', 'maintenance']
+export const ALL_PERMISSIONS: StaffPermission[] = ['lobby', 'amenity_desk', 'kitchen', 'cafe', 'security', 'maintenance', 'housekeeping']
 
 export const permissionInfo: Record<StaffPermission, { label: string; desc: string; icon: LucideIcon }> = {
   lobby: { label: 'پنل لابی (ورودی)', desc: 'پذیرش مهمان و بررسی کد، ثبت و تحویل مرسوله', icon: ConciergeBell },
@@ -23,6 +24,7 @@ export const permissionInfo: Record<StaffPermission, { label: string; desc: stri
   cafe: { label: 'کافی‌شاپ', desc: 'دریافت سفارش کافی‌شاپ و مدیریت منوی کافی‌شاپ', icon: Coffee },
   security: { label: 'نگهبانی', desc: 'کنترل مهمان، مرسولات و تردد خودرو', icon: ShieldCheck },
   maintenance: { label: 'تأسیسات و نگهداری', desc: 'کارهای تعمیر و سرویس دوره‌ای', icon: Wrench },
+  housekeeping: { label: 'نظافت منازل', desc: 'انتخاب واحد و ثبت ساعت شروع و پایان نظافت منزل؛ مدت از سهمیه‌ی واحد کم می‌شود و مازاد به شارژ می‌رود', icon: SprayCan },
 }
 
 export const departments: { id: StaffDepartment; label: string; defaults: StaffPermission[] }[] = [
@@ -32,7 +34,8 @@ export const departments: { id: StaffDepartment; label: string; defaults: StaffP
   { id: 'cafe', label: 'کافی‌شاپ', defaults: ['cafe'] },
   { id: 'security', label: 'نگهبانی', defaults: ['security'] },
   { id: 'maintenance', label: 'تأسیسات', defaults: ['maintenance'] },
-  { id: 'cleaning', label: 'نظافت', defaults: ['maintenance'] },
+  { id: 'cleaning', label: 'نظافت مجموعه', defaults: ['maintenance'] },
+  { id: 'cleaning_homes', label: 'نظافت منازل', defaults: ['housekeeping'] },
 ]
 
 export function departmentLabel(id?: string | null) {
@@ -71,6 +74,7 @@ export const staffNavItems: StaffNavItem[] = [
   { to: '/staff/security', label: 'نگهبانی', icon: ShieldCheck, permission: 'security' },
   { to: '/staff/work-orders', label: 'کارهای نگهداری', icon: Wrench, permission: 'maintenance' },
   { to: '/staff/schedule', label: 'سرویس دوره‌ای', icon: ClipboardList, permission: 'maintenance' },
+  { to: '/staff/housekeeping', label: 'نظافت منازل', icon: SprayCan, permission: 'housekeeping' },
   { to: '/staff/announcements', label: 'اعلانات', icon: Megaphone, permission: null },
 ]
 

@@ -1,4 +1,4 @@
-import { allocate, endOfTehranDay, overageAmount, quotaKey, resolveTier, tehranPeriod, type AllocEvent, type TierRow } from './engine'
+import { allocate, cleaningQuantity, cleaningShift, durationLabel, endOfTehranDay, minutesBetween, overageAmount, quotaKey, resolveTier, tehranHour, tehranPeriod, type AllocEvent, type TierRow } from './engine'
 
 const T = (id: string, min: number): TierRow => ({ id, name: `واحد ${min}`, min_area: min, sort: min })
 const TIERS = [240, 245, 260, 280, 305, 315, 340, 490, 700].map((m) => T(`t${m}`, m))
@@ -124,5 +124,39 @@ describe('overageAmount / quotaKey / تاریخ', () => {
   })
   it('endOfTehranDay', () => {
     expect(endOfTehranDay('2026-10-07').toISOString()).toBe('2026-10-07T20:29:59.000Z')
+  })
+})
+
+describe('نظافت منزل — شیفت، مدت و مقدار', () => {
+  // تهران = UTC+03:30
+  it('cleaningShift: ۸ تا ۱۶ عادی، ۱۶ تا ۲۲ اضافه‌کاری، ۲۲ تا ۸ شب‌کاری (مرزها دقیق)', () => {
+    expect(cleaningShift(new Date('2026-10-13T04:29:00Z'))).toBe('night') // ۰۷:۵۹
+    expect(cleaningShift(new Date('2026-10-13T04:30:00Z'))).toBe('day') // ۰۸:۰۰
+    expect(cleaningShift(new Date('2026-10-13T12:29:00Z'))).toBe('day') // ۱۵:۵۹
+    expect(cleaningShift(new Date('2026-10-13T12:30:00Z'))).toBe('overtime') // ۱۶:۰۰
+    expect(cleaningShift(new Date('2026-10-13T18:29:00Z'))).toBe('overtime') // ۲۱:۵۹
+    expect(cleaningShift(new Date('2026-10-13T18:30:00Z'))).toBe('night') // ۲۲:۰۰
+    expect(cleaningShift(new Date('2026-10-12T20:30:00Z'))).toBe('night') // ۰۰:۰۰ نیمه‌شب
+  })
+  it('tehranHour نیمه‌شب را ۰ برمی‌گرداند نه ۲۴', () => {
+    expect(tehranHour(new Date('2026-10-12T20:30:00Z'))).toBe(0)
+  })
+  it('minutesBetween و cleaningQuantity (ساعت با دو رقم اعشار / دقیقه)', () => {
+    const s = new Date('2026-10-13T06:00:00Z')
+    const e = new Date('2026-10-13T07:20:00Z')
+    expect(minutesBetween(s, e)).toBe(80)
+    expect(cleaningQuantity('hours', 80)).toBe(1.33)
+    expect(cleaningQuantity('hours', 90)).toBe(1.5)
+    expect(cleaningQuantity('minutes', 80)).toBe(80)
+    expect(cleaningQuantity('people', 80)).toBeNull()
+  })
+  it('durationLabel', () => {
+    expect(durationLabel(45)).toBe('۴۵ دقیقه')
+    expect(durationLabel(120)).toBe('۲ ساعت')
+    expect(durationLabel(80)).toBe('۱ ساعت و ۲۰ دقیقه')
+  })
+  it('سناریوی کامل: سهمیه‌ی ۱۷ ساعت؛ نظافت ۱۶ ساعت مصرف شده؛ یک نظافت ۲ ساعته‌ی اضافه‌کاری ⇒ ۱ ساعت رایگان، ۱ ساعت مازاد با نرخ شیفت', () => {
+    const r = allocate(17, [ev(16, { unit_price: 150000 }), ev(2, { unit_price: 180000 })])
+    expect(r[1]).toMatchObject({ quota_qty: 1, overage_qty: 1, amount: 180000 })
   })
 })

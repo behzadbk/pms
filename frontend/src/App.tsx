@@ -66,6 +66,7 @@ const GuardParcels = lazy(() => import('./pages/guard/Parcels').then((m) => ({ d
 const GuardTraffic = lazy(() => import('./pages/guard/Traffic').then((m) => ({ default: m.GuardTraffic })))
 const StaffWorkOrders = lazy(() => import('./pages/staff/WorkOrders').then((m) => ({ default: m.StaffWorkOrders })))
 const StaffSchedule = lazy(() => import('./pages/staff/Schedule').then((m) => ({ default: m.StaffSchedule })))
+const StaffHousekeeping = lazy(() => import('./pages/staff/Housekeeping').then((m) => ({ default: m.StaffHousekeeping })))
 const StaffKitchenDisplay = lazy(() => import('./pages/staff/KitchenDisplay').then((m) => ({ default: m.StaffKitchenDisplay })))
 const StaffMenuManager = lazy(() => import('./pages/staff/MenuManager').then((m) => ({ default: m.StaffMenuManager })))
 const StaffLobbyDesk = lazy(() => import('./pages/staff/Desks').then((m) => ({ default: m.StaffLobbyDesk })))
@@ -246,6 +247,7 @@ function AppRoutes() {
         <Route path="/staff/security" element={<RequirePermission permission="security"><StaffSecurityDesk /></RequirePermission>} />
         <Route path="/staff/work-orders" element={<RequirePermission permission="maintenance"><StaffWorkOrders /></RequirePermission>} />
         <Route path="/staff/schedule" element={<RequirePermission permission="maintenance"><StaffSchedule /></RequirePermission>} />
+        <Route path="/staff/housekeeping" element={<RequirePermission permission="housekeeping"><StaffHousekeeping /></RequirePermission>} />
         <Route path="/staff/announcements" element={<RequireRole role="staff"><AnnouncementsFeed /></RequireRole>} />
 
         <Route path="/accountant" element={<RequireRole role="accountant"><AccountantDashboard /></RequireRole>} />

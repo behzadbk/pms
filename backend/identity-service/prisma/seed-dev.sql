@@ -49,3 +49,16 @@ VALUES
    'علی مسئول مشاعات', 'amenity', '$2b$10$Fjm6G5zzq8KYymR75QuU/On5WWQSKjm96uN1jTYgFuFp7BPmXTUoq',
    'staff', 'amenity_desk', '{}', '09120000004', '{"shift":"morning"}', true)
 ON CONFLICT (id) DO NOTHING;
+
+-- ── کادر نظافت (مایگریشن 009): دو تیم جدا ──
+--   cleaner  = «نظافت منازل» (داخل واحدها؛ پنل ثبت نظافت با ساعت شروع/پایان)
+--   cleanhub = «نظافت مجموعه» (لابی، راهرو، مشاعات؛ پنل کارهای نگهداری)
+INSERT INTO identity.users (id, tenant_id, full_name, username, password_hash, role, department, permissions, phone, profile, is_active)
+VALUES
+  ('33333333-3333-3333-3333-333333333305', '11111111-1111-1111-1111-111111111111',
+   'زهرا نظافتچی', 'cleaner', '$2b$10$Fjm6G5zzq8KYymR75QuU/On5WWQSKjm96uN1jTYgFuFp7BPmXTUoq',
+   'staff', 'cleaning_homes', '{}', '09120000005', '{"shift":"morning"}', true),
+  ('33333333-3333-3333-3333-333333333306', '11111111-1111-1111-1111-111111111111',
+   'حسین نظافت مجموعه', 'cleanhub', '$2b$10$Fjm6G5zzq8KYymR75QuU/On5WWQSKjm96uN1jTYgFuFp7BPmXTUoq',
+   'staff', 'cleaning', '{}', '09120000006', '{"shift":"morning"}', true)
+ON CONFLICT (id) DO NOTHING;

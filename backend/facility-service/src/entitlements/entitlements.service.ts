@@ -89,7 +89,7 @@ export interface EventRow {
   quantity: number
   occurred_at: string
   period: string
-  source: 'desk' | 'qr_guest'
+  source: 'desk' | 'qr_guest' | 'cleaner'
   note: string | null
   status: 'active' | 'void'
   void_reason: string | null
@@ -348,7 +348,19 @@ export class EntitlementsService {
   async record(
     client: PoolClient,
     actor: JwtPayload,
-    input: { unitId: string; serviceCode: string; variantCode?: string; quantity: number; note?: string; source?: 'desk' | 'qr_guest'; ticketId?: string },
+    input: {
+      unitId: string
+      serviceCode: string
+      variantCode?: string
+      quantity: number
+      note?: string
+      source?: 'desk' | 'qr_guest' | 'cleaner'
+      ticketId?: string
+      /** لحظه‌ی واقعی مصرف (پیش‌فرض: همین الان) — نظافتی که با ساعت شروعش ثبت می‌شود */
+      occurredAt?: Date
+      /** true ⇒ اعلان مازاد ارسال نمی‌شود (فراخواننده اعلان یکپارچه‌ی خودش را می‌فرستد) */
+      silent?: boolean
+    },
   ): Promise<EventRow> {
     const svc = await client.query<{ id: string; code: string; title: string; unit_kind: string; unit_label: string; kind: ServiceKind }>(
       `SELECT id, code, title, unit_kind, unit_label, kind FROM entitlement.services WHERE code = $1 AND is_active`, [input.serviceCode])
@@ -375,15 +387,16 @@ export class EntitlementsService {
 
     await this.lock(client, unit.id, s.id)
     const note = input.note?.trim().slice(0, 200) || null
+    const occurredAt = input.occurredAt ?? new Date()
     const ins = await client.query<{ id: string }>(
-      `INSERT INTO entitlement.usage_events (tenant_id, unit_id, service_id, tariff_id, quantity, unit_price, step, counts_toward_quota, period, source, ticket_id, recorded_by, note)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING id`,
+      `INSERT INTO entitlement.usage_events (tenant_id, unit_id, service_id, tariff_id, quantity, unit_price, step, counts_toward_quota, occurred_at, period, source, ticket_id, recorded_by, note)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING id`,
       [actor.tenant_id, unit.id, s.id, tariff?.id ?? null, quantity, tariff?.unit_price ?? 0, tariff?.step ?? 1, tariff?.counts_toward_quota ?? true,
-        tehranPeriod(), input.source ?? 'desk', input.ticketId ?? null, actor.sub, note])
+        occurredAt, tehranPeriod(occurredAt), input.source ?? 'desk', input.ticketId ?? null, actor.sub, note])
     await this.recompute(client, unit.id, s.id)
     const ev = await this.eventById(client, ins.rows[0].id)
 
-    if (ev.amount > 0) {
+    if (ev.amount > 0 && !input.silent) {
       await notify(client, actor.tenant_id!, await unitRecipients(client, unit.id), {
         kind: 'entitlement_overage',
         title: 'مصرف مازاد بر سهمیه',

@@ -120,6 +120,57 @@ export function endOfTehranDay(iso: string): Date {
   return new Date(`${iso}T23:59:59+03:30`)
 }
 
+// ───────────────────────── نظافت منزل (خانه‌داری) ─────────────────────────
+
+/** کد خدمتِ سهمیه‌ای که نظافت منزل از آن کم می‌شود (الگوی «برج باران ۳» همین کد را می‌سازد) */
+export const HOUSEKEEPING_CODE = 'housekeeping'
+export const CLEANING_MIN_MINUTES = 5
+export const CLEANING_MAX_HOURS = 12
+
+/** شیفت نرخ؛ کد تعرفه‌ی هم‌نام در خدمت خانه‌داری: day / overtime / night */
+export type CleaningShift = 'day' | 'overtime' | 'night'
+
+/** ساعت دیواری تهران (۰ تا ۲۳) */
+export function tehranHour(d: Date): number {
+  const p = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Tehran', hour: '2-digit', hourCycle: 'h23' }).formatToParts(d)
+  return Number(p.find((x) => x.type === 'hour')!.value)
+}
+
+/**
+ * شیفتِ نرخ یک نظافت از روی «ساعت شروع» (به وقت تهران):
+ *   ۸ تا ۱۶ ⇒ day (عادی) · ۱۶ تا ۲۲ ⇒ overtime (اضافه‌کاری) · ۲۲ تا ۸ صبح ⇒ night (شب‌کاری)
+ * کل نظافت با نرخ شیفتِ شروعش حساب می‌شود (نه تکه‌تکه) تا مبلغ برای ساکن و نظافتچی قابل پیش‌بینی بماند.
+ */
+export function cleaningShift(startedAt: Date): CleaningShift {
+  const h = tehranHour(startedAt)
+  if (h >= 8 && h < 16) return 'day'
+  if (h >= 16 && h < 22) return 'overtime'
+  return 'night'
+}
+
+/** مدت به دقیقه‌ی صحیح (گرد به نزدیک‌ترین دقیقه) */
+export function minutesBetween(startedAt: Date, endedAt: Date): number {
+  return Math.round((endedAt.getTime() - startedAt.getTime()) / 60_000)
+}
+
+/** مقدار ثبت‌شده برای خدمت: ساعت (۲ رقم اعشار) یا دقیقه، بسته به unit_kind خدمت؛ سایر واحدها ⇒ null */
+export function cleaningQuantity(unitKind: string, minutes: number): number | null {
+  if (unitKind === 'hours') return round2(minutes / 60)
+  if (unitKind === 'minutes') return minutes
+  return null
+}
+
+/** «۱ ساعت و ۲۰ دقیقه» / «۴۵ دقیقه» / «۲ ساعت» */
+export function durationLabel(minutes: number): string {
+  const m = Math.max(0, Math.round(minutes))
+  const h = Math.floor(m / 60)
+  const r = m % 60
+  const fa = (n: number) => String(n).replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[Number(d)])
+  if (h === 0) return `${fa(r)} دقیقه`
+  if (r === 0) return `${fa(h)} ساعت`
+  return `${fa(h)} ساعت و ${fa(r)} دقیقه`
+}
+
 const JALALI_MONTHS = ['فروردین', 'اردیبهشت', 'خرداد', 'تیر', 'مرداد', 'شهریور', 'مهر', 'آبان', 'آذر', 'دی', 'بهمن', 'اسفند']
 const faDigits = (s: string | number) => String(s).replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[Number(d)])
 
