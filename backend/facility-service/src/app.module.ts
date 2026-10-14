@@ -7,6 +7,8 @@ import { EventsModule } from './events/events.module'
 import { ReservationsModule } from './reservations/reservations.module'
 import { MaintenanceModule } from './maintenance/maintenance.module'
 import { EntitlementsModule } from './entitlements/entitlements.module'
+import { ServiceDeskModule } from './service-desk/service-desk.module'
+import { CommunityEventsModule } from './community-events/community-events.module'
 
 @Module({
   imports: [
@@ -18,6 +20,8 @@ import { EntitlementsModule } from './entitlements/entitlements.module'
     ReservationsModule,
     MaintenanceModule,
     EntitlementsModule,
+    ServiceDeskModule,
+    CommunityEventsModule,
   ],
 })
 export class AppModule {}

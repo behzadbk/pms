@@ -8,13 +8,18 @@
  */
 import {
   ClipboardList, ConciergeBell, Coffee, ChefHat, ShieldCheck, Wrench, CalendarRange, Megaphone,
-  UtensilsCrossed, BookOpenText, type LucideIcon,
+  UtensilsCrossed, BookOpenText, HandHelping, type LucideIcon,
 } from 'lucide-react'
 
-export type StaffPermission = 'lobby' | 'amenity_desk' | 'kitchen' | 'cafe' | 'security' | 'maintenance'
-export type StaffDepartment = StaffPermission | 'cleaning'
+export type StaffPermission = 'lobby' | 'amenity_desk' | 'kitchen' | 'cafe' | 'security' | 'maintenance' | 'service_desk'
+/**
+ * کد دپارتمان. از مایگریشن 009 دپارتمان‌ها پویا هستند (مدیر ساختمان تعریف می‌کند)؛
+ * ۷ دپارتمان قدیمی «سیستمی»اند و کدشان ثابت است (SystemDepartment).
+ */
+export type StaffDepartment = string
+export type SystemDepartment = 'lobby' | 'amenity_desk' | 'kitchen' | 'cafe' | 'security' | 'maintenance' | 'cleaning'
 
-export const ALL_PERMISSIONS: StaffPermission[] = ['lobby', 'amenity_desk', 'kitchen', 'cafe', 'security', 'maintenance']
+export const ALL_PERMISSIONS: StaffPermission[] = ['lobby', 'amenity_desk', 'kitchen', 'cafe', 'security', 'maintenance', 'service_desk']
 
 export const permissionInfo: Record<StaffPermission, { label: string; desc: string; icon: LucideIcon }> = {
   lobby: { label: 'پنل لابی (ورودی)', desc: 'پذیرش مهمان و بررسی کد، ثبت و تحویل مرسوله', icon: ConciergeBell },
@@ -23,9 +28,11 @@ export const permissionInfo: Record<StaffPermission, { label: string; desc: stri
   cafe: { label: 'کافی‌شاپ', desc: 'دریافت سفارش کافی‌شاپ و مدیریت منوی کافی‌شاپ', icon: Coffee },
   security: { label: 'نگهبانی', desc: 'کنترل مهمان، مرسولات و تردد خودرو', icon: ShieldCheck },
   maintenance: { label: 'تأسیسات و نگهداری', desc: 'کارهای تعمیر و سرویس دوره‌ای', icon: Wrench },
+  service_desk: { label: 'درخواست‌های خدمات', desc: 'خدمات ساکنین (کارواش، خانه‌داری، نظافت …): مدیر دپارتمان زمان را تأیید و کار را بین کارکنان تقسیم می‌کند، مجری کارهای خودش را می‌بیند', icon: HandHelping },
 }
 
-export const departments: { id: StaffDepartment; label: string; defaults: StaffPermission[] }[] = [
+/** دپارتمان‌های سیستمی — برچسب پیش‌فرض و دسترسی‌های پیش‌فرض (برای دپارتمان سفارشی از API می‌آید) */
+export const departments: { id: SystemDepartment; label: string; defaults: StaffPermission[] }[] = [
   { id: 'lobby', label: 'لابی‌من', defaults: ['lobby'] },
   { id: 'amenity_desk', label: 'مسئول مشاعات', defaults: ['amenity_desk'] },
   { id: 'kitchen', label: 'آشپزخانه / رستوران', defaults: ['kitchen'] },
@@ -35,12 +42,19 @@ export const departments: { id: StaffDepartment; label: string; defaults: StaffP
   { id: 'cleaning', label: 'نظافت', defaults: ['maintenance'] },
 ]
 
-export function departmentLabel(id?: string | null) {
-  return departments.find((d) => d.id === id)?.label ?? '—'
+export function isSystemDepartment(id?: string | null): id is SystemDepartment {
+  return !!id && departments.some((d) => d.id === id)
 }
 
+/** برچسب دپارتمان؛ برای دپارتمان سفارشی نام را از `name` (پاسخ API) بگیرید */
+export function departmentLabel(id?: string | null, name?: string | null) {
+  return name || departments.find((d) => d.id === id)?.label || '—'
+}
+
+/** دسترسی‌های پیش‌فرض دپارتمان: سیستمی → ثابت؛ سفارشی → فقط «درخواست‌های خدمات» */
 export function departmentDefaults(id?: string | null): StaffPermission[] {
-  return departments.find((d) => d.id === id)?.defaults ?? []
+  if (!id) return []
+  return departments.find((d) => d.id === id)?.defaults ?? ['service_desk']
 }
 
 export const shiftLabels: Record<string, string> = {
@@ -71,6 +85,7 @@ export const staffNavItems: StaffNavItem[] = [
   { to: '/staff/security', label: 'نگهبانی', icon: ShieldCheck, permission: 'security' },
   { to: '/staff/work-orders', label: 'کارهای نگهداری', icon: Wrench, permission: 'maintenance' },
   { to: '/staff/schedule', label: 'سرویس دوره‌ای', icon: ClipboardList, permission: 'maintenance' },
+  { to: '/staff/services', label: 'درخواست‌های خدمات', icon: HandHelping, permission: 'service_desk' },
   { to: '/staff/announcements', label: 'اعلانات', icon: Megaphone, permission: null },
 ]
 

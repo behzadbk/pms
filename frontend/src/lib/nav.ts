@@ -1,7 +1,7 @@
 import {
   LayoutDashboard, Wallet, Landmark, Ticket, Megaphone, CalendarRange,
   Building2, QrCode, PackageCheck, CarFront, SlidersHorizontal, PieChart,
-  Receipt, CreditCard, UtensilsCrossed, ScrollText, FileText, Users, Home, UsersRound, Contact, Gift,
+  Receipt, CreditCard, UtensilsCrossed, ScrollText, FileText, Users, Home, UsersRound, Contact, Gift, HandHelping, CalendarHeart,
 } from 'lucide-react'
 import type { Role } from './types'
 import type { AppModule } from './api/residents'
@@ -34,6 +34,7 @@ export const navByRole: Record<Role, NavItem[]> = {
     { to: '/admin/announcements', label: 'اعلانات', icon: Megaphone, sub: 'انتشار اطلاعیه و نظرسنجی' },
     // ── «بیشتر» ──
     { to: '/admin/staff', label: 'کارکنان', icon: Contact, sub: 'افزودن کارمند و حسابدار، شیفت و دسترسی‌ها' },
+    { to: '/admin/services', label: 'خدمات ساختمان', short: 'خدمات', icon: HandHelping, sub: 'کارواش، نظافت، خانه‌داری — درخواست‌ها و تعریف خدمات' },
     { to: '/admin/reservations', label: 'مشاعات', icon: CalendarRange, sub: 'تعریف مشاع، تایم‌تیبل و تأیید درخواست‌ها' },
     { to: '/admin/entitlements', label: 'آفرها و خدمات', short: 'آفرها', icon: Gift, sub: 'سهمیه‌ی رایگان بر اساس متراژ، نرخ خدمات و سطوح متراژ' },
     { to: '/admin/finance', label: 'گزارش مالی', short: 'مالی', icon: Landmark, sub: 'خلاصه‌ی مالی، فاکتورها و وصول شارژ' },
@@ -47,6 +48,8 @@ export const navByRole: Record<Role, NavItem[]> = {
     { to: '/resident/announcements', label: 'اعلانات', icon: Megaphone, module: 'notice', sub: 'اطلاعیه‌ها و نظرسنجی‌ها' },
     // ── «بیشتر» ──
     { to: '/resident/reservations', label: 'رزرو مشاعات', short: 'رزرو', icon: CalendarRange, module: 'amenity', sub: 'استخر، سالن اجتماعات، روف‌گاردن، باشگاه' },
+    { to: '/resident/events', label: 'رویدادها', icon: CalendarHeart, module: 'amenity', sub: 'مافیا، فیلم، فوتبال — دعوت و «میام»' },
+    { to: '/resident/services', label: 'خدمات', icon: HandHelping, sub: 'کارواش، خانه‌داری، نظافت و …' },
     { to: '/resident/offers', label: 'آفرها و مصرف', short: 'آفرها', icon: Gift, module: 'amenity', sub: 'سهمیه‌ی رایگان، مصرف باقی‌مانده و بلیت QR مهمان' },
     { to: '/resident/family', label: 'خانواده', icon: UsersRound, module: 'household', sub: 'اعضای خانوار، حالت والدین، ورود کودک' },
     { to: '/resident/charges', label: 'شارژ و پرداخت', short: 'شارژ', icon: Wallet, module: 'finance', sub: 'صورتحساب‌ها و پرداخت آنلاین' },

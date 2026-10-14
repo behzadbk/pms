@@ -232,12 +232,52 @@ let sheetLocks = 0
 
 /** برگه‌ی شیشه‌ای از پایین: فاصله‌ی ۸px از لبه‌ها، شعاع ۴۴، scrim ملایم */
 export function Sheet({ open, onClose, children, label }: { open: boolean; onClose: () => void; children: ReactNode; label: string }) {
+  const panelRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
     if (!open) return
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') return onClose()
+      // تله‌ی فوکوس: Tab داخل برگه می‌چرخد و به صفحه‌ی پشتش نمی‌رود (WCAG 2.4.3)
+      if (e.key !== 'Tab') return
+      const root = panelRef.current
+      if (!root) return
+      const items = Array.from(
+        root.querySelectorAll<HTMLElement>('a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])'),
+      ).filter((el) => el.offsetParent !== null)
+      if (!items.length) {
+        e.preventDefault()
+        root.focus()
+        return
+      }
+      const first = items[0]
+      const last = items[items.length - 1]
+      const cur = document.activeElement
+      if (e.shiftKey && (cur === first || cur === root)) {
+        e.preventDefault()
+        last.focus()
+      } else if (!e.shiftKey && cur === last) {
+        e.preventDefault()
+        first.focus()
+      }
+    }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [open, onClose])
+  // فوکوس اولیه روی برگه + برگرداندن فوکوس به دکمه‌ی بازکننده هنگام بسته‌شدن
+  useEffect(() => {
+    if (!open) return
+    const opener = document.activeElement as HTMLElement | null
+    const t = window.setTimeout(() => {
+      const root = panelRef.current
+      if (!root || root.contains(document.activeElement)) return
+      const first = root.querySelector<HTMLElement>('[data-autofocus],input:not([disabled]),textarea:not([disabled])')
+      ;(first ?? root).focus({ preventScroll: true })
+    }, 60)
+    return () => {
+      window.clearTimeout(t)
+      if (opener && document.contains(opener)) opener.focus({ preventScroll: true })
+    }
+  }, [open])
   // قفل اسکرول صفحه‌ی پشت برگه (شمارنده: چند برگه‌ی تودرتو هم درست باز و بسته شوند) — قبلاً با اسکرول
   // داخل برگه، صفحه و نوار تب زیرش هم حرکت می‌کردند و منو «زیر برگه» اسکرول می‌شد.
   useEffect(() => {
@@ -266,7 +306,9 @@ export function Sheet({ open, onClose, children, label }: { open: boolean; onClo
             onClick={onClose}
           />
           <motion.div
-            className="relative m-2 mx-auto w-[calc(100%-16px)] max-w-lg max-h-[88dvh] overflow-y-auto overscroll-contain p-4 pb-6"
+            ref={panelRef}
+            tabIndex={-1}
+            className="relative m-2 mx-auto w-[calc(100%-16px)] max-w-lg max-h-[88dvh] overflow-y-auto overscroll-contain p-4 pb-6 outline-none"
             style={{
               borderRadius: 44,
               background: 'var(--lg4-sheet)',
