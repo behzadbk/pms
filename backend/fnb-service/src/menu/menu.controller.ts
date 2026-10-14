@@ -466,7 +466,8 @@ export class MenuController {
     await c.query(
       `INSERT INTO fnb.delivery_zones (tenant_id, name, zone_type, amenity_id, surcharge, sort_order)
        SELECT $1, 'لابی', 'amenity_zone', NULL, 0, -1
-        WHERE NOT EXISTS (SELECT 1 FROM fnb.delivery_zones WHERE amenity_id IS NULL AND lower(name) = 'لابی')`,
+        WHERE NOT EXISTS (SELECT 1 FROM fnb.delivery_zones WHERE amenity_id IS NULL AND lower(name) = 'لابی')
+       ON CONFLICT DO NOTHING`,
       [tenantId],
     )
     const has = await c.query(`SELECT to_regclass('facility.amenities') IS NOT NULL AS ok`)
@@ -474,11 +475,14 @@ export class MenuController {
     await c.query(
       `INSERT INTO fnb.delivery_zones (tenant_id, name, zone_type, amenity_id, surcharge)
        SELECT $1, a.name, 'amenity_zone', a.id, 0 FROM facility.amenities a
-        WHERE NOT EXISTS (SELECT 1 FROM fnb.delivery_zones z WHERE z.amenity_id = a.id OR lower(z.name) = lower(a.name))`,
+        WHERE NOT EXISTS (SELECT 1 FROM fnb.delivery_zones z WHERE z.amenity_id = a.id OR lower(z.name) = lower(a.name))
+       ON CONFLICT DO NOTHING`,
       [tenantId],
     )
     await c.query(
-      `UPDATE fnb.delivery_zones z SET name = a.name FROM facility.amenities a WHERE z.amenity_id = a.id AND z.name <> a.name`,
+      `UPDATE fnb.delivery_zones z SET name = a.name FROM facility.amenities a WHERE z.amenity_id = a.id AND z.name <> a.name
+          AND NOT EXISTS (SELECT 1 FROM fnb.delivery_zones o
+                           WHERE o.id <> z.id AND o.tenant_id = z.tenant_id AND o.is_active AND lower(o.name) = lower(a.name))`,
     )
     await c.query(
       `UPDATE fnb.delivery_zones z SET is_active = false
