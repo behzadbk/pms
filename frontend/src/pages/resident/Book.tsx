@@ -159,7 +159,7 @@ export function BookAmenity({ child = false }: { child?: boolean }) {
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label="انتخاب مشاع">
+          <div className={`grid gap-2 ${top.length === 4 ? 'grid-cols-2' : 'grid-cols-3'}`} role="radiogroup" aria-label="انتخاب مشاع">
             {top.map((x) => {
               const Icon = amenityIcon(x.icon)
               const on = x.id === a?.id

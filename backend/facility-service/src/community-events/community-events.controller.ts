@@ -441,6 +441,7 @@ function shape(e: EventRow, me: string | null) {
     starts_at: e.starts_at,
     needed_players: e.needed_players,
     audience: e.audience,
+    status: e.status,
     host_name: e.host_name,
     host_unit: e.host_unit,
     going_count: e.going_count,

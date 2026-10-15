@@ -91,7 +91,7 @@ export function ResidentEvents() {
                   <p className="text-xs text-[var(--hm-t2)]">{fa(e.going_count)} نفر می‌آیند</p>
                 )}
                 {e.is_host ? (
-                  <p className="text-xs text-[var(--hm-t2)]">شما میزبان هستید · {fa(e.pending_count)} نفر هنوز پاسخ نداده‌اند</p>
+                  <p className="text-xs text-[var(--hm-t2)]">شما میزبان هستید{e.audience === 'selected' ? ` · ${fa(e.pending_count)} نفر هنوز پاسخ نداده‌اند` : ''}</p>
                 ) : (
                   <div className="grid grid-cols-2 gap-2">
                     <button
