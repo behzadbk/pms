@@ -73,6 +73,7 @@ MIGRATIONS=(
   "backend/facility-service/prisma/migrations/008_cleaning_feedback.sql"
   "backend/facility-service/prisma/migrations/009_cleaning_tasks.sql"
   "db/migrations/903_audit_append_only.sql"
+  "db/migrations/904_delivery_zones_unique.sql"
 )
 
 SEEDS=(

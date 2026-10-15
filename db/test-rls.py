@@ -215,6 +215,33 @@ cur.execute("""SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid = c.
 n = cur.fetchone()[0]; conn.commit()
 check("audit: پارتیشن تازه‌ساخته‌شده هم DELETE ندارد", n == 0, f"violations={n}")
 
+# ۱۵) ساختمان تازه باید کاملاً خالی باشد (بدون داده‌ی دمو/پیش‌فرض)؛ ساخت = همان INSERTهای platform.service.createBuilding
+#     (tenant + property.buildings + یک admin). بعد از آن، در هیچ جدول tenant‌داری جز همین سه ردیف چیزی نباید باشد.
+NEW = "99999999-9999-4999-8999-999999999999"
+cur = conn.cursor()
+cur.execute("BEGIN")
+cur.execute("SELECT set_config('app.current_tenant_id', %s, true)", (NEW,))
+cur.execute("""INSERT INTO identity.tenants (id, name, subdomain, status, tier, unit_count, monthly_fee, outstanding_amount, billing_status, next_due_at)
+               VALUES (%s, 'تست خالی', 'empty-bootstrap-test', 'trial', 'simple', 10, 0, 0, 'settled', CURRENT_DATE + 30)""", (NEW,))
+cur.execute("INSERT INTO property.buildings (tenant_id, name, total_units) VALUES (%s, 'تست خالی', 10)", (NEW,))
+cur.execute("""INSERT INTO identity.users (tenant_id, full_name, email, password_hash, role, must_change_password)
+               VALUES (%s, 'مدیر', 'empty-bootstrap@test.local', 'x', 'admin', true)""", (NEW,))
+cur.execute("""SELECT n.nspname, c.relname FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+                WHERE n.nspname IN ('identity','property','residency','facility','finance','guard','notification','audit','fnb')
+                  AND c.relkind IN ('r','p') AND c.relispartition = false
+                  AND EXISTS (SELECT 1 FROM pg_attribute a WHERE a.attrelid = c.oid AND a.attname = 'tenant_id' AND NOT a.attisdropped)
+                  AND NOT (n.nspname = 'identity' AND c.relname = 'platform_invoices')""")
+tables = cur.fetchall()
+non_empty = []
+for sch, rel in tables:
+    cur.execute(f'SELECT count(*) FROM "{sch}"."{rel}"')
+    cnt = cur.fetchone()[0]
+    allowed = {"identity.users": 1, "property.buildings": 1}.get(f"{sch}.{rel}", 0)
+    if cnt != allowed:
+        non_empty.append(f"{sch}.{rel}={cnt}")
+conn.rollback()  # چیزی از این تست باقی نمی‌ماند
+check(f"ساختمان تازه در همه‌ی {len(tables)} جدول tenant‌دار خالی است (جز ۱ ساختمان + ۱ مدیر)", not non_empty, ", ".join(non_empty))
+
 print("\n" + "="*60)
 print(f"نتیجه: {len(passed)} قبول / {len(failed)} رد")
 if failed:
