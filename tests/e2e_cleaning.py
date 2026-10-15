@@ -34,12 +34,13 @@ def login(user):
     return r['accessToken'] if 'accessToken' in r else r['access_token']
 
 def sql(q):
-    return subprocess.run(['su', 'postgres', '-c', f'psql -d {DB} -Atc "{q}"'], capture_output=True, text=True).stdout.strip()
+    return subprocess.run(['su', 'postgres', '-c', f'psql -d {DB} -At -q'], input=q, capture_output=True, text=True).stdout.strip()
 
 iso = lambda d: d.astimezone(timezone.utc).isoformat().replace('+00:00', 'Z')
 now = datetime.now(timezone.utc).replace(second=0, microsecond=0)
 C = f'{FAC}/entitlements/cleaning'
 
+sql('delete from entitlement.cleaning_feedback; delete from entitlement.cleaning_sessions; delete from entitlement.usage_events')  # دیتابیس تست تمیز
 print('— آماده‌سازی: الگوی آفرها (خدمت «خانه‌داری») توسط مدیر')
 admin = login('admin@borj-aftab.test')
 s, r = call('POST', f'{FAC}/entitlements/config/apply-template', {'template': 'baran3', 'overwrite': False}, admin)

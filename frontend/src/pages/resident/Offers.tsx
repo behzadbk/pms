@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
 import { AlertTriangle, Ban, Gift, Info, QrCode, Waves } from 'lucide-react'
 import { Card, CardHeader } from '../../components/ui/Card'
+import { CleaningRatingCards } from '../../components/CleaningRating'
 import { ErrorBlock, Loading } from '../../components/hm'
 import { entitlementsApi, type ServiceLine, type Ticket, type UnitSummary, type UsageEvent } from '../../lib/api/entitlements'
 import { errText, fa } from '../../lib/api/residents'
@@ -222,6 +223,8 @@ export function ResidentOffers() {
           {sum.tier ? ` · سطح ${sum.tier.name}` : ''} — {sum.period_label}
         </p>
       </div>
+
+      <CleaningRatingCards />
 
       {sum.tier_match !== 'exact' && (
         <p className="text-xs leading-6 bg-warn-soft text-warn rounded-xl px-3.5 py-3 flex gap-2">

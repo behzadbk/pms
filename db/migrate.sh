@@ -70,6 +70,8 @@ MIGRATIONS=(
   "backend/identity-service/prisma/migrations/008_platform_admin_sessions.sql"
   "backend/identity-service/prisma/migrations/009_cleaning_teams.sql"
   "backend/facility-service/prisma/migrations/007_cleaning_sessions.sql"
+  "backend/identity-service/prisma/migrations/010_cleaning_supervisor.sql"
+  "backend/facility-service/prisma/migrations/008_cleaning_feedback.sql"
   "db/migrations/903_audit_append_only.sql"
 )
 

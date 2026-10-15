@@ -79,3 +79,36 @@ export const cleaningApi = {
   voidSession: (id: string) => api.post<CleaningSession>(`${C}/${id}/void`),
   manual: (b: { unitId: string; startedAt: string; endedAt: string; note?: string }) => api.post<CleaningCommit>(`${C}/manual`, b),
 }
+
+// ───────────── بازخورد ساکن از نظافت ─────────────
+
+export interface FeedbackReason { code: string; label: string }
+export interface PendingCleaning { session_id: string; started_at: string; ended_at: string; minutes: number }
+export interface FeedbackItem {
+  id: string
+  rating: number
+  reasons: string[]
+  comment: string | null
+  created_at: string
+  unit_number: string
+  cleaner_id: string
+  cleaner_name: string | null
+  started_at: string
+  ended_at: string
+  minutes: number
+}
+export interface CleanerSummary { cleaner_id: string; cleaner_name: string | null; count: number; average: number; low_count: number }
+
+export const cleaningFeedbackApi = {
+  /** ساکن: نظافت‌های اخیر بدون نمره + دلیل‌های آماده */
+  pending: () => api.get<{ pending: PendingCleaning[]; reasons: FeedbackReason[] }>(`${C}/me/pending`),
+  submit: (sessionId: string, b: { rating: number; reasons?: string[]; comment?: string }) => api.post<{ ok: boolean; rating: number }>(`${C}/me/${sessionId}/feedback`, b),
+  /** مدیر / مسئول نظافت */
+  list: (p: { cleanerId?: string; low?: boolean; limit?: number } = {}) => {
+    const qs = new URLSearchParams()
+    if (p.cleanerId) qs.set('cleanerId', p.cleanerId)
+    if (p.low) qs.set('low', '1')
+    if (p.limit) qs.set('limit', String(p.limit))
+    return api.get<{ summary: CleanerSummary[]; items: FeedbackItem[]; reasons: FeedbackReason[] }>(`${C}/feedback?${qs.toString()}`)
+  },
+}

@@ -60,5 +60,8 @@ VALUES
    'staff', 'cleaning_homes', '{}', '09120000005', '{"shift":"morning"}', true),
   ('33333333-3333-3333-3333-333333333306', '11111111-1111-1111-1111-111111111111',
    'حسین نظافت مجموعه', 'cleanhub', '$2b$10$Fjm6G5zzq8KYymR75QuU/On5WWQSKjm96uN1jTYgFuFp7BPmXTUoq',
-   'staff', 'cleaning', '{}', '09120000006', '{"shift":"morning"}', true)
+   'staff', 'cleaning', '{}', '09120000006', '{"shift":"morning"}', true),
+  ('33333333-3333-3333-3333-333333333307', '11111111-1111-1111-1111-111111111111',
+   'مریم مسئول نظافت', 'cleanboss', '$2b$10$Fjm6G5zzq8KYymR75QuU/On5WWQSKjm96uN1jTYgFuFp7BPmXTUoq',
+   'staff', 'cleaning_supervisor', '{}', '09120000007', '{"shift":"morning"}', true)
 ON CONFLICT (id) DO NOTHING;

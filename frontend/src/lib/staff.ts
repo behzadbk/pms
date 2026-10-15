@@ -8,14 +8,14 @@
  */
 import {
   ClipboardList, ConciergeBell, Coffee, ChefHat, ShieldCheck, Wrench, CalendarRange, Megaphone,
-  UtensilsCrossed, BookOpenText, SprayCan, type LucideIcon,
+  UtensilsCrossed, BookOpenText, SprayCan, Star, type LucideIcon,
 } from 'lucide-react'
 
-export type StaffPermission = 'lobby' | 'amenity_desk' | 'kitchen' | 'cafe' | 'security' | 'maintenance' | 'housekeeping'
-/** cleaning = نظافت مجموعه (کادر خود ساختمان) · cleaning_homes = نظافت منازل (داخل واحدها، با ثبت ساعت) */
-export type StaffDepartment = Exclude<StaffPermission, 'housekeeping'> | 'cleaning' | 'cleaning_homes'
+export type StaffPermission = 'lobby' | 'amenity_desk' | 'kitchen' | 'cafe' | 'security' | 'maintenance' | 'housekeeping' | 'cleaning_review'
+/** cleaning = نظافت مجموعه (کادر خود ساختمان) · cleaning_homes = نظافت منازل (داخل واحدها، با ثبت ساعت) · cleaning_supervisor = مسئول نظافت (بازخورد ساکنان) */
+export type StaffDepartment = Exclude<StaffPermission, 'housekeeping' | 'cleaning_review'> | 'cleaning' | 'cleaning_homes' | 'cleaning_supervisor'
 
-export const ALL_PERMISSIONS: StaffPermission[] = ['lobby', 'amenity_desk', 'kitchen', 'cafe', 'security', 'maintenance', 'housekeeping']
+export const ALL_PERMISSIONS: StaffPermission[] = ['lobby', 'amenity_desk', 'kitchen', 'cafe', 'security', 'maintenance', 'housekeeping', 'cleaning_review']
 
 export const permissionInfo: Record<StaffPermission, { label: string; desc: string; icon: LucideIcon }> = {
   lobby: { label: 'پنل لابی (ورودی)', desc: 'پذیرش مهمان و بررسی کد، ثبت و تحویل مرسوله', icon: ConciergeBell },
@@ -25,6 +25,7 @@ export const permissionInfo: Record<StaffPermission, { label: string; desc: stri
   security: { label: 'نگهبانی', desc: 'کنترل مهمان، مرسولات و تردد خودرو', icon: ShieldCheck },
   maintenance: { label: 'تأسیسات و نگهداری', desc: 'کارهای تعمیر و سرویس دوره‌ای', icon: Wrench },
   housekeeping: { label: 'نظافت منازل', desc: 'انتخاب واحد و ثبت ساعت شروع و پایان نظافت منزل؛ مدت از سهمیه‌ی واحد کم می‌شود و مازاد به شارژ می‌رود', icon: SprayCan },
+  cleaning_review: { label: 'بازخورد نظافت', desc: 'دیدن نمره و دلیل ساکنان از نظافت منازل، میانگین هر نظافتچی و اعلان بازخورد بد', icon: Star },
 }
 
 export const departments: { id: StaffDepartment; label: string; defaults: StaffPermission[] }[] = [
@@ -36,6 +37,7 @@ export const departments: { id: StaffDepartment; label: string; defaults: StaffP
   { id: 'maintenance', label: 'تأسیسات', defaults: ['maintenance'] },
   { id: 'cleaning', label: 'نظافت مجموعه', defaults: ['maintenance'] },
   { id: 'cleaning_homes', label: 'نظافت منازل', defaults: ['housekeeping'] },
+  { id: 'cleaning_supervisor', label: 'مسئول نظافت', defaults: ['cleaning_review'] },
 ]
 
 export function departmentLabel(id?: string | null) {
@@ -75,6 +77,7 @@ export const staffNavItems: StaffNavItem[] = [
   { to: '/staff/work-orders', label: 'کارهای نگهداری', icon: Wrench, permission: 'maintenance' },
   { to: '/staff/schedule', label: 'سرویس دوره‌ای', icon: ClipboardList, permission: 'maintenance' },
   { to: '/staff/housekeeping', label: 'نظافت منازل', icon: SprayCan, permission: 'housekeeping' },
+  { to: '/staff/cleaning-reviews', label: 'بازخورد نظافت', icon: Star, permission: 'cleaning_review' },
   { to: '/staff/announcements', label: 'اعلانات', icon: Megaphone, permission: null },
 ]
 

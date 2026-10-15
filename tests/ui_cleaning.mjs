@@ -35,7 +35,7 @@ const shot = async (page, name) => { await page.waitForTimeout(450); await page.
 const noHScroll = (page) => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)
 
 // دادهٔ تمیز + سهمیهٔ ۳ ساعته (تا مازاد دیده شود) — واحدی که ساکن دارد
-sql('delete from entitlement.cleaning_sessions; delete from entitlement.usage_events')
+sql('delete from entitlement.cleaning_feedback; delete from entitlement.cleaning_sessions; delete from entitlement.usage_events')
 const unitNo = sql("select u.unit_number from residency.memberships m join property.units u on u.id=m.unit_id where m.status='active' and m.role in ('head','adult','senior') limit 1")
 
 {
@@ -135,6 +135,72 @@ const unitNo = sql("select u.unit_number from residency.memberships m join prope
   await page.goto(`${BASE}/staff/housekeeping`)
   await page.waitForURL(/\/admin/, { timeout: 8000 })
   ok('مدیر از مسیر کارکنان به پنل مدیر برمی‌گردد (مثل بقیهٔ پنل‌ها)', page.url().includes('/admin'), page.url())
+}
+
+// ═══════════ بازخورد ساکن از نظافت ═══════════
+{
+  const api = async (path, method = 'GET', token, body) => {
+    const r = await fetch(`${BASE}/api${path}`, { method, headers: { 'content-type': 'application/json', ...(token ? { authorization: `Bearer ${token}` } : {}) }, body: body ? JSON.stringify(body) : undefined })
+    return r.json()
+  }
+  const tok = async (u) => (await api('/identity/auth/login', 'POST', null, { email: u, password: 'Passw0rd!', tenantSubdomain: 'borj-aftab' })).accessToken
+  const [cleanerT, residentT] = [await tok('cleaner'), await tok('resident@borj-aftab.test')]
+  const unit = (await api('/facility/entitlements/me', 'GET', residentT)).unit.id
+  sql('delete from entitlement.cleaning_feedback')
+  sql("delete from notification.inbox where kind='cleaning_feedback'")
+  sql(`delete from entitlement.cleaning_sessions where unit_id='${unit}'`)
+  for (const h of [9, 5]) {
+    const st = new Date(Date.now() - h * 3600_000)
+    await api('/facility/entitlements/cleaning/manual', 'POST', cleanerT, { unitId: unit, startedAt: st.toISOString(), endedAt: new Date(st.getTime() + 50 * 60_000).toISOString() })
+  }
+
+  const page = await session()
+  await login(page, 'resident@borj-aftab.test')
+  await page.goto(`${BASE}/resident/offers`)
+  await page.waitForSelector('text=نظافت منزل شما انجام شد؛ چطور بود؟')
+  ok('ساکن دو نظافت در انتظار نمره می‌بیند', await page.locator('text=نظافت منزل شما انجام شد؛ چطور بود؟').count() === 2)
+  await shot(page, '08-rate-cards')
+  // نمره‌ی خوب: یک لمس
+  await page.locator('button[aria-label^="۵ ستاره"]').first().click()
+  await page.waitForSelector('text=ممنون از نظرتان')
+  ok('۵ ستاره با یک لمس ثبت شد', sql('select count(*) from entitlement.cleaning_feedback where rating=5') === '1')
+  await page.waitForTimeout(2600)
+  // نمره‌ی بد: دلیل آماده + متن
+  await page.locator('button[aria-label^="۲ ستاره"]').first().click()
+  await page.waitForSelector('text=مشکل چه بود؟')
+  ok('بدون دلیل دکمه‌ی ثبت غیرفعال است', await page.locator('button:has-text("ثبت نظر")').isDisabled())
+  await page.click('button:has-text("تمیز نشد")')
+  await page.click('button:has-text("دیر آمد یا زود رفت")')
+  await page.fill('textarea[aria-label="توضیح"]', 'پنجره‌ها شسته نشد')
+  await shot(page, '09-rate-low')
+  ok('بدون اسکرول افقی (نمره‌ی بد)', await noHScroll(page))
+  await page.click('button:has-text("ثبت نظر")')
+  await page.waitForSelector('text=به مسئول نظافت رسید')
+  ok('نمره‌ی بد با دلیل ثبت شد', sql("select count(*) from entitlement.cleaning_feedback where rating=2 and reasons @> array['not_clean','late']") === '1')
+  ok('اعلان برای مدیر و مسئول نظافت', sql("select count(*) from notification.inbox where kind='cleaning_feedback'") === '2')
+
+  // مسئول نظافت
+  const boss = await session()
+  await login(boss, 'cleanboss')
+  await boss.waitForURL(/\/staff\/cleaning-reviews/, { timeout: 8000 }).catch(() => {})
+  ok('مسئول نظافت مستقیم به صفحه‌ی بازخورد می‌رود', boss.url().includes('/staff/cleaning-reviews'), boss.url())
+  await boss.waitForSelector('text=میانگین ۹۰ روز اخیر')
+  await boss.waitForSelector('text=تمیز نشد')
+  ok('دلیل‌ها و متن ساکن دیده می‌شود', await boss.locator('text=پنجره‌ها شسته نشد').count() === 1)
+  await shot(boss, '10-reviews')
+  ok('بدون اسکرول افقی (بازخوردها)', await noHScroll(boss))
+  await boss.click('button:has-text("فقط بدها")')
+  await boss.waitForFunction(() => document.querySelectorAll('[role=img][aria-label$="ستاره"]').length < 5)
+  ok('فیلتر «فقط بدها»', await boss.locator('text=پنجره‌ها شسته نشد').count() === 1)
+  const bossMenu = (await boss.locator('nav a').allInnerTexts()).join('|')
+  ok('مسئول نظافت پنل ثبت نظافت را در منو ندارد', !bossMenu.includes('نظافت منازل'), bossMenu)
+
+  // مدیر
+  const adm = await session()
+  await login(adm, 'admin@borj-aftab.test')
+  await adm.goto(`${BASE}/admin/cleaning-feedback`)
+  await adm.waitForSelector('text=بازخورد نظافت منازل')
+  ok('مدیر صفحه‌ی بازخورد را دارد', await adm.locator('text=تمیز نشد').count() >= 1)
 }
 
 ok('بدون خطای JS در کنسول', errors.length === 0, errors.join(' | '))
