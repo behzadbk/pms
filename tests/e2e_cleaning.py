@@ -40,22 +40,36 @@ iso = lambda d: d.astimezone(timezone.utc).isoformat().replace('+00:00', 'Z')
 now = datetime.now(timezone.utc).replace(second=0, microsecond=0)
 C = f'{FAC}/entitlements/cleaning'
 
-sql('delete from entitlement.cleaning_feedback; delete from entitlement.cleaning_sessions; delete from entitlement.usage_events')  # دیتابیس تست تمیز
+sql('delete from entitlement.cleaning_tasks; delete from entitlement.cleaning_feedback; delete from entitlement.cleaning_sessions; delete from entitlement.usage_events')  # دیتابیس تست تمیز
 print('— آماده‌سازی: الگوی آفرها (خدمت «خانه‌داری») توسط مدیر')
 admin = login('admin@borj-aftab.test')
 s, r = call('POST', f'{FAC}/entitlements/config/apply-template', {'template': 'baran3', 'overwrite': False}, admin)
 check('apply-template', s in (200, 201), (s, r))
 
-cleaner = login('cleaner'); hub = login('cleanhub'); lobby = login('lobby')
+cleaner = login('cleaner'); hub = login('cleanhub'); lobby = login('lobby'); boss = login('cleanboss')
+CLEANER_ID = sql("select id from identity.users where username='cleaner'")
+def task_for(unit_id, token=None):
+    """مسئول نظافت کار «نظافت منزل» را می‌چیند و به نظافتچی می‌سپارد"""
+    s, r = call('POST', f'{C}/tasks', {'kind': 'unit', 'unitId': unit_id, 'assigneeId': CLEANER_ID}, token or boss)
+    assert s == 201, (s, r)
+    return r['id']
+def manual(unit_id, st, en, note=None):
+    tid = task_for(unit_id)
+    return call('POST', f'{C}/tasks/{tid}/manual', {'startedAt': iso(st), 'endedAt': iso(en), **({'note': note} if note else {})}, cleaner)
+def start(unit_id):
+    tid = task_for(unit_id)
+    return call('POST', f'{C}/tasks/{tid}/start', None, cleaner)
+
 
 print('— دسترسی')
-s, _ = call('GET', f'{C}/home', None, hub); check('نظافت مجموعه به پنل منازل دسترسی ندارد (403)', s == 403, s)
+s, _ = call('GET', f'{C}/home', None, hub); check('همکار هم‌دپارتمان هم پنل را دارد (200)', s == 200, s)
 s, _ = call('GET', f'{C}/home', None, lobby); check('لابی‌من دسترسی ندارد (403)', s == 403, s)
 s, _ = call('GET', f'{C}/home', None); check('بدون توکن 401', s == 401, s)
 s, home = call('GET', f'{C}/home', None, cleaner); check('نظافتچی منازل home را می‌بیند', s == 200 and home['service']['configured'] and home['active'] is None, (s, home))
 
 print('— انتخاب واحد')
-s, units = call('GET', f'{C}/units', None, cleaner); check('فهرست واحدها', s == 200 and len(units) > 0, (s, units))
+s, units = call('GET', f'{C}/tasks/units', None, boss); check('مسئول واحدها را جست‌وجو می‌کند', s == 200 and len(units) > 0, (s, units))
+s, _ = call('GET', f'{C}/tasks/units', None, cleaner); check('نظافتچی جست‌وجوی واحد ندارد (403)', s == 403, s)
 # واحدی با ساکن فعال (تا اعلان هم تست شود)؛ دومی هر واحد دیگری
 res_unit = sql("select unit_id from residency.memberships where status='active' and role in ('head','adult','senior') limit 1")
 u = next((x for x in units if x['id'] == res_unit), units[0])
@@ -71,25 +85,25 @@ check('مدیر سهمیه‌ی سطح را ۳ ساعت می‌کند', s == 200
 s, info = call('GET', f'{C}/units/{u["id"]}', None, cleaner); line = info['line']
 check('کارت سهمیه فوراً ۳ ساعت را نشان می‌دهد', line['included'] == 3, line)
 included = line['included']; print(f'    واحد {u["unit_number"]} · سهمیه {included} ساعت · مصرف {line["used"]}')
-s, none = call('GET', f'{C}/units?q=zzzz', None, cleaner); check('جست‌وجوی بی‌نتیجه ⇒ لیست خالی', s == 200 and none == [])
+s, none = call('GET', f'{C}/tasks/units?q=zzzz', None, boss); check('جست‌وجوی بی‌نتیجه ⇒ لیست خالی', s == 200 and none == [])
 s, _ = call('GET', f'{C}/units/not-a-uuid', None, cleaner); check('شناسه نامعتبر 400', s == 400, s)
 
 print('— ثبت دستی داخل سهمیه (۲ ساعت، ظهر دیروز)')
 yday_noon = (now - timedelta(days=1)).replace(hour=9, minute=0)   # ۹:۰۰ UTC ≈ ۱۲:۳۰ تهران ⇒ شیفت day
 s, pv = call('POST', f'{C}/preview', {'unitId': u['id'], 'startedAt': iso(yday_noon), 'endedAt': iso(yday_noon + timedelta(hours=2))}, cleaner)
 check('پیش‌نمایش: ۲ ساعت رایگان و بدون مبلغ', s == 200 and pv['free_qty'] == 2 and pv['overage_qty'] == 0 and pv['amount'] == 0 and pv['shift'] == 'day', (s, pv))
-s, m1 = call('POST', f'{C}/manual', {'unitId': u['id'], 'startedAt': iso(yday_noon), 'endedAt': iso(yday_noon + timedelta(hours=2)), 'note': 'آشپزخانه و سالن'}, cleaner)
+s, m1 = manual(u['id'], yday_noon, yday_noon + timedelta(hours=2), 'آشپزخانه و سالن')
 check('ثبت دستی موفق', s == 201 and m1['session']['status'] == 'done' and m1['result']['amount'] == 0, (s, m1))
 s, info2 = call('GET', f'{C}/units/{u["id"]}', None, cleaner)
 check('سهمیه ۲ ساعت کم شد', abs(info2['line']['used'] - line['used'] - 2) < 1e-6, info2['line'])
-s, ov = call('POST', f'{C}/manual', {'unitId': u['id'], 'startedAt': iso(yday_noon + timedelta(hours=1)), 'endedAt': iso(yday_noon + timedelta(hours=3))}, cleaner)
+s, ov = manual(u['id'], yday_noon + timedelta(hours=1), yday_noon + timedelta(hours=3))
 check('هم‌پوشانی با نظافت قبلی ⇒ 409 با پیام فارسی', s == 409 and 'هم‌پوشانی' in json.dumps(ov, ensure_ascii=False), (s, ov))
 
 print('— تایمر: شروع، شروع دوباره، پایان با مازاد (شیفت اضافه‌کاری)')
-s, st = call('POST', f'{C}/start', {'unitId': u['id']}, cleaner)
-check('شروع نظافت', s == 201 and st['status'] == 'running', (s, st))
-sid = st['id']
-s, again = call('POST', f'{C}/start', {'unitId': units[1]['id']}, cleaner)
+s, st = start(u['id'])
+check('شروع نظافت (کار در حال انجام می‌شود)', s == 200 and st['status'] == 'in_progress' and st['session_id'], (s, st))
+sid = st['session_id']
+s, again = start(units[1]['id'])
 check('شروع همزمان دوم ⇒ 409', s == 409 and 'در جریان' in json.dumps(again, ensure_ascii=False), (s, again))
 s, h2 = call('GET', f'{C}/home', None, cleaner); check('home نظافتِ در جریان را برمی‌گرداند', h2['active'] and h2['active']['id'] == sid)
 s, early = call('POST', f'{C}/{sid}/finish', {}, cleaner)
@@ -114,9 +128,9 @@ notif = sql("select count(*) from notification.inbox where kind='entitlement_cle
 check('اعلان «نظافت منزل انجام شد» برای ساکن', int(notif or 0) >= 1, notif)
 
 print('— لغو و ابطال')
-s, st2 = call('POST', f'{C}/start', {'unitId': units[1]['id']}, cleaner)
-s, c = call('POST', f'{C}/{st2["id"]}/cancel', None, cleaner)
-check('لغو شروع اشتباه ⇒ هیچ مصرفی ثبت نمی‌شود', s == 200 and c['status'] == 'cancelled' and sql(f"select count(*) from entitlement.usage_events where unit_id='{units[1]['id']}' and source='cleaner'") == '0', (s, c))
+s, st2 = start(units[1]['id'])
+s, c = call('POST', f'{C}/{st2["session_id"]}/cancel', None, cleaner)
+check('لغو شروع اشتباه ⇒ هیچ مصرفی ثبت نمی‌شود و کار به فهرست برمی‌گردد', s == 200 and c['status'] == 'cancelled' and sql(f"select status from entitlement.cleaning_tasks where id='{st2['id']}'") == 'assigned' and sql(f"select count(*) from entitlement.usage_events where unit_id='{units[1]['id']}' and source='cleaner'") == '0', (s, c))
 s, v = call('POST', f'{C}/{fin["session"]["id"]}/void', None, cleaner)
 check('ابطال نظافتِ ثبت‌شده', s == 200 and v['status'] == 'void', (s, v))
 amt2 = sql(f"select coalesce(sum(amount),0) from entitlement.usage_events where unit_id='{u['id']}' and status='active'")
@@ -125,10 +139,10 @@ s, hist = call('GET', f'{C}/mine', None, cleaner); check('تاریخچه', s == 
 
 print('— اعتبارسنجی ورودی')
 fut = now + timedelta(hours=3)
-s, f = call('POST', f'{C}/manual', {'unitId': u['id'], 'startedAt': iso(now - timedelta(hours=1)), 'endedAt': iso(fut)}, cleaner); check('پایان در آینده ⇒ 400', s == 400, (s, f))
-s, f = call('POST', f'{C}/manual', {'unitId': u['id'], 'startedAt': iso(now - timedelta(days=5)), 'endedAt': iso(now - timedelta(days=5) + timedelta(hours=1))}, cleaner); check('ثبت دستی بیش از ۴۸ ساعت قبل ⇒ 400', s == 400, (s, f))
-s, f = call('POST', f'{C}/manual', {'unitId': u['id'], 'startedAt': iso(now - timedelta(hours=20)), 'endedAt': iso(now - timedelta(hours=40))}, cleaner); check('پایان قبل از شروع ⇒ 400', s == 400, (s, f))
-s, f = call('POST', f'{C}/start', {'unitId': '00000000-0000-0000-0000-000000000000'}, cleaner); check('واحد ناموجود ⇒ 404', s == 404, (s, f))
+s, f = manual(u['id'], now - timedelta(hours=1), fut); check('پایان در آینده ⇒ 400', s == 400, (s, f))
+s, f = manual(u['id'], now - timedelta(days=5), now - timedelta(days=5) + timedelta(hours=1)); check('ثبت دستی بیش از ۴۸ ساعت قبل ⇒ 400', s == 400, (s, f))
+s, f = manual(u['id'], now - timedelta(hours=20), now - timedelta(hours=40)); check('پایان قبل از شروع ⇒ 400', s == 400, (s, f))
+s, f = call('POST', f'{C}/tasks', {'kind': 'unit', 'unitId': '00000000-0000-0000-0000-000000000000'}, boss); check('واحد ناموجود ⇒ 404', s == 404, (s, f))
 
 print('— مدیر هم می‌تواند')
 s, h = call('GET', f'{C}/home', None, admin); check('مدیر دسترسی دارد', s == 200)

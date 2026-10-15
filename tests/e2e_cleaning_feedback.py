@@ -37,16 +37,29 @@ now = datetime.now(timezone.utc).replace(second=0, microsecond=0)
 C = f'{FAC}/entitlements/cleaning'
 
 admin = login('admin@borj-aftab.test'); cleaner = login('cleaner'); boss = login('cleanboss'); lobby = login('lobby'); resident = login('resident@borj-aftab.test')
+CLEANER_ID = sql("select id from identity.users where username='cleaner'")
+def task_for(unit_id, token=None):
+    """مسئول نظافت کار «نظافت منزل» را می‌چیند و به نظافتچی می‌سپارد"""
+    s, r = call('POST', f'{C}/tasks', {'kind': 'unit', 'unitId': unit_id, 'assigneeId': CLEANER_ID}, token or boss)
+    assert s == 201, (s, r)
+    return r['id']
+def manual(unit_id, st, en, note=None):
+    tid = task_for(unit_id)
+    return call('POST', f'{C}/tasks/{tid}/manual', {'startedAt': iso(st), 'endedAt': iso(en), **({'note': note} if note else {})}, cleaner)
+def start(unit_id):
+    tid = task_for(unit_id)
+    return call('POST', f'{C}/tasks/{tid}/start', None, cleaner)
+
 call('POST', f'{FAC}/entitlements/config/apply-template', {'template': 'baran3', 'overwrite': False}, admin)
 
 s, me = call('GET', f'{FAC}/entitlements/me', None, resident)
 unit_id = me['unit']['id']
-sql('delete from entitlement.cleaning_feedback; delete from entitlement.cleaning_sessions; delete from entitlement.usage_events')  # دیتابیس تست تمیز (نظافتچی بازهٔ هم‌پوشان ندارد)
+sql('delete from entitlement.cleaning_tasks; delete from entitlement.cleaning_feedback; delete from entitlement.cleaning_sessions; delete from entitlement.usage_events')  # دیتابیس تست تمیز (نظافتچی بازهٔ هم‌پوشان ندارد)
 sql("delete from notification.inbox where kind='cleaning_feedback'")
 
 def clean(hours_ago_start):
     st = now - timedelta(hours=hours_ago_start)
-    s, r = call('POST', f'{C}/manual', {'unitId': unit_id, 'startedAt': iso(st), 'endedAt': iso(st + timedelta(minutes=45))}, cleaner)
+    s, r = manual(unit_id, st, st + timedelta(minutes=45))
     assert s == 201, (s, r)
     return r['session']['id']
 
@@ -78,13 +91,13 @@ check('۱ ستاره با دلیل نوشتنی', s == 201, (s, r))
 n = sql("select count(*) from notification.inbox where kind='cleaning_feedback'")
 check('هر بازخورد بد اعلان به مدیر و مسئول نظافت (۲ بازخورد × ۲ گیرنده)', n == '4', n)
 roles = sql("select string_agg(distinct recipient_role, ',' order by recipient_role) from notification.inbox where kind='cleaning_feedback'")
-check('گیرندگان: مدیر و مسئول نظافت', roles == 'admin,perm:cleaning_review', roles)
+check('گیرندگان: مدیر و مسئول نظافت', roles == 'admin,perm:cleaning_supervisor', roles)
 s, p = call('GET', f'{C}/me/pending', None, resident); check('بعد از نمره‌دادن، موردی در انتظار نمی‌ماند', s == 200 and p['pending'] == [], p)
 
 print('— امنیت: نظافت واحد دیگر / نظافت باطل / مهلت')
 other = sql(f"select id from property.units where id <> '{unit_id}' limit 1")
 st = now - timedelta(hours=2)
-s, r = call('POST', f'{C}/manual', {'unitId': other, 'startedAt': iso(st), 'endedAt': iso(st + timedelta(minutes=40))}, cleaner)
+s, r = manual(other, st, st + timedelta(minutes=40))
 s, x = call('POST', f'{C}/me/{r["session"]["id"]}/feedback', {'rating': 5}, resident)
 check('نمره دادن به نظافت واحد دیگر ⇒ 404', s == 404, (s, x))
 v = clean(20)
@@ -105,6 +118,6 @@ s, _ = call('GET', f'{C}/feedback', None, cleaner); check('خود نظافتچی
 s, _ = call('GET', f'{C}/feedback', None, lobby); check('لابی‌من نمی‌بیند (403)', s == 403, s)
 s, _ = call('GET', f'{C}/feedback', None, resident); check('ساکن فهرست کل را نمی‌بیند (403)', s == 403, s)
 s, _ = call('GET', f'{C}/feedback?cleanerId=zzz', None, admin); check('cleanerId نامعتبر ⇒ 400', s == 400, s)
-s, h = call('GET', f'{C}/home', None, boss); check('مسئول نظافت پنل ثبت نظافت را نمی‌بیند (جدا از تیم)', s == 403, s)
+s, h = call('GET', f'{C}/home', None, boss); check('مسئول نظافت هم عضو دپارتمان است و پنل ثبت ساعت را دارد (200)', s == 200, s)
 
 print(f'\n{ok} موفق · {bad} ناموفق'); sys.exit(1 if bad else 0)

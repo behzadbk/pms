@@ -1,7 +1,8 @@
 /**
- * کلاینت پنل «نظافت منازل» (facility-service، مسیر /api/facility/entitlements/cleaning).
- * نظافتچی واحد را انتخاب و شروع/پایان را ثبت می‌کند؛ مدت از سهمیه‌ی ساعتِ «خانه‌داری» واحد کم می‌شود و مازاد
- * طبق نرخ شیفت در شارژ ماه بعد می‌آید (همان موتور آفرها — هیچ منطق مالی موازی نیست).
+ * کلاینت دپارتمان نظافت (facility-service، مسیر /api/facility/entitlements/cleaning).
+ *  - ساکن درخواست نظافت منزل می‌دهد ← مسئول نظافت می‌چیند و به یکی از کادر واگذار می‌کند (tasksApi)
+ *  - نظافتچی فقط کارهای واگذارشده به خودش را شروع/پایان می‌کند؛ مدتِ نظافت منزل از سهمیه‌ی ساعتِ «خانه‌داری»
+ *    واحد کم می‌شود و مازاد طبق نرخ شیفت در شارژ ماه بعد می‌آید (همان موتور آفرها — بدون منطق مالی موازی).
  */
 import { api } from './client'
 import type { ServiceLine, Tier, TierMatch } from './entitlements'
@@ -23,6 +24,7 @@ export interface CleaningSession {
   status: CleaningStatus
   entry: 'timer' | 'manual'
   note: string | null
+  task_id: string | null
   quantity: number | null
   unit_label: string | null
   tariff_title: string | null
@@ -54,7 +56,6 @@ export interface CleaningOutcome {
 export interface CleaningHome {
   service: { configured: boolean; unit_label: string }
   active: CleaningSession | null
-  recent_units: CleaningUnit[]
   month: { period_label: string; sessions: number; minutes: number; overage_amount: number }
 }
 
@@ -69,15 +70,12 @@ export interface CleaningCommit { session: CleaningSession; result: CleaningOutc
 
 export const cleaningApi = {
   home: () => api.get<CleaningHome>(`${C}/home`),
-  units: (q: string) => api.get<CleaningUnit[]>(`${C}/units?q=${encodeURIComponent(q)}`),
   unit: (id: string) => api.get<CleaningUnitInfo>(`${C}/units/${id}`),
   mine: (limit = 30) => api.get<CleaningSession[]>(`${C}/mine?limit=${limit}`),
   preview: (b: { unitId: string; startedAt: string; endedAt?: string }) => api.post<CleaningOutcome>(`${C}/preview`, b),
-  start: (unitId: string) => api.post<CleaningSession>(`${C}/start`, { unitId }),
   finish: (id: string, b: { endedAt?: string; note?: string } = {}) => api.post<CleaningCommit>(`${C}/${id}/finish`, b),
   cancel: (id: string) => api.post<CleaningSession>(`${C}/${id}/cancel`),
   voidSession: (id: string) => api.post<CleaningSession>(`${C}/${id}/void`),
-  manual: (b: { unitId: string; startedAt: string; endedAt: string; note?: string }) => api.post<CleaningCommit>(`${C}/manual`, b),
 }
 
 // ───────────── بازخورد ساکن از نظافت ─────────────
@@ -111,4 +109,81 @@ export const cleaningFeedbackApi = {
     if (p.limit) qs.set('limit', String(p.limit))
     return api.get<{ summary: CleanerSummary[]; items: FeedbackItem[]; reasons: FeedbackReason[] }>(`${C}/feedback?${qs.toString()}`)
   },
+}
+
+// ───────────── کارهای نظافت (درخواست ← مسئول ← واگذاری ← نظافتچی) ─────────────
+
+export type TaskKind = 'unit' | 'common' | 'custom'
+export type TaskStatus = 'new' | 'assigned' | 'in_progress' | 'done' | 'cancelled'
+export type TaskSlot = 'any' | 'morning' | 'afternoon' | 'evening'
+
+export const slotLabel: Record<TaskSlot, string> = { any: 'هر ساعتی', morning: 'صبح', afternoon: 'بعدازظهر', evening: 'عصر' }
+export const kindLabel: Record<TaskKind, string> = { unit: 'نظافت منزل', common: 'نظافت مشاعات', custom: 'کار موردی' }
+export const statusLabel: Record<TaskStatus, string> = {
+  new: 'در انتظار واگذاری', assigned: 'واگذار شد', in_progress: 'در حال انجام', done: 'انجام شد', cancelled: 'لغو شد',
+}
+
+export interface CleaningTask {
+  id: string
+  kind: TaskKind
+  kind_label: string
+  title: string
+  details: string | null
+  status: TaskStatus
+  source: 'resident' | 'supervisor'
+  unit_id: string | null
+  unit_number: string | null
+  floor: number | null
+  want_date: string | null
+  want_slot: TaskSlot
+  want_slot_label: string
+  assignee_id: string | null
+  assignee_name: string | null
+  assigned_at: string | null
+  session_id: string | null
+  started_at: string | null
+  done_at: string | null
+  done_note: string | null
+  created_at: string
+}
+
+export interface TeamMember {
+  id: string
+  full_name: string
+  is_dept_head: boolean
+  open_count: number
+  running: boolean
+  done_today: number
+  rating: { average: number; count: number } | null
+}
+
+export interface CleaningBoard { team: TeamMember[]; tasks: CleaningTask[]; counts: { new: number } }
+
+export interface NewTaskInput {
+  kind: TaskKind
+  unitId?: string
+  title?: string
+  details?: string
+  wantDate?: string
+  wantSlot?: TaskSlot
+  assigneeId?: string
+}
+
+export const cleaningTasksApi = {
+  // ساکن
+  myRequests: () => api.get<{ requests: CleaningTask[]; max_open: number }>(`${C}/me/requests`),
+  request: (b: { wantDate?: string; wantSlot?: TaskSlot; note?: string }) => api.post<CleaningTask>(`${C}/me/requests`, b),
+  cancelRequest: (id: string) => api.post<CleaningTask>(`${C}/me/requests/${id}/cancel`),
+  // مسئول نظافت / مدیر
+  board: () => api.get<CleaningBoard>(`${C}/tasks/board`),
+  units: (q: string) => api.get<CleaningUnit[]>(`${C}/tasks/units?q=${encodeURIComponent(q)}`),
+  create: (b: NewTaskInput) => api.post<CleaningTask>(`${C}/tasks`, b),
+  assign: (id: string, b: { assigneeId: string; wantDate?: string; wantSlot?: TaskSlot }) => api.post<CleaningTask>(`${C}/tasks/${id}/assign`, b),
+  cancel: (id: string, reason?: string) => api.post<CleaningTask>(`${C}/tasks/${id}/cancel`, { reason }),
+  // نظافتچی
+  mine: () => api.get<CleaningTask[]>(`${C}/tasks/mine`),
+  start: (id: string) => api.post<CleaningTask>(`${C}/tasks/${id}/start`),
+  finish: (id: string, note?: string) => api.post<CleaningTask>(`${C}/tasks/${id}/finish`, { note }),
+  undo: (id: string) => api.post<CleaningTask>(`${C}/tasks/${id}/undo`),
+  manual: (id: string, b: { startedAt: string; endedAt: string; note?: string }) => api.post<CleaningCommit>(`${C}/tasks/${id}/manual`, b),
 }

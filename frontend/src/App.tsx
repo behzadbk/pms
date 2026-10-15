@@ -66,7 +66,7 @@ const GuardParcels = lazy(() => import('./pages/guard/Parcels').then((m) => ({ d
 const GuardTraffic = lazy(() => import('./pages/guard/Traffic').then((m) => ({ default: m.GuardTraffic })))
 const StaffWorkOrders = lazy(() => import('./pages/staff/WorkOrders').then((m) => ({ default: m.StaffWorkOrders })))
 const StaffSchedule = lazy(() => import('./pages/staff/Schedule').then((m) => ({ default: m.StaffSchedule })))
-const CleaningReviews = lazy(() => import('./pages/shared/CleaningReviews').then((m) => ({ default: m.CleaningReviews })))
+const CleaningBoard = lazy(() => import('./pages/shared/CleaningBoard').then((m) => ({ default: m.CleaningBoard })))
 const StaffHousekeeping = lazy(() => import('./pages/staff/Housekeeping').then((m) => ({ default: m.StaffHousekeeping })))
 const StaffKitchenDisplay = lazy(() => import('./pages/staff/KitchenDisplay').then((m) => ({ default: m.StaffKitchenDisplay })))
 const StaffMenuManager = lazy(() => import('./pages/staff/MenuManager').then((m) => ({ default: m.StaffMenuManager })))
@@ -192,7 +192,7 @@ function AppRoutes() {
         <Route path="/admin/tickets" element={<RequireRole role="admin"><AdminTickets /></RequireRole>} />
         <Route path="/admin/announcements" element={<RequireRole role="admin"><AdminAnnouncements /></RequireRole>} />
         <Route path="/admin/reservations" element={<RequireRole role="admin"><AmenityManager /></RequireRole>} />
-        <Route path="/admin/cleaning-feedback" element={<RequireRole role="admin"><CleaningReviews /></RequireRole>} />
+        <Route path="/admin/cleaning-board" element={<RequireRole role="admin"><CleaningBoard /></RequireRole>} />
         <Route path="/admin/entitlements" element={<RequireRole role="admin"><AdminEntitlements /></RequireRole>} />
         <Route path="/admin/rules" element={<RequireRole role="admin"><AdminRules /></RequireRole>} />
         <Route path="/admin/amenity-rules" element={<Navigate to="/admin/reservations?tab=setup" replace />} />
@@ -249,7 +249,7 @@ function AppRoutes() {
         <Route path="/staff/security" element={<RequirePermission permission="security"><StaffSecurityDesk /></RequirePermission>} />
         <Route path="/staff/work-orders" element={<RequirePermission permission="maintenance"><StaffWorkOrders /></RequirePermission>} />
         <Route path="/staff/schedule" element={<RequirePermission permission="maintenance"><StaffSchedule /></RequirePermission>} />
-        <Route path="/staff/cleaning-reviews" element={<RequirePermission permission="cleaning_review"><CleaningReviews /></RequirePermission>} />
+        <Route path="/staff/cleaning-board" element={<RequirePermission permission="cleaning_supervisor"><CleaningBoard /></RequirePermission>} />
         <Route path="/staff/housekeeping" element={<RequirePermission permission="housekeeping"><StaffHousekeeping /></RequirePermission>} />
         <Route path="/staff/announcements" element={<RequireRole role="staff"><AnnouncementsFeed /></RequireRole>} />
 

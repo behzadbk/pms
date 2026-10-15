@@ -22,9 +22,9 @@ import { EntitlementsService, type EventRow, type PeriodType } from './entitleme
 import { faDigits, faMoney, notify, unitRecipients } from './notify'
 
 /**
- * نظافت منزل — پنل تیم «نظافت منازل».
+ * نظافت منزل — ثبت ساعت کارِ واگذارشده به نظافتچی (دپارتمان نظافت).
  *
- * نظافتچی واحد را انتخاب و شروع/پایان را ثبت می‌کند؛ مدت کار با «ساعت شروع» در شیفتِ نرخ می‌نشیند و از سهمیه‌ی
+ * نظافتچی کارِ «نظافت منزل» را که مسئول نظافت به او سپرده شروع/پایان می‌کند؛ مدت کار با «ساعت شروع» در شیفتِ نرخ می‌نشیند و از سهمیه‌ی
  * ساعتِ خدمت «خانه‌داری» همان واحد کم می‌شود. مازاد را خودِ موتور آفرها (EntitlementsService.record + allocate)
  * محاسبه می‌کند و در صدور شارژ ماه بعد به شارژ واحد اضافه می‌شود — همین‌جا هیچ منطق مالی موازی نیست.
  */
@@ -41,7 +41,6 @@ const BACKDATE_LIMIT_MS = 48 * 3600_000
 /** تحمل اختلاف ساعت گوشی و سرور */
 const CLOCK_SKEW_MS = 2 * 60_000
 
-const faToEn = (s: string) => s.replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d))).replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)))
 const clock = (d: Date) => new Intl.DateTimeFormat('fa-IR', { timeZone: 'Asia/Tehran', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(d)
 
 export interface CleaningSession {
@@ -54,6 +53,7 @@ export interface CleaningSession {
   status: 'running' | 'done' | 'cancelled' | 'void'
   entry: 'timer' | 'manual'
   note: string | null
+  task_id: string | null
   /** مقدار ثبت‌شده به «واحد خدمت» (ساعت یا دقیقه) */
   quantity: number | null
   unit_label: string | null
@@ -103,7 +103,7 @@ interface TariffRow {
 }
 
 const SESSION_SELECT = `
-  SELECT s.id, s.unit_id, u.unit_number, u.floor, s.started_at, s.ended_at, s.status, s.entry, s.note,
+  SELECT s.id, s.unit_id, u.unit_number, u.floor, s.started_at, s.ended_at, s.status, s.entry, s.note, s.task_id,
          e.quantity::float8 AS quantity, sv.unit_label, t.title AS tariff_title,
          COALESCE(e.quota_qty, 0)::float8 AS quota_qty, COALESCE(e.overage_qty, 0)::float8 AS overage_qty, COALESCE(e.amount, 0)::float8 AS amount,
          COALESCE(e.billed_charge_id IS NOT NULL, false) AS billed
@@ -234,12 +234,6 @@ export class CleaningService {
 
     const active = await client.query<SessionDb>(`${SESSION_SELECT} WHERE s.cleaner_id = $1 AND s.status = 'running' LIMIT 1`, [user.sub])
 
-    const recent = await client.query(
-      `SELECT u.id, u.unit_number, u.floor, u.area_sqm::float8 AS area
-         FROM entitlement.cleaning_sessions s JOIN property.units u ON u.id = s.unit_id
-        WHERE s.cleaner_id = $1 AND s.status IN ('done', 'running')
-        GROUP BY u.id ORDER BY max(s.started_at) DESC LIMIT 6`, [user.sub])
-
     const period = tehranPeriod()
     const month = await client.query<{ sessions: number; minutes: number; amount: number }>(
       `SELECT count(*)::int AS sessions,
@@ -251,17 +245,8 @@ export class CleaningService {
     return {
       service: { configured, unit_label: svcRow.rows[0]?.unit_label ?? 'ساعت' },
       active: active.rows[0] ? withVoid(active.rows[0]) : null,
-      recent_units: recent.rows,
       month: { period_label: periodLabel(period), sessions: month.rows[0].sessions, minutes: month.rows[0].minutes, overage_amount: Math.round(month.rows[0].amount) },
     }
-  }
-
-  async units(client: PoolClient, q: string) {
-    const term = faToEn((q ?? '').trim()).replace(/[%_\\]/g, '').slice(0, 20)
-    const r = await client.query(
-      `SELECT u.id, u.unit_number, u.floor, u.area_sqm::float8 AS area FROM property.units u
-        WHERE ($1 = '' OR u.unit_number ILIKE $1 || '%') ORDER BY length(u.unit_number), u.unit_number LIMIT 20`, [term])
-    return r.rows
   }
 
   /** وضعیتِ سهمیه‌ی ساعتِ یک واحد (برای کارت «چقدر مانده») */
@@ -279,7 +264,7 @@ export class CleaningService {
     return withVoid(r.rows[0])
   }
 
-  async start(client: PoolClient, user: JwtPayload, unitId: string): Promise<CleaningSession> {
+  async start(client: PoolClient, user: JwtPayload, unitId: string, taskId: string | null = null): Promise<CleaningSession> {
     await this.housekeeping(client)
     await this.ent.unitFacts(client, unitId)
     const running = await client.query<{ unit_number: string }>(
@@ -288,8 +273,8 @@ export class CleaningService {
     if (running.rows[0]) throw new ConflictException(`نظافت واحد ${faDigits(running.rows[0].unit_number)} هنوز در جریان است؛ اول آن را پایان دهید`)
     try {
       const ins = await client.query<{ id: string }>(
-        `INSERT INTO entitlement.cleaning_sessions (tenant_id, unit_id, cleaner_id, started_at, entry)
-         VALUES ($1, $2, $3, now(), 'timer') RETURNING id`, [user.tenant_id, unitId, user.sub])
+        `INSERT INTO entitlement.cleaning_sessions (tenant_id, unit_id, cleaner_id, started_at, entry, task_id)
+         VALUES ($1, $2, $3, now(), 'timer', $4) RETURNING id`, [user.tenant_id, unitId, user.sub, taskId])
       return this.sessionById(client, ins.rows[0].id)
     } catch (e) {
       if ((e as { code?: string })?.code === '23505') throw new ConflictException('یک نظافت دیگر هم‌اکنون در جریان است')
@@ -306,7 +291,7 @@ export class CleaningService {
     return this.commit(client, user, { unitId: s.unit_id, startedAt: new Date(s.started_at), endedAt: input.endedAt ?? new Date(), note: input.note, entry: 'timer', sessionId: id })
   }
 
-  async manual(client: PoolClient, user: JwtPayload, input: { unitId: string; startedAt: Date; endedAt: Date; note?: string }) {
+  async manual(client: PoolClient, user: JwtPayload, input: { unitId: string; startedAt: Date; endedAt: Date; note?: string; taskId?: string | null }) {
     this.checkRange(input.startedAt, input.endedAt, true) // پیش از هر کوئری: بازه‌ی نامعتبر خطای فارسیِ روشن می‌گیرد
     const overlap = await client.query<{ unit_number: string }>(
       `SELECT u.unit_number FROM entitlement.cleaning_sessions s JOIN property.units u ON u.id = s.unit_id
@@ -323,6 +308,8 @@ export class CleaningService {
     if (!r.rows[0]) throw new NotFoundException('نظافت یافت نشد')
     if (r.rows[0].status !== 'running') throw new ConflictException('فقط نظافتِ در جریان قابل لغو است؛ برای نظافت ثبت‌شده از «ابطال» استفاده کنید')
     await client.query(`UPDATE entitlement.cleaning_sessions SET status = 'cancelled' WHERE id = $1`, [id])
+    // کار دوباره در فهرست نظافتچی می‌ماند تا درست شروع شود
+    await client.query(`UPDATE entitlement.cleaning_tasks SET status = 'assigned', session_id = NULL, updated_at = now() WHERE session_id = $1`, [id])
     return this.sessionById(client, id)
   }
 
@@ -330,7 +317,7 @@ export class CleaningService {
   private async commit(
     client: PoolClient,
     user: JwtPayload,
-    a: { unitId: string; startedAt: Date; endedAt: Date; note?: string; entry: 'timer' | 'manual'; sessionId?: string },
+    a: { unitId: string; startedAt: Date; endedAt: Date; note?: string; entry: 'timer' | 'manual'; sessionId?: string; taskId?: string | null },
   ): Promise<{ session: CleaningSession; result: CleaningOutcome }> {
     const { svc, variantCode, quantity } = await this.outcome(client, a.unitId, a.startedAt, a.endedAt, { manual: a.entry === 'manual' })
     const userNote = a.note?.trim().slice(0, 120) || null
@@ -347,11 +334,15 @@ export class CleaningService {
         [sessionId, a.endedAt, ev.id, userNote])
     } else {
       const ins = await client.query<{ id: string }>(
-        `INSERT INTO entitlement.cleaning_sessions (tenant_id, unit_id, cleaner_id, started_at, ended_at, status, entry, note, usage_event_id)
-         VALUES ($1, $2, $3, $4, $5, 'done', 'manual', $6, $7) RETURNING id`,
-        [user.tenant_id, a.unitId, user.sub, a.startedAt, a.endedAt, userNote, ev.id])
+        `INSERT INTO entitlement.cleaning_sessions (tenant_id, unit_id, cleaner_id, started_at, ended_at, status, entry, note, usage_event_id, task_id)
+         VALUES ($1, $2, $3, $4, $5, 'done', 'manual', $6, $7, $8) RETURNING id`,
+        [user.tenant_id, a.unitId, user.sub, a.startedAt, a.endedAt, userNote, ev.id, a.taskId ?? null])
       sessionId = ins.rows[0].id
     }
+    // کارِ واگذارشده‌ی مربوط به این نظافت تمام می‌شود
+    await client.query(
+      `UPDATE entitlement.cleaning_tasks SET status = 'done', done_at = $2, session_id = $1, updated_at = now()
+        WHERE id = (SELECT task_id FROM entitlement.cleaning_sessions WHERE id = $1)`, [sessionId, a.endedAt])
 
     // نتیجه‌ی «واقعی» بعد از ثبت (recompute انجام شده): سهم رایگان/مازاد/مبلغ از خودِ رویداد خوانده می‌شود
     const { out } = await this.outcomeAfter(client, a, svc, ev)
@@ -423,6 +414,7 @@ export class CleaningService {
     }
     await this.ent.voidEvent(client, user, s.usage_event_id, 'ابطال نظافت توسط ثبت‌کننده')
     await client.query(`UPDATE entitlement.cleaning_sessions SET status = 'void' WHERE id = $1`, [id])
+    await client.query(`UPDATE entitlement.cleaning_tasks SET status = 'assigned', session_id = NULL, done_at = NULL, updated_at = now() WHERE session_id = $1`, [id])
     return this.sessionById(client, id)
   }
 }

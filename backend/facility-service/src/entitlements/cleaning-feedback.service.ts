@@ -34,9 +34,9 @@ export interface CleanerSummary {
   low_count: number
 }
 
-/** مدیر یا مسئول نظافت (دسترسی cleaning_review) */
+/** مدیر یا مسئول نظافت (دسترسی cleaning_supervisor) */
 export function isCleaningReviewer(user: JwtPayload) {
-  return user.role === 'admin' || (user.role === 'staff' && (user.perms ?? []).includes('cleaning_review'))
+  return user.role === 'admin' || (user.role === 'staff' && (user.perms ?? []).includes('cleaning_supervisor'))
 }
 
 @Injectable()
@@ -85,11 +85,11 @@ export class CleaningFeedbackService {
 
     if (fb.rating <= LOW_RATING_MAX) {
       const why = [...fb.reasons.map(reasonLabel), ...(fb.comment ? [fb.comment] : [])].join('، ')
-      await notify(client, user.tenant_id!, [{ role: 'admin' }, { role: 'perm:cleaning_review' }], {
+      await notify(client, user.tenant_id!, [{ role: 'admin' }, { role: 'perm:cleaning_supervisor' }], {
         kind: 'cleaning_feedback',
         title: 'بازخورد منفی نظافت منزل',
         body: `واحد ${faDigits(s.unit_number)}${s.cleaner_name ? ` — ${s.cleaner_name}` : ''}: ${faDigits(fb.rating)} از ۵ ستاره · ${why}`,
-        link: '/staff/cleaning-reviews',
+        link: '/staff/cleaning-board?tab=reviews',
         ref: sessionId,
       })
     }

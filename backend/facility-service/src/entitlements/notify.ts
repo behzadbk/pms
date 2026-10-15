@@ -13,15 +13,15 @@ export async function unitRecipients(client: PoolClient, unitId: string) {
 export async function notify(
   client: PoolClient,
   tenantId: string,
-  to: { person?: string | null; role?: string | null }[],
+  to: { person?: string | null; login?: string | null; role?: string | null }[],
   n: { kind: string; title: string; body?: string | null; link?: string | null; ref?: string | null },
 ) {
   for (const r of to) {
-    if (!r.person && !r.role) continue
+    if (!r.person && !r.login && !r.role) continue
     await client.query(
-      `INSERT INTO notification.inbox (tenant_id, recipient_person, recipient_role, kind, title, body, link, ref_id)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-      [tenantId, r.person ?? null, r.role ?? null, n.kind, n.title, n.body ?? null, n.link ?? null, n.ref ?? null],
+      `INSERT INTO notification.inbox (tenant_id, recipient_person, recipient_login, recipient_role, kind, title, body, link, ref_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+      [tenantId, r.person ?? null, r.login ?? null, r.role ?? null, n.kind, n.title, n.body ?? null, n.link ?? null, n.ref ?? null],
     )
   }
 }

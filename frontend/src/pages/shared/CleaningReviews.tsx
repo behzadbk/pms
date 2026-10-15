@@ -15,10 +15,10 @@ const when = (iso: string) => {
 const avgText = (n: number) => fa(n.toFixed(1).replace(/\.0$/, '')).replace('.', '٫')
 
 /**
- * بازخورد ساکنان از نظافت منازل — برای مدیر ساختمان (/admin/cleaning-feedback) و مسئول نظافت (/staff/cleaning-reviews).
+ * بازخورد ساکنان از نظافت منازل — برای مدیر ساختمان و مسئول نظافت (تب «بازخورد» در تابلوی نظافت).
  * بالا: میانگین ۹۰ روز اخیر هر نظافتچی (کم‌امتیازها اول)؛ پایین: بازخوردها با دلیل و متن ساکن.
  */
-export function CleaningReviews() {
+export function CleaningReviews({ embedded = false }: { embedded?: boolean } = {}) {
   const [data, setData] = useState<{ summary: CleanerSummary[]; items: FeedbackItem[]; reasons: FeedbackReason[] } | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [low, setLow] = useState(false)
@@ -40,10 +40,12 @@ export function CleaningReviews() {
 
   return (
     <div className="space-y-5 max-w-3xl">
-      <div>
-        <h1 className="text-xl font-bold">بازخورد نظافت منازل</h1>
-        <p className="text-muted text-sm mt-1">نمره و نظر ساکنان بعد از هر نظافت. بازخورد بد (۱ تا ۳ ستاره) برای شما اعلان هم می‌شود.</p>
-      </div>
+      {!embedded && (
+        <div>
+          <h1 className="text-xl font-bold">بازخورد نظافت منازل</h1>
+          <p className="text-muted text-sm mt-1">نمره و نظر ساکنان بعد از هر نظافت. بازخورد بد (۱ تا ۳ ستاره) برای شما اعلان هم می‌شود.</p>
+        </div>
+      )}
 
       <Card>
         <div className="p-4 space-y-3">

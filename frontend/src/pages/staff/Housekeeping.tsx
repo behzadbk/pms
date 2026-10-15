@@ -1,14 +1,17 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
-import { AlertTriangle, Ban, CheckCircle2, Clock, History, PencilLine, Play, Search, Sparkles, Square, Undo2 } from 'lucide-react'
+import { AlertTriangle, Ban, Building2, CheckCircle2, Clock, History, ListTodo, PencilLine, Play, Sparkles, Square, Undo2, Wrench } from 'lucide-react'
 import { Card } from '../../components/ui/Card'
 import { GlassSheet, GlassToast } from '../../components/ui/Glass'
 import {
   cleaningApi,
+  cleaningTasksApi,
+  kindLabel,
+  slotLabel,
   type CleaningCommit,
   type CleaningHome,
   type CleaningOutcome,
   type CleaningSession,
-  type CleaningUnit,
+  type CleaningTask,
   type CleaningUnitInfo,
 } from '../../lib/api/cleaning'
 import { errText, fa } from '../../lib/api/residents'
@@ -17,12 +20,15 @@ import { addDays, tehranParts, tehranToday } from '../../lib/tehran'
 import { money, qty, qtyUnit, usedPct } from '../../lib/entitlementsFmt'
 
 /**
- * پنل «نظافت منازل» — کارمندِ تیم نظافت منازل (یا مدیر).
- * سه قدم: ۱) واحد را انتخاب کن ۲) «شروع» ۳) «پایان». مدت از سهمیه‌ی ساعتِ همان واحد کم می‌شود و مازاد
- * (با نرخ شیفت) خودکار به شارژ ماه بعد می‌رود. هر جا ساعت را فراموش کرد «ثبت دستی» هست.
+ * «کارهای نظافت من» — کارمندِ دپارتمان نظافت (یا مدیر).
+ * مسئول نظافت کارها را می‌چیند و به او می‌سپارد؛ اینجا فقط همان کارها هست: ۱) «شروع» ۲) «پایان».
+ * در نظافت منزل، مدت از سهمیه‌ی ساعتِ همان واحد کم می‌شود و مازاد (با نرخ شیفت) خودکار به شارژ ماه بعد می‌رود؛
+ * هر جا ساعت را فراموش کرد «ثبت دستی» هست. نظافت مشاعات و کارهای موردی فقط زمان کار را ثبت می‌کنند.
  */
 
 type Tab = 'work' | 'history'
+
+const SLOT_ICON_TEXT = (t: CleaningTask) => [t.want_date ? (t.want_date === tehranToday() ? 'امروز' : t.want_date === addDays(tehranToday(), 1) ? 'فردا' : formatJalali(t.want_date, false)) : null, t.want_slot !== 'any' ? slotLabel[t.want_slot] : null].filter(Boolean).join(' · ')
 
 const inputCls = 'w-full rounded-2xl border border-line px-4 py-3 text-base bg-card min-h-[52px] focus:outline-none focus:ring-2 focus:ring-tile/40 focus:border-tile'
 const bigBtn = 'w-full min-h-[60px] rounded-2xl text-base font-bold flex items-center justify-center gap-2.5 disabled:opacity-50 active:scale-[0.99] transition'
@@ -139,152 +145,134 @@ function ErrBox({ children }: { children: ReactNode }) {
   )
 }
 
-/* ───────────── ۱) انتخاب واحد و شروع ───────────── */
+/* ───────────── ۱) کارهای واگذارشده و شروع ───────────── */
 
-function UnitCard({
-  unit, unitLabel, onStarted, onManual, onChange, flash,
-}: {
-  unit: CleaningUnit
+function TaskCard({ task, unitLabel, busyId, onStart, onManual }: {
+  task: CleaningTask
   unitLabel: string
-  onStarted: () => void
-  onManual: (info: CleaningUnitInfo) => void
-  onChange: () => void
-  flash: (m: string) => void
+  busyId: string | null
+  onStart: (t: CleaningTask) => void
+  onManual: (t: CleaningTask, info: CleaningUnitInfo) => void
 }) {
+  const isUnit = task.kind === 'unit'
   const [info, setInfo] = useState<CleaningUnitInfo | null>(null)
   const [err, setErr] = useState('')
-  const [busy, setBusy] = useState(false)
+  const done = task.status === 'done'
 
   useEffect(() => {
+    if (!isUnit || done || !task.unit_id) return
     let alive = true
-    setInfo(null)
-    setErr('')
-    cleaningApi.unit(unit.id).then((r) => alive && setInfo(r)).catch((e) => alive && setErr(errText(e, 'اطلاعات واحد بارگذاری نشد')))
+    cleaningApi.unit(task.unit_id).then((r) => alive && setInfo(r)).catch((e) => alive && setErr(errText(e, 'اطلاعات واحد بارگذاری نشد')))
     return () => { alive = false }
-  }, [unit.id])
+  }, [isUnit, done, task.unit_id])
 
-  async function start() {
-    if (busy) return
-    setBusy(true)
-    setErr('')
-    try {
-      await cleaningApi.start(unit.id)
-      flash(`نظافت واحد ${fa(unit.unit_number)} شروع شد`)
-      onStarted()
-    } catch (e) {
-      setErr(errText(e, 'شروع نظافت ممکن نشد'))
-    } finally {
-      setBusy(false)
-    }
-  }
-
+  const when = SLOT_ICON_TEXT(task)
+  const Icon = isUnit ? Sparkles : task.kind === 'common' ? Building2 : Wrench
   return (
-    <Card>
-      <div className="p-5 space-y-5">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <p className="text-xs text-muted">واحد انتخاب‌شده</p>
-            <p className="text-3xl font-extrabold mt-0.5">{fa(unit.unit_number)}</p>
-            <p className="text-xs text-muted mt-1">{unit.floor !== null && `طبقه‌ی ${fa(unit.floor)}`}{unit.area ? ` · ${fa(unit.area)} متر` : ''}</p>
+    <Card className={done ? 'opacity-70' : ''}>
+      <div className="p-4 space-y-3.5">
+        <div className="flex items-start gap-3">
+          <div className="w-11 h-11 rounded-2xl bg-tile/15 text-tile flex items-center justify-center shrink-0"><Icon size={21} /></div>
+          <div className="min-w-0 flex-1">
+            <p className="font-bold leading-6">{isUnit ? `واحد ${fa(task.unit_number ?? '')}` : task.title}</p>
+            <p className="text-xs text-muted mt-0.5">
+              {kindLabel[task.kind]}{isUnit && task.floor !== null ? ` · طبقه‌ی ${fa(task.floor)}` : ''}{when ? ` · ${when}` : ''}
+            </p>
           </div>
-          <button onClick={onChange} className="text-sm text-tile font-medium px-3 py-2 -m-2 rounded-xl">تغییر واحد</button>
+          {done && <span className="text-[11px] px-2 py-0.5 rounded-full bg-good-soft text-good shrink-0">انجام شد</span>}
         </div>
+        {task.details && <p className="text-sm bg-black/5 rounded-2xl px-3.5 py-2.5 leading-7">{task.details}</p>}
+        {task.source === 'resident' && !done && <p className="text-xs text-muted">درخواست ساکن</p>}
 
-        {info ? <QuotaBar info={info} /> : !err && <div className="h-14 rounded-2xl bg-black/5 animate-pulse" />}
+        {isUnit && !done && (info ? <QuotaBar info={info} /> : !err && <div className="h-12 rounded-2xl bg-black/5 animate-pulse" />)}
         {err && <ErrBox>{err}</ErrBox>}
 
-        <button onClick={start} disabled={busy || !!err && !info} className={`${bigBtn} bg-good text-white`}>
-          <Play size={22} />
-          {busy ? 'در حال شروع…' : 'شروع نظافت'}
-        </button>
-        <button
-          onClick={() => info && onManual(info)}
-          disabled={!info}
-          className="w-full min-h-[48px] rounded-2xl text-sm font-medium border border-line flex items-center justify-center gap-2 text-ink-text disabled:opacity-50"
-        >
-          <PencilLine size={18} />
-          ساعت شروع را فراموش کردم؛ ثبت دستی
-        </button>
-        <p className="text-xs text-muted leading-6 text-center">مدت نظافت به {unitLabel} از سهمیه‌ی همین واحد کم می‌شود.</p>
-      </div>
-    </Card>
-  )
-}
-
-function StartPanel({ home, onStarted, onCommit, flash }: { home: CleaningHome; onStarted: () => void; onCommit: (c: CleaningCommit) => void; flash: (m: string) => void }) {
-  const [q, setQ] = useState('')
-  const [results, setResults] = useState<CleaningUnit[] | null>(null)
-  const [unit, setUnit] = useState<CleaningUnit | null>(null)
-  const [manualInfo, setManualInfo] = useState<CleaningUnitInfo | null>(null)
-  const [searchErr, setSearchErr] = useState('')
-
-  useEffect(() => {
-    const term = q.trim()
-    if (!term) {
-      setResults(null)
-      setSearchErr('')
-      return
-    }
-    let alive = true
-    const t = window.setTimeout(() => {
-      cleaningApi.units(term).then((r) => { if (alive) { setResults(r); setSearchErr('') } }).catch((e) => alive && setSearchErr(errText(e, 'جست‌وجو ممکن نشد')))
-    }, 250)
-    return () => { alive = false; window.clearTimeout(t) }
-  }, [q])
-
-  if (unit) {
-    return (
-      <>
-        <UnitCard unit={unit} unitLabel={home.service.unit_label} onStarted={onStarted} onManual={setManualInfo} onChange={() => setUnit(null)} flash={flash} />
-        <ManualSheet info={manualInfo} onClose={() => setManualInfo(null)} onDone={(c) => { setManualInfo(null); onCommit(c) }} />
-      </>
-    )
-  }
-
-  const list = results ?? home.recent_units
-  return (
-    <Card>
-      <div className="p-5 space-y-4">
-        <div>
-          <p className="font-bold text-lg">کدام واحد را نظافت می‌کنید؟</p>
-          <p className="text-sm text-muted mt-1">شماره‌ی واحد را بنویسید یا از واحدهای اخیر انتخاب کنید</p>
-        </div>
-        <div className="relative">
-          <Search size={20} className="absolute right-4 top-1/2 -translate-y-1/2 text-muted pointer-events-none" />
-          <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            inputMode="numeric"
-            enterKeyHint="search"
-            autoComplete="off"
-            placeholder="شماره‌ی واحد، مثلاً ۱۲۰۱"
-            aria-label="شماره‌ی واحد"
-            maxLength={10}
-            className={`${inputCls} pr-12 text-lg`}
-          />
-        </div>
-        {searchErr && <ErrBox>{searchErr}</ErrBox>}
-        {!q.trim() && home.recent_units.length > 0 && <p className="text-xs text-muted">واحدهای اخیر شما</p>}
-        {list.length > 0 ? (
-          <div className="grid grid-cols-2 gap-2.5">
-            {list.map((u) => (
-              <button key={u.id} onClick={() => setUnit(u)} className="min-h-[68px] rounded-2xl border border-line bg-card px-4 py-3 text-right active:scale-[0.98] hover:border-tile transition">
-                <span className="block text-xl font-extrabold">{fa(u.unit_number)}</span>
-                <span className="block text-xs text-muted mt-0.5">{u.floor !== null ? `طبقه‌ی ${fa(u.floor)}` : ' '}</span>
+        {!done && (
+          <>
+            <button onClick={() => onStart(task)} disabled={busyId === task.id} className={`${bigBtn} bg-good text-white`}>
+              <Play size={22} />
+              {busyId === task.id ? 'در حال شروع…' : 'شروع'}
+            </button>
+            {isUnit && (
+              <button
+                onClick={() => info && onManual(task, info)}
+                disabled={!info}
+                className="w-full min-h-[46px] rounded-2xl text-sm font-medium border border-line flex items-center justify-center gap-2 text-ink-text disabled:opacity-50"
+              >
+                <PencilLine size={18} />
+                ساعت شروع را فراموش کردم؛ ثبت دستی
               </button>
-            ))}
-          </div>
-        ) : (
-          <p className="text-sm text-muted text-center py-6">{q.trim() ? 'واحدی با این شماره پیدا نشد' : 'هنوز نظافتی ثبت نکرده‌اید؛ شماره‌ی واحد را بنویسید'}</p>
+            )}
+            {isUnit && <p className="text-xs text-muted leading-6 text-center">مدت نظافت به {unitLabel} از سهمیه‌ی همین واحد کم می‌شود.</p>}
+          </>
         )}
       </div>
     </Card>
   )
 }
 
+function TaskList({ tasks, home, onChanged, onCommit, flash }: {
+  tasks: CleaningTask[]
+  home: CleaningHome
+  onChanged: () => void
+  onCommit: (c: CleaningCommit) => void
+  flash: (m: string) => void
+}) {
+  const [busyId, setBusyId] = useState<string | null>(null)
+  const [err, setErr] = useState('')
+  const [manual, setManual] = useState<{ task: CleaningTask; info: CleaningUnitInfo } | null>(null)
+
+  const open = tasks.filter((t) => t.status === 'assigned')
+  const finished = tasks.filter((t) => t.status === 'done')
+
+  async function start(t: CleaningTask) {
+    if (busyId) return
+    setBusyId(t.id)
+    setErr('')
+    try {
+      await cleaningTasksApi.start(t.id)
+      flash(t.kind === 'unit' ? `نظافت واحد ${fa(t.unit_number ?? '')} شروع شد` : 'کار شروع شد')
+      onChanged()
+    } catch (e) {
+      setErr(errText(e, 'شروع کار ممکن نشد'))
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  if (open.length === 0 && finished.length === 0) {
+    return (
+      <Card>
+        <div className="p-10 text-center space-y-2">
+          <ListTodo size={34} className="mx-auto text-muted" />
+          <p className="font-bold">فعلاً کاری به شما سپرده نشده</p>
+          <p className="text-sm text-muted leading-7">مسئول نظافت هر کاری واگذار کند، همین‌جا و با یک اعلان می‌آید.</p>
+        </div>
+      </Card>
+    )
+  }
+  return (
+    <>
+      {err && <ErrBox>{err}</ErrBox>}
+      {open.length === 0 && <p className="text-sm text-center text-muted py-3">کار بازی ندارید؛ ممنون از زحمت‌تان</p>}
+      <div className="space-y-3">
+        {open.map((t) => <TaskCard key={t.id} task={t} unitLabel={home.service.unit_label} busyId={busyId} onStart={start} onManual={(task, info) => setManual({ task, info })} />)}
+      </div>
+      {finished.length > 0 && (
+        <div className="space-y-3">
+          <p className="text-xs text-muted pt-2">انجام‌شده‌های امروز</p>
+          {finished.map((t) => <TaskCard key={t.id} task={t} unitLabel={home.service.unit_label} busyId={null} onStart={() => {}} onManual={() => {}} />)}
+        </div>
+      )}
+      <ManualSheet target={manual} onClose={() => setManual(null)} onDone={(c) => { setManual(null); onCommit(c) }} />
+    </>
+  )
+}
+
 /* ───────────── ثبت دستی ───────────── */
 
-function ManualSheet({ info, onClose, onDone }: { info: CleaningUnitInfo | null; onClose: () => void; onDone: (c: CleaningCommit) => void }) {
+function ManualSheet({ target, onClose, onDone }: { target: { task: CleaningTask; info: CleaningUnitInfo } | null; onClose: () => void; onDone: (c: CleaningCommit) => void }) {
+  const info = target?.info ?? null
   const [day, setDay] = useState<'today' | 'yesterday'>('today')
   const [start, setStart] = useState('')
   const [end, setEnd] = useState('')
@@ -333,11 +321,11 @@ function ManualSheet({ info, onClose, onDone }: { info: CleaningUnitInfo | null;
   }
 
   async function submit() {
-    if (!unitId || !pv || busy) return
+    if (!unitId || !target || !pv || busy) return
     setBusy(true)
     setErr('')
     try {
-      onDone(await cleaningApi.manual({ unitId, startedAt: isoAt(dayIso, start), endedAt: isoAt(dayIso, end), note: note.trim() || undefined }))
+      onDone(await cleaningTasksApi.manual(target!.task.id, { startedAt: isoAt(dayIso, start), endedAt: isoAt(dayIso, end), note: note.trim() || undefined }))
     } catch (e) {
       setErr(errText(e, 'ثبت نظافت ممکن نشد'))
     } finally {
@@ -539,6 +527,57 @@ function RunningCard({ session, onCommit, onCancelled }: { session: CleaningSess
   )
 }
 
+/** کار مشاعات/موردی در جریان: فقط زمان‌سنج و یادداشت (بدون سهمیه و شارژ) */
+function RunningTaskCard({ task, onChanged, flash }: { task: CleaningTask; onChanged: () => void; flash: (m: string) => void }) {
+  const [now, setNow] = useState(() => Date.now())
+  const [note, setNote] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+
+  useEffect(() => {
+    const t = window.setInterval(() => setNow(Date.now()), 1000)
+    return () => window.clearInterval(t)
+  }, [])
+  const startedAt = task.started_at ?? new Date().toISOString()
+  const elapsed = now - new Date(startedAt).getTime()
+
+  async function run(fn: () => Promise<unknown>, okMsg: string, fail: string) {
+    if (busy) return
+    setBusy(true)
+    setErr('')
+    try {
+      await fn()
+      flash(okMsg)
+      onChanged()
+    } catch (e) {
+      setErr(errText(e, fail))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Card>
+      <div className="p-5 space-y-4 text-center">
+        <div className="inline-flex items-center gap-2 text-good bg-good-soft rounded-full px-4 py-1.5 text-sm font-bold">
+          <span className="w-2.5 h-2.5 rounded-full bg-good animate-pulse" />
+          کار در جریان است
+        </div>
+        <p className="text-2xl font-extrabold leading-9">{task.title}</p>
+        <p className="text-4xl font-mono font-bold tracking-wider tabular-nums" dir="ltr" aria-label="مدت سپری‌شده">{stopwatch(elapsed)}</p>
+        <p className="text-sm text-muted flex items-center justify-center gap-1.5"><Clock size={16} /> شروع از ساعت {clock(startedAt)}</p>
+        <input value={note} onChange={(e) => setNote(e.target.value)} maxLength={200} placeholder="توضیح پایان کار (اختیاری)" className={inputCls} />
+        {err && <ErrBox>{err}</ErrBox>}
+        <button onClick={() => run(() => cleaningTasksApi.finish(task.id, note.trim() || undefined), 'کار انجام‌شده ثبت شد', 'ثبت پایان ممکن نشد')} disabled={busy} className={`${bigBtn} bg-bad text-white`}>
+          <Square size={20} fill="currentColor" />
+          پایان کار
+        </button>
+        <button onClick={() => run(() => cleaningTasksApi.undo(task.id), 'شروع برگشت', 'برگرداندن ممکن نشد')} disabled={busy} className="text-sm text-muted min-h-[44px] px-3">اشتباه شروع شد؛ برگردان</button>
+      </div>
+    </Card>
+  )
+}
+
 /* ───────────── ۳) نتیجه ───────────── */
 
 function DoneCard({ commit, onNext }: { commit: CleaningCommit; onNext: () => void }) {
@@ -557,7 +596,7 @@ function DoneCard({ commit, onNext }: { commit: CleaningCommit; onNext: () => vo
         <p className="text-xs text-muted">برای ساکن هم اعلان فرستاده شد.</p>
         <button onClick={onNext} className={`${bigBtn} bg-tile text-white`}>
           <Sparkles size={20} />
-          نظافت بعدی
+          کار بعدی
         </button>
       </div>
     </Card>
@@ -647,13 +686,14 @@ function HistoryTab({ flash, onChanged }: { flash: (m: string) => void; onChange
 
 export function StaffHousekeeping() {
   const [home, setHome] = useState<CleaningHome | null>(null)
+  const [tasks, setTasks] = useState<CleaningTask[]>([])
   const [loadErr, setLoadErr] = useState('')
   const [tab, setTab] = useState<Tab>('work')
   const [done, setDone] = useState<CleaningCommit | null>(null)
   const [toast, setToast] = useState('')
 
   const load = useCallback(async () => {
-    try { setHome(await cleaningApi.home()); setLoadErr('') } catch (e) { setLoadErr(errText(e, 'بارگذاری پنل ممکن نشد')) }
+    try { const [h, t] = await Promise.all([cleaningApi.home(), cleaningTasksApi.mine()]); setHome(h); setTasks(t); setLoadErr('') } catch (e) { setLoadErr(errText(e, 'بارگذاری پنل ممکن نشد')) }
   }, [])
   useEffect(() => { void load() }, [load])
 
@@ -669,13 +709,13 @@ export function StaffHousekeeping() {
       <div className="flex items-center gap-3">
         <div className="w-11 h-11 rounded-2xl bg-tile/15 text-tile flex items-center justify-center"><Sparkles size={22} /></div>
         <div>
-          <h1 className="text-xl font-extrabold">نظافت منازل</h1>
-          <p className="text-xs text-muted">واحد را انتخاب کنید، شروع و پایان را بزنید؛ بقیه خودکار است</p>
+          <h1 className="text-xl font-extrabold">کارهای نظافت من</h1>
+          <p className="text-xs text-muted">کارهایی که مسئول نظافت سپرده؛ شروع و پایان را بزنید، بقیه خودکار است</p>
         </div>
       </div>
 
       <div className="grid grid-cols-2 gap-1.5 p-1 rounded-2xl bg-black/5" role="tablist">
-        {([['work', 'ثبت نظافت', Sparkles], ['history', 'سابقه‌ی من', History]] as const).map(([id, label, Icon]) => (
+        {([['work', 'کارهای من', ListTodo], ['history', 'سابقه‌ی من', History]] as const).map(([id, label, Icon]) => (
           <button key={id} role="tab" aria-selected={tab === id} onClick={() => setTab(id)} className={`min-h-[46px] rounded-xl text-sm flex items-center justify-center gap-2 ${tab === id ? 'bg-card shadow font-bold' : 'text-muted font-medium'}`}>
             <Icon size={17} />
             {label}
@@ -688,7 +728,7 @@ export function StaffHousekeeping() {
 
       {home && tab === 'work' && (
         <>
-          {!home.service.configured ? (
+          {!home.service.configured && tasks.every((t) => t.kind === 'unit') ? (
             <Card>
               <div className="p-8 text-center space-y-2">
                 <AlertTriangle size={30} className="mx-auto text-warn" />
@@ -700,8 +740,10 @@ export function StaffHousekeeping() {
             <DoneCard commit={done} onNext={() => setDone(null)} />
           ) : home.active ? (
             <RunningCard session={home.active} onCommit={committed} onCancelled={() => { flash('نظافت لغو شد'); void load() }} />
+          ) : tasks.find((t) => t.status === 'in_progress' && t.kind !== 'unit') ? (
+            <RunningTaskCard task={tasks.find((t) => t.status === 'in_progress' && t.kind !== 'unit')!} onChanged={() => void load()} flash={flash} />
           ) : (
-            <StartPanel home={home} onStarted={() => void load()} onCommit={committed} flash={flash} />
+            <TaskList tasks={tasks} home={home} onChanged={() => void load()} onCommit={committed} flash={flash} />
           )}
 
           {!home.active && !done && home.service.configured && (

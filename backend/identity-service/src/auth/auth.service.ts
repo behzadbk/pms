@@ -25,6 +25,7 @@ interface UserRow {
   role: string
   department: string | null
   permissions: string[] | null
+  is_dept_head: boolean
   is_active: boolean
   must_change_password: boolean
   /** سطح سرویس ساختمان (identity.tenants.tier) */
@@ -32,7 +33,7 @@ interface UserRow {
 }
 
 // person_status/sessions_valid_after از حساب شخص (ماژول ساکنین) می‌آید: مسدودی/خروج از همه‌ی دستگاه‌ها
-const USER_COLUMNS = `id, full_name, email, username, role, department, permissions, is_active, person_id, must_change_password,
+const USER_COLUMNS = `id, full_name, email, username, role, department, permissions, is_dept_head, is_active, person_id, must_change_password,
   (SELECT p.status FROM residency.users p WHERE p.id = identity.users.person_id) AS person_status,
   (SELECT t.name FROM identity.tenants t WHERE t.id = identity.users.tenant_id) AS tenant_name,
   (SELECT t.tier FROM identity.tenants t WHERE t.id = identity.users.tenant_id) AS tenant_tier,
@@ -56,7 +57,7 @@ function publicUser(u: UserRow, tenantId: string) {
     ...(isBuildingTier(u.tenant_tier) ? { tier: u.tenant_tier } : {}),
     ...(u.must_change_password ? { mustChangePassword: true } : {}),
     ...(u.role === 'staff'
-      ? { department: u.department, permissions: effectivePermissions(u.department, u.permissions) }
+      ? { department: u.department, permissions: effectivePermissions(u.department, u.permissions, u.is_dept_head) }
       : {}),
     ...(u.person_id ? { personId: u.person_id } : {}),
   }
@@ -67,7 +68,7 @@ function extraClaims(u: UserRow) {
   return {
     ...(u.person_id ? { pid: u.person_id } : {}),
     ...(isBuildingTier(u.tenant_tier) ? { tier: u.tenant_tier } : {}),
-    ...(u.role === 'staff' ? { perms: effectivePermissions(u.department, u.permissions) } : {}),
+    ...(u.role === 'staff' ? { perms: effectivePermissions(u.department, u.permissions, u.is_dept_head) } : {}),
   }
 }
 

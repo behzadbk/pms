@@ -67,6 +67,7 @@ export function NotificationBell({ variant }: { variant: 'dark' | 'light' }) {
     residentsApi.readInbox(n.id).then(() => loadInbox.current()).catch(() => undefined)
     let to = n.link
     if (to === '/staff/amenity-desk' && role === 'admin') to = '/admin/reservations'
+    if (to?.startsWith('/staff/cleaning-board') && role === 'admin') to = to.replace('/staff/', '/admin/')
     if (to === '/resident/reservations' && role === 'child') to = '/child'
     if (n.kind === 'child_request_result' || n.kind === 'child_request_expired') to = role === 'child' ? `/child/waiting/${n.ref_id}` : to
     if (to) navigate(to)

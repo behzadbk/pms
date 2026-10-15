@@ -1,9 +1,10 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common'
+import type { PoolClient } from 'pg'
 import * as bcrypt from 'bcrypt'
 import { DatabaseService } from '../database/database.service'
 import { EventsService } from '../events/events.service'
 import { CreateStaffDto, UpdateStaffDto } from './dto/staff.dto'
-import { effectivePermissions } from './staff.constants'
+import { effectivePermissions, HEAD_PERMISSIONS } from './staff.constants'
 import { passwordPolicyError } from '../auth/password.util'
 import { BadRequestException } from '@nestjs/common'
 
@@ -16,13 +17,14 @@ interface StaffRow {
   national_id: string | null
   department: string | null
   permissions: string[]
+  is_dept_head: boolean
   profile: Record<string, unknown>
   is_active: boolean
   last_login_at: string | null
   created_at: string
 }
 
-const COLUMNS = `id, full_name, username, email, phone, national_id, department, permissions, profile,
+const COLUMNS = `id, full_name, username, email, phone, national_id, department, permissions, is_dept_head, profile,
   is_active, last_login_at, created_at`
 
 function toDto(r: StaffRow) {
@@ -35,7 +37,8 @@ function toDto(r: StaffRow) {
     nationalId: r.national_id,
     department: r.department,
     permissions: r.permissions ?? [],
-    effectivePermissions: effectivePermissions(r.department, r.permissions),
+    isDeptHead: r.is_dept_head,
+    effectivePermissions: effectivePermissions(r.department, r.permissions, r.is_dept_head),
     profile: r.profile ?? {},
     isActive: r.is_active,
     lastLoginAt: r.last_login_at,
@@ -76,17 +79,30 @@ export class StaffService {
     })
   }
 
+  /** مسئول دپارتمان فقط در بخش‌هایی معنا دارد که پنل مسئول دارند؛ مسئول قبلی خودکار برکنار می‌شود */
+  private async claimHead(client: PoolClient, department: string | null | undefined, exceptId: string | null) {
+    if (!department || !(department in HEAD_PERMISSIONS)) {
+      throw new BadRequestException('برای این بخش مسئول تعریف نشده است')
+    }
+    await client.query(
+      `UPDATE identity.users SET is_dept_head = false
+        WHERE role = 'staff' AND department = $1 AND is_dept_head AND ($2::uuid IS NULL OR id <> $2)`,
+      [department, exceptId],
+    )
+  }
+
   async create(tenantId: string, dto: CreateStaffDto, actorId: string) {
     const bad = passwordPolicyError(dto.password, [dto.username, dto.phone, dto.nationalId])
     if (bad) throw new BadRequestException(bad)
     const hash = await bcrypt.hash(dto.password, 10)
     const row = await this.db
       .withTenant(tenantId, async (client) => {
+        if (dto.isDeptHead) await this.claimHead(client, dto.department, null)
         const res = await client.query<StaffRow>(
           `INSERT INTO identity.users
              (tenant_id, full_name, username, email, password_hash, role, phone, national_id,
-              department, permissions, profile, is_active, must_change_password)
-           VALUES ($1, $2, $3, $4, $5, 'staff', $6, $7, $8, $9, $10, $11, true)
+              department, permissions, is_dept_head, profile, is_active, must_change_password)
+           VALUES ($1, $2, $3, $4, $5, 'staff', $6, $7, $8, $9, $12, $10, $11, true)
            RETURNING ${COLUMNS}`,
           [
             tenantId,
@@ -100,6 +116,7 @@ export class StaffService {
             dto.permissions ?? [],
             JSON.stringify(dto.profile ?? {}),
             dto.isActive ?? true,
+            dto.isDeptHead ?? false,
           ],
         )
         return res.rows[0]
@@ -123,6 +140,9 @@ export class StaffService {
     if (dto.nationalId !== undefined) set('national_id', dto.nationalId || null)
     if (dto.department !== undefined) set('department', dto.department)
     if (dto.permissions !== undefined) set('permissions', dto.permissions)
+    if (dto.isDeptHead !== undefined) set('is_dept_head', dto.isDeptHead)
+    // تغییر بخش، مسئولیت قبلی را می‌برد مگر در همان درخواست دوباره داده شود
+    if (dto.department !== undefined && dto.isDeptHead === undefined) set('is_dept_head', false)
     if (dto.profile !== undefined) set('profile', JSON.stringify(dto.profile))
     if (dto.isActive !== undefined) set('is_active', dto.isActive)
     if (dto.password) {
@@ -136,6 +156,11 @@ export class StaffService {
 
     const row = await this.db
       .withTenant(tenantId, async (client) => {
+        if (dto.isDeptHead) {
+          let dep = dto.department
+          if (!dep) dep = (await client.query<{ department: string }>(`SELECT department FROM identity.users WHERE id = $1 AND role = 'staff'`, [id])).rows[0]?.department
+          await this.claimHead(client, dep, id)
+        }
         if (sets.length === 0) {
           const r = await client.query<StaffRow>(`SELECT ${COLUMNS} FROM identity.users WHERE id = $1 AND role = 'staff'`, [id])
           return r.rows[0]

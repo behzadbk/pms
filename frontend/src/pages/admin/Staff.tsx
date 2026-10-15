@@ -5,7 +5,8 @@ import { Modal, TextField, TextArea, SelectField, PrimaryButton, GhostButton } f
 import { staffApi, ApiError } from '../../lib/api'
 import type { StaffInput, StaffMember, StaffProfile } from '../../lib/api/staff'
 import {
-  ALL_PERMISSIONS,
+  MANUAL_PERMISSIONS,
+  departmentHead,
   departments,
   departmentDefaults,
   departmentLabel,
@@ -30,6 +31,7 @@ type FormState = {
   username: string
   password: string
   isActive: boolean
+  isDeptHead: boolean
   profile: StaffProfile
 }
 
@@ -43,6 +45,7 @@ const emptyForm = (): FormState => ({
   username: '',
   password: generatePassword(),
   isActive: true,
+  isDeptHead: false,
   profile: { shift: 'morning' },
 })
 
@@ -115,6 +118,7 @@ function StaffList() {
       username: s.username ?? '',
       password: '',
       isActive: s.isActive,
+      isDeptHead: s.isDeptHead,
       profile: { ...s.profile },
     })
   }
@@ -213,6 +217,7 @@ function StaffList() {
                     <p className="font-semibold truncate">{s.fullName}</p>
                     <p className="text-xs text-muted mt-0.5">
                       {departmentLabel(s.department)}
+                      {s.isDeptHead && ` · ${departmentHead[s.department as StaffDepartment] ?? 'مسئول'}`}
                       {s.profile.shift && ` · شیفت ${shiftLabels[s.profile.shift]}`}
                     </p>
                   </div>
@@ -223,7 +228,7 @@ function StaffList() {
 
                 <div className="flex flex-wrap gap-1.5">
                   {s.effectivePermissions.map((p) => {
-                    const extra = !departmentDefaults(s.department).includes(p)
+                    const extra = !departmentDefaults(s.department).includes(p) && p !== 'cleaning_supervisor'
                     return (
                       <span
                         key={p}
@@ -347,6 +352,7 @@ function StaffForm({
       email: f.email.trim() || null,
       profile: Object.fromEntries(Object.entries(f.profile).filter(([, v]) => v !== '' && v != null)) as StaffProfile,
       isActive: f.isActive,
+      isDeptHead: f.department in departmentHead ? f.isDeptHead : false,
       ...(f.password ? { password: f.password } : {}),
     }
     try {
@@ -412,12 +418,24 @@ function StaffForm({
             <TextField label="تاریخ شروع همکاری" value={f.profile.hireDate ?? ''} onChange={(e) => setP({ hireDate: e.target.value })} placeholder="۱۴۰۵/۰۷/۰۱" />
           </div>
 
+          {f.department in departmentHead && (
+            <label className="mt-4 flex items-start gap-2.5 p-3 rounded-xl border border-line text-sm cursor-pointer hover:border-ink-soft">
+              <input type="checkbox" checked={f.isDeptHead} onChange={(e) => set({ isDeptHead: e.target.checked })} className="mt-0.5 accent-[var(--color-tile)]" />
+              <span>
+                <span className="font-medium">این فرد {departmentHead[f.department]} است</span>
+                <span className="block text-xs text-muted mt-0.5">
+                  تیم زیر نظر او کار می‌کند و درخواست‌های ساکنان برای او می‌آید تا بچیند و واگذار کند. در هر بخش فقط یک مسئول هست؛ مسئول قبلی خودکار برداشته می‌شود.
+                </span>
+              </span>
+            </label>
+          )}
+
           <div className="mt-4">
             <p className="text-xs text-muted mb-2 flex items-center gap-1.5">
               <ShieldCheck size={13} /> پنل‌هایی که این کارمند می‌بیند — پیش‌فرض بخش قفل است؛ برای جابه‌جایی شیفت دسترسی اضافه بدهید
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {ALL_PERMISSIONS.map((p) => {
+              {MANUAL_PERMISSIONS.map((p) => {
                 const isDefault = defaults.includes(p)
                 const checked = isDefault || f.extra.includes(p)
                 const Icon = permissionInfo[p].icon

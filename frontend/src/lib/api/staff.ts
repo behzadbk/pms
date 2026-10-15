@@ -26,6 +26,8 @@ export interface StaffMember {
   /** دسترسی‌های دستیِ اضافه بر پیش‌فرض بخش */
   permissions: StaffPermission[]
   effectivePermissions: StaffPermission[]
+  /** مسئول دپارتمان (مثلاً مسئول نظافت) */
+  isDeptHead: boolean
   profile: StaffProfile
   isActive: boolean
   lastLoginAt: string | null
@@ -43,6 +45,7 @@ export interface StaffInput {
   email?: string | null
   profile: StaffProfile
   isActive: boolean
+  isDeptHead?: boolean
 }
 
 export const list = () => api.get<StaffMember[]>('/identity/users/staff')

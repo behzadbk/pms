@@ -71,6 +71,11 @@ export class CreateStaffDto {
   @IsOptional()
   @IsBoolean()
   isActive?: boolean
+
+  /** مسئول دپارتمان (مثلاً مسئول نظافت) — در هر دپارتمان حداکثر یکی */
+  @IsOptional()
+  @IsBoolean()
+  isDeptHead?: boolean
 }
 
 /** ویرایش — همه‌ی فیلدها اختیاری؛ رمز فقط اگر بخواهند عوض شود */
@@ -101,4 +106,5 @@ export class UpdateStaffDto {
   @IsOptional() @ValidateNested() @Type(() => StaffProfileDto) profile?: StaffProfileDto
 
   @IsOptional() @IsBoolean() isActive?: boolean
+  @IsOptional() @IsBoolean() isDeptHead?: boolean
 }

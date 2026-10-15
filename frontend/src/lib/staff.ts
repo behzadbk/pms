@@ -11,11 +11,16 @@ import {
   UtensilsCrossed, BookOpenText, SprayCan, Star, type LucideIcon,
 } from 'lucide-react'
 
-export type StaffPermission = 'lobby' | 'amenity_desk' | 'kitchen' | 'cafe' | 'security' | 'maintenance' | 'housekeeping' | 'cleaning_review'
-/** cleaning = نظافت مجموعه (کادر خود ساختمان) · cleaning_homes = نظافت منازل (داخل واحدها، با ثبت ساعت) · cleaning_supervisor = مسئول نظافت (بازخورد ساکنان) */
-export type StaffDepartment = Exclude<StaffPermission, 'housekeeping' | 'cleaning_review'> | 'cleaning' | 'cleaning_homes' | 'cleaning_supervisor'
+export type StaffPermission = 'lobby' | 'amenity_desk' | 'kitchen' | 'cafe' | 'security' | 'maintenance' | 'housekeeping' | 'cleaning_supervisor'
+/** cleaning = دپارتمان نظافت: همه‌ی کادر نظافت، با یک «مسئول» که پنل نظارت و تقسیم کار دارد */
+export type StaffDepartment = Exclude<StaffPermission, 'housekeeping' | 'cleaning_supervisor'> | 'cleaning'
 
-export const ALL_PERMISSIONS: StaffPermission[] = ['lobby', 'amenity_desk', 'kitchen', 'cafe', 'security', 'maintenance', 'housekeeping', 'cleaning_review']
+export const ALL_PERMISSIONS: StaffPermission[] = ['lobby', 'amenity_desk', 'kitchen', 'cafe', 'security', 'maintenance', 'housekeeping', 'cleaning_supervisor']
+/** دسترسی‌هایی که مدیر دستی می‌دهد — «مسئول نظافت» فقط با تعیین مسئول دپارتمان می‌آید */
+export const MANUAL_PERMISSIONS: StaffPermission[] = ALL_PERMISSIONS.filter((p) => p !== 'cleaning_supervisor')
+
+/** بخش‌هایی که مسئول دارند ⇒ برچسب مسئول */
+export const departmentHead: Partial<Record<StaffDepartment, string>> = { cleaning: 'مسئول نظافت' }
 
 export const permissionInfo: Record<StaffPermission, { label: string; desc: string; icon: LucideIcon }> = {
   lobby: { label: 'پنل لابی (ورودی)', desc: 'پذیرش مهمان و بررسی کد، ثبت و تحویل مرسوله', icon: ConciergeBell },
@@ -24,8 +29,8 @@ export const permissionInfo: Record<StaffPermission, { label: string; desc: stri
   cafe: { label: 'کافی‌شاپ', desc: 'دریافت سفارش کافی‌شاپ و مدیریت منوی کافی‌شاپ', icon: Coffee },
   security: { label: 'نگهبانی', desc: 'کنترل مهمان، مرسولات و تردد خودرو', icon: ShieldCheck },
   maintenance: { label: 'تأسیسات و نگهداری', desc: 'کارهای تعمیر و سرویس دوره‌ای', icon: Wrench },
-  housekeeping: { label: 'نظافت منازل', desc: 'انتخاب واحد و ثبت ساعت شروع و پایان نظافت منزل؛ مدت از سهمیه‌ی واحد کم می‌شود و مازاد به شارژ می‌رود', icon: SprayCan },
-  cleaning_review: { label: 'بازخورد نظافت', desc: 'دیدن نمره و دلیل ساکنان از نظافت منازل، میانگین هر نظافتچی و اعلان بازخورد بد', icon: Star },
+  housekeeping: { label: 'کارهای نظافت', desc: 'دیدن کارهایی که مسئول نظافت واگذار کرده؛ شروع و پایان هر کار با ثبت ساعت (نظافت منزل از سهمیه‌ی واحد کم می‌شود و مازاد به شارژ می‌رود)', icon: SprayCan },
+  cleaning_supervisor: { label: 'مسئول نظافت', desc: 'درخواست‌های نظافت ساکنان، چیدن و واگذاری کار به کادر (منازل، مشاعات، موردی) و دیدن بازخورد ساکنان', icon: Star },
 }
 
 export const departments: { id: StaffDepartment; label: string; defaults: StaffPermission[] }[] = [
@@ -35,9 +40,7 @@ export const departments: { id: StaffDepartment; label: string; defaults: StaffP
   { id: 'cafe', label: 'کافی‌شاپ', defaults: ['cafe'] },
   { id: 'security', label: 'نگهبانی', defaults: ['security'] },
   { id: 'maintenance', label: 'تأسیسات', defaults: ['maintenance'] },
-  { id: 'cleaning', label: 'نظافت مجموعه', defaults: ['maintenance'] },
-  { id: 'cleaning_homes', label: 'نظافت منازل', defaults: ['housekeeping'] },
-  { id: 'cleaning_supervisor', label: 'مسئول نظافت', defaults: ['cleaning_review'] },
+  { id: 'cleaning', label: 'نظافت', defaults: ['maintenance', 'housekeeping'] },
 ]
 
 export function departmentLabel(id?: string | null) {
@@ -76,8 +79,8 @@ export const staffNavItems: StaffNavItem[] = [
   { to: '/staff/security', label: 'نگهبانی', icon: ShieldCheck, permission: 'security' },
   { to: '/staff/work-orders', label: 'کارهای نگهداری', icon: Wrench, permission: 'maintenance' },
   { to: '/staff/schedule', label: 'سرویس دوره‌ای', icon: ClipboardList, permission: 'maintenance' },
-  { to: '/staff/housekeeping', label: 'نظافت منازل', icon: SprayCan, permission: 'housekeeping' },
-  { to: '/staff/cleaning-reviews', label: 'بازخورد نظافت', icon: Star, permission: 'cleaning_review' },
+  { to: '/staff/cleaning-board', label: 'تابلوی نظافت', icon: ClipboardList, permission: 'cleaning_supervisor' },
+  { to: '/staff/housekeeping', label: 'نظافت من', icon: SprayCan, permission: 'housekeeping' },
   { to: '/staff/announcements', label: 'اعلانات', icon: Megaphone, permission: null },
 ]
 

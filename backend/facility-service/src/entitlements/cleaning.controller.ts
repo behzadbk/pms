@@ -8,18 +8,9 @@ import { CleaningService, isCleaner } from './cleaning.service'
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const UUID_MSG = 'شناسه نامعتبر است'
 
-export class CleaningStartDto {
-  @Matches(UUID_RE, { message: UUID_MSG }) unitId: string
-}
 export class CleaningFinishDto {
   /** فقط وقتی نظافتچی فراموش کرده پایان را بزند و ساعت درست را وارد می‌کند؛ پیش‌فرض: همین الان */
   @IsOptional() @IsISO8601() endedAt?: string
-  @IsOptional() @IsString() @MaxLength(120) note?: string
-}
-export class CleaningManualDto {
-  @Matches(UUID_RE, { message: UUID_MSG }) unitId: string
-  @IsISO8601() startedAt: string
-  @IsISO8601() endedAt: string
   @IsOptional() @IsString() @MaxLength(120) note?: string
 }
 export class CleaningPreviewDto {
@@ -29,13 +20,14 @@ export class CleaningPreviewDto {
 }
 
 function needCleaner(user: JwtPayload) {
-  if (!isCleaner(user)) throw new ForbiddenException('فقط تیم نظافت منازل و مدیر')
+  if (!isCleaner(user)) throw new ForbiddenException('فقط کادر نظافت و مدیر')
 }
 
 /**
- * پنل «نظافت منازل» (کارمند با دسترسی housekeeping یا مدیر)
- *   GET  home · units?q= · units/:id · mine
- *   POST preview · start · :id/finish · :id/cancel · :id/void · manual
+ * ثبت ساعتِ نظافتِ منزل (کارمند دپارتمان نظافت با دسترسی housekeeping یا مدیر)
+ *   GET  home · units/:id · mine
+ *   POST preview · :id/finish · :id/cancel · :id/void
+ * شروع نظافت و ثبت دستی از روی «کار» انجام می‌شود (tasks/:id/start · tasks/:id/manual)
  * مصرف در موتور آفرها (خدمت «خانه‌داری») ثبت می‌شود؛ مازاد در صدور شارژ ماه بعد به شارژ واحد اضافه می‌شود.
  */
 @Controller('entitlements/cleaning')
@@ -50,13 +42,6 @@ export class CleaningController {
   home(@CurrentUser() user: JwtPayload) {
     needCleaner(user)
     return this.db.withTenant(user.tenant_id!, (client) => this.svc.home(client, user))
-  }
-
-  @Roles('admin', 'staff')
-  @Get('units')
-  units(@Query('q') q: string | undefined, @CurrentUser() user: JwtPayload) {
-    needCleaner(user)
-    return this.db.withTenant(user.tenant_id!, (client) => this.svc.units(client, q ?? ''))
   }
 
   @Roles('admin', 'staff')
@@ -84,13 +69,6 @@ export class CleaningController {
   }
 
   @Roles('admin', 'staff')
-  @Post('start')
-  start(@Body() body: CleaningStartDto, @CurrentUser() user: JwtPayload) {
-    needCleaner(user)
-    return this.db.withTenant(user.tenant_id!, (client) => this.svc.start(client, user, body.unitId))
-  }
-
-  @Roles('admin', 'staff')
   @HttpCode(200)
   @Post(':id/finish')
   finish(@Param('id', ParseUUIDPipe) id: string, @Body() body: CleaningFinishDto, @CurrentUser() user: JwtPayload) {
@@ -113,13 +91,5 @@ export class CleaningController {
   voidSession(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: JwtPayload) {
     needCleaner(user)
     return this.db.withTenant(user.tenant_id!, (client) => this.svc.voidSession(client, user, id))
-  }
-
-  @Roles('admin', 'staff')
-  @Post('manual')
-  manual(@Body() body: CleaningManualDto, @CurrentUser() user: JwtPayload) {
-    needCleaner(user)
-    return this.db.withTenant(user.tenant_id!, (client) =>
-      this.svc.manual(client, user, { unitId: body.unitId, startedAt: new Date(body.startedAt), endedAt: new Date(body.endedAt), note: body.note }))
   }
 }
