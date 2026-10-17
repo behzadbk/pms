@@ -167,7 +167,12 @@ export class ServiceRequestsController {
         [user.pid],
       )
       // نام مجری برای ساکن لازم نیست؛ فقط وضعیت و زمان
-      return r.rows.map(({ assigned_to: _a, assigned_name: _n, ...x }) => x)
+      return r.rows.map((row) => {
+        const x = { ...row } as Record<string, unknown>
+        delete x.assigned_to
+        delete x.assigned_name
+        return x
+      })
     })
   }
 
