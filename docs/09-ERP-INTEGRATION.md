@@ -1,8 +1,8 @@
-# اتصال «همین» به ERP / نرم‌افزار حسابداری
+# اتصال Livo به ERP / نرم‌افزار حسابداری
 
-«همین» نرم‌افزار حسابداری نیست. هر چیزی که در همین تولید می‌شود و بار مالی دارد — شارژ صادرشده‌ی هر واحد، پرداخت‌ها، فاکتورهای هزینه‌ی ساختمان، **شارژ متغیر** (کافه/رستوران و مازاد آفرها مثل ساعت نظافت) — به همراه اطلاعات پایه (واحدها، اشخاص، کارکنان) **به ERP مجموعه فرستاده می‌شود** و سند حسابداری در خود ERP ثبت می‌شود.
+Livo نرم‌افزار حسابداری نیست. هر چیزی که در همین تولید می‌شود و بار مالی دارد — شارژ صادرشده‌ی هر واحد، پرداخت‌ها، فاکتورهای هزینه‌ی ساختمان، **شارژ متغیر** (کافه/رستوران و مازاد آفرها مثل ساعت نظافت) — به همراه اطلاعات پایه (واحدها، اشخاص، کارکنان) **به ERP مجموعه فرستاده می‌شود** و سند حسابداری در خود ERP ثبت می‌شود.
 
-جهت داده فقط **همین → ERP** است. همین هیچ‌وقت در ERP چیزی را ویرایش نمی‌کند؛ ERP فقط می‌تواند «شماره سندی» را که ثبت کرده به همین گزارش دهد تا در پنل دیده شود.
+جهت داده فقط **Livo → ERP** است. Livo هیچ‌وقت در ERP چیزی را ویرایش نمی‌کند؛ ERP فقط می‌تواند «شماره سندی» را که ثبت کرده به Livo گزارش دهد تا در پنل دیده شود.
 
 سرویس: `backend/integration-service` (پورت ۳۰۰۹، پشت gateway روی `/api/integration`).
 
@@ -18,7 +18,7 @@
 ## ۱. دو روش اتصال
 
 ```
-                         ┌──────────────── همین ─────────────────┐
+                         ┌──────────────── Livo ─────────────────┐
   پنل مدیر/حسابدار ──▶  │  finance / fnb / entitlement / ...       │
                          │        │ هر INSERT/UPDATE/DELETE           │
                          │        ▼ (trigger دیتابیس)                │
@@ -27,16 +27,16 @@
                          │     │ (۱) Pull                │ (۲) Push │
                          └─────┼─────────────────────────┼──────────┘
                                ▼                         ▼
-              ERP با X-API-Key می‌خواند       همین دسته‌ها را POST می‌کند (HMAC)
+              ERP با X-API-Key می‌خواند       Livo دسته‌ها را POST می‌کند (HMAC)
               GET /v1/charges, /v1/changes…   به آدرس ERP، با تلاش مجدد خودکار
                                │                         │
-                               └──── POST /v1/sync ◀─────┘  (شماره سند ERP → پنل همین)
+                               └──── POST /v1/sync ◀─────┘  (شماره سند ERP → پنل Livo)
 ```
 
 | روش | مناسب برای | چطور |
 |---|---|---|
 | **Pull** — ERP می‌خواند | ERP نصب‌شده داخل شبکه‌ی مجموعه (هلو، سپیدار، همکاران سیستم و…) یا میان‌افزار؛ نیازی به باز کردن پورت روی ERP نیست | مدیر/حسابدار در پنل «کلید API» می‌سازد؛ ERP با هدر `X-API-Key` داده را می‌خواند و برای تغییرات جدید `GET /v1/changes` را poll می‌کند |
-| **Push** — همین می‌فرستد | ERP آنلاین یا هر سرویسی که یک آدرس https برای دریافت دارد | در پنل «مقصد ارسال» (آدرس ERP) ثبت می‌شود؛ هر تغییر حداکثر ۱۵ ثانیه بعد دسته‌ای و امضاشده POST می‌شود |
+| **Push** — Livo می‌فرستد | ERP آنلاین یا هر سرویسی که یک آدرس https برای دریافت دارد | در پنل «مقصد ارسال» (آدرس ERP) ثبت می‌شود؛ هر تغییر حداکثر ۱۵ ثانیه بعد دسته‌ای و امضاشده POST می‌شود |
 
 هر دو روش هم‌زمان قابل استفاده‌اند و هر دو از **یک فید و یک شکل داده** می‌خوانند.
 
@@ -95,12 +95,12 @@ POST /v1/sync
   { "entity": "payment", "id": "…", "status": "failed", "message": "حساب بانک تعریف نشده" }
 ] }
 ```
-موارد `failed` در پنل «اتصال ERP» همین به حسابدار نشان داده می‌شود.
+موارد `failed` در پنل «اتصال ERP» Livo به حسابدار نشان داده می‌شود.
 
 ### نمونه‌ی کد (Node.js)
 ```js
 const BASE = 'https://<دامنه>/api/integration'
-const H = { 'X-API-Key': process.env.HAMIN_KEY }
+const H = { 'X-API-Key': process.env.LIVO_KEY }
 let cursor = await loadCursor()              // از دیتابیس خودتان
 for (;;) {
   const r = await fetch(`${BASE}/v1/changes?since=${cursor}&limit=500`, { headers: H }).then((r) => r.json())
@@ -119,15 +119,15 @@ for (;;) {
 
 ## ۴. راهنمای تیم ERP — روش Push
 
-همین به آدرس ثبت‌شده POST می‌کند:
+Livo به آدرس ثبت‌شده POST می‌کند:
 
 ```http
-POST https://erp.example.com/hamin/inbox
+POST https://erp.example.com/livo/inbox
 Content-Type: application/json
-X-Hamin-Signature: t=1791902409,v1=89e755c5…
-X-Hamin-Batch: 4201-4250
-X-Hamin-Tenant: <tenant id>
-X-Hamin-Connector: <connector id>
+X-Livo-Signature: t=1791902409,v1=89e755c5…
+X-Livo-Batch: 4201-4250
+X-Livo-Tenant: <tenant id>
+X-Livo-Connector: <connector id>
 
 { "batchId": "4201-4250", "connector": {…}, "tenantId": "…", "currency": "IRT",
   "events": [ { "seq": 4201, "entity": "charge", "id": "…", "action": "created", "occurredAt": "…", "data": { … } } ] }
@@ -135,15 +135,15 @@ X-Hamin-Connector: <connector id>
 
 - **امضا را بررسی کنید:** `hex(HMAC_SHA256(secret, t + "." + rawBody)) == v1` و `t` حداکثر ۵ دقیقه قدیمی باشد. `secret` هنگام ساخت مقصد در پنل یک بار نمایش داده می‌شود.
 - پاسخ **2xx** = دسته پذیرفته شد و دسته‌ی بعد ارسال می‌شود. هر پاسخ دیگر یا timeout (۱۵ ثانیه) = همان دسته بعداً دوباره ارسال می‌شود (۱۰ث، ۲۰ث، ۴۰ث… تا سقف ۱ ساعت). ترتیب `seq` حفظ می‌شود.
-- ممکن است دسته‌ای تکراری برسد (at-least-once) → با `X-Hamin-Batch` یا `entity+id` تکراری را نادیده بگیرید.
-- در همان پاسخ می‌توانید شماره سندها را برگردانید تا در پنل همین ثبت شود:
+- ممکن است دسته‌ای تکراری برسد (at-least-once) → با `X-Livo-Batch` یا `entity+id` تکراری را نادیده بگیرید.
+- در همان پاسخ می‌توانید شماره سندها را برگردانید تا در پنل Livo ثبت شود:
   ```json
   { "results": [ { "entity": "charge", "id": "…", "status": "synced", "erpRef": "SF-1234" } ] }
   ```
 
 اعتبارسنجی امضا در PHP:
 ```php
-function hamin_verify(string $secret, string $header, string $raw): bool {
+function livo_verify(string $secret, string $header, string $raw): bool {
     parse_str(str_replace(',', '&', $header), $p);
     if (empty($p['t']) || empty($p['v1']) || abs(time() - (int)$p['t']) > 300) return false;
     return hash_equals(hash_hmac('sha256', $p['t'] . '.' . $raw, $secret), $p['v1']);

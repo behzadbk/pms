@@ -18,8 +18,8 @@ const fa = (n: number) => n.toLocaleString('fa-IR')
 
 /**
  * «اتصال ERP» — مدیر ساختمان و حسابدار.
- * «همین» نرم‌افزار حسابداری نیست: شارژها، پرداخت‌ها، فاکتورهای هزینه، شارژ متغیر و اطلاعات پایه به ERP مجموعه فرستاده می‌شود
- * و سند حسابداری در خود ERP ثبت می‌شود. دو روش: ERP با کلید API می‌خواند، یا همین خودکار به آدرس ERP ارسال می‌کند.
+ * Livo نرم‌افزار حسابداری نیست: شارژها، پرداخت‌ها، فاکتورهای هزینه، شارژ متغیر و اطلاعات پایه به ERP مجموعه فرستاده می‌شود
+ * و سند حسابداری در خود ERP ثبت می‌شود. دو روش: ERP با کلید API می‌خواند، یا Livo خودکار به آدرس ERP ارسال می‌کند.
  */
 export function ErpIntegration() {
   const overview = useLoad(() => integrationApi.overview(), [])
@@ -94,8 +94,8 @@ export function ErpIntegration() {
 
       <Callout>
         <b>دو روش اتصال:</b> (۱) ERP شما با «کلید API» داده‌ها را می‌خواند — مناسب نرم‌افزارهای نصب‌شده داخل شبکه‌ی مجموعه؛
-        (۲) همین هر تغییر را خودکار به «آدرس ERP» می‌فرستد — مناسب ERP آنلاین. می‌توانید هر دو را با هم داشته باشید.
-        همین فقط داده می‌فرستد و هیچ‌وقت در حسابداری شما چیزی را ویرایش نمی‌کند.
+        (۲) Livo هر تغییر را خودکار به «آدرس ERP» می‌فرستد — مناسب ERP آنلاین. می‌توانید هر دو را با هم داشته باشید.
+        Livo فقط داده می‌فرستد و هیچ‌وقت در حسابداری شما چیزی را ویرایش نمی‌کند.
       </Callout>
 
       {/* ---------------- کلیدها ---------------- */}
@@ -237,7 +237,7 @@ export function ErpIntegration() {
       )}
 
       <NewKeyModal open={keyOpen} onClose={() => setKeyOpen(false)} onCreated={(k) => { setKeyOpen(false); setSecret({ title: 'کلید API ساخته شد', value: k, note: 'این کلید فقط همین یک بار نمایش داده می‌شود. آن را در تنظیمات ERP (هدر X-API-Key) وارد کنید و همراه لینک مستندات به تیم ERP بدهید.' }); refresh() }} />
-      <NewConnectorModal open={conOpen} onClose={() => setConOpen(false)} onCreated={(s) => { setConOpen(false); setSecret({ title: 'مقصد ارسال اضافه شد', value: s, note: 'این «کلید امضا» فقط همین یک بار نمایش داده می‌شود. ERP با آن امضای هدر X-Hamin-Signature را بررسی می‌کند تا مطمئن شود داده واقعاً از همین آمده است.' }); refresh() }} />
+      <NewConnectorModal open={conOpen} onClose={() => setConOpen(false)} onCreated={(s) => { setConOpen(false); setSecret({ title: 'مقصد ارسال اضافه شد', value: s, note: 'این «کلید امضا» فقط همین یک بار نمایش داده می‌شود. ERP با آن امضای هدر X-Livo-Signature را بررسی می‌کند تا مطمئن شود داده واقعاً از همین آمده است.' }); refresh() }} />
       <SecretModal secret={secret} onClose={() => setSecret(null)} onCopied={() => toast('کپی شد')} />
       <HistoryModal connector={history} onClose={() => setHistory(null)} />
       {toastNode}
@@ -265,7 +265,7 @@ function NewKeyModal({ open, onClose, onCreated }: { open: boolean; onClose: () 
     <Modal open={open} onClose={onClose} title="ساخت کلید API" footer={<><GhostButton onClick={onClose}>انصراف</GhostButton><PrimaryButton disabled={busy || !name.trim()} onClick={() => void submit()}>ساخت کلید</PrimaryButton></>}>
       <div className="space-y-4">
         <TextField label="نام" placeholder="مثلاً: اتصال سپیدار دفتر مرکزی" value={name} onChange={(e) => setName(e.target.value)} />
-        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={sync} onChange={(e) => setSync(e.target.checked)} /> ERP بتواند شماره سند ثبت‌شده را به همین گزارش دهد</label>
+        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={sync} onChange={(e) => setSync(e.target.checked)} /> ERP بتواند شماره سند ثبت‌شده را به Livo گزارش دهد</label>
         {err && <Callout tone="warn">{err}</Callout>}
       </div>
     </Modal>
@@ -296,7 +296,7 @@ function NewConnectorModal({ open, onClose, onCreated }: { open: boolean; onClos
     <Modal open={open} onClose={onClose} title="افزودن مقصد ارسال خودکار" size="lg" footer={<><GhostButton onClick={onClose}>انصراف</GhostButton><PrimaryButton disabled={busy || !name.trim() || !url.trim() || (!all && !picked.length)} onClick={() => void submit()}>افزودن</PrimaryButton></>}>
       <div className="space-y-4">
         <TextField label="نام" placeholder="مثلاً: ERP آنلاین شرکت" value={name} onChange={(e) => setName(e.target.value)} />
-        <TextField label="آدرس دریافت ERP" dir="ltr" placeholder="https://erp.example.com/hamin/inbox" value={url} onChange={(e) => setUrl(e.target.value)} hint="باید https و قابل دسترس از اینترنت باشد. ERP داخل شبکه‌ی مجموعه؟ به‌جای این، کلید API بسازید." />
+        <TextField label="آدرس دریافت ERP" dir="ltr" placeholder="https://erp.example.com/livo/inbox" value={url} onChange={(e) => setUrl(e.target.value)} hint="باید https و قابل دسترس از اینترنت باشد. ERP داخل شبکه‌ی مجموعه؟ به‌جای این، کلید API بسازید." />
         <div className="space-y-2">
           <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={all} onChange={(e) => setAll(e.target.checked)} /> همه‌ی داده‌ها</label>
           {!all && (

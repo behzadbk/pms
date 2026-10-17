@@ -254,7 +254,7 @@ function AssetSheet({ open, categories, onClose, onDone }: { open: boolean; cate
 export function StaffSchedule() {
   const { toast, toastNode } = useToast()
   useEffect(() => {
-    document.title = 'برنامه سرویس دوره‌ای · همین'
+    document.title = 'برنامه سرویس دوره‌ای · Livo'
   }, [])
   return (
     <div className="max-w-4xl mx-auto flex flex-col gap-4 hm-fade-in">

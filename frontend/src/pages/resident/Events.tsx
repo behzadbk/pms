@@ -15,7 +15,7 @@ export function ResidentEvents() {
   const [detail, setDetail] = useState<string | null>(null)
   const { toast, toastNode } = useToast()
   useEffect(() => {
-    document.title = 'رویدادها · همین'
+    document.title = 'رویدادها · Livo'
   }, [])
 
   async function rsvp(e: CommunityEvent, status: 'going' | 'declined') {

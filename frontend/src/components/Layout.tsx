@@ -127,7 +127,7 @@ export function Layout() {
           <div className="bg-[var(--hdr-acc)] rounded-lg p-1.5 shrink-0">
             <Building2 size={16} />
           </div>
-          <p className="font-semibold text-sm truncate">{user?.tenantName ?? 'همین'}</p>
+          <p className="font-semibold text-sm truncate">{user?.tenantName ?? 'Livo'}</p>
           {isChild && (
             <span className="flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full bg-white/15">
               <ShieldCheck size={13} /> حالت والدین
@@ -153,7 +153,7 @@ export function Layout() {
               <Building2 size={20} />
             </div>
             <div className="min-w-0">
-              <p className="font-bold leading-none truncate">{user?.tenantName ?? 'همین'}</p>
+              <p className="font-bold leading-none truncate">{user?.tenantName ?? 'Livo'}</p>
             </div>
           </div>
         </div>
@@ -489,7 +489,7 @@ export function AccountScreen() {
         <Row icon={LogOut} label="خروج از حساب" tone="bad" onClick={logout} />
       </Group>
       <div className="flex flex-col items-center gap-1 pt-4 pb-6 text-[var(--hm-t3)]">
-        <p className="text-xs font-bold">همین · نسخه {APP_VERSION.replace(/\./g, '٫').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[+d])}</p>
+        <p className="text-xs font-bold">Livo · نسخه {APP_VERSION.replace(/\./g, '٫').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[+d])}</p>
         <p className="text-xs">باروکو</p>
       </div>
     </div>

@@ -32,10 +32,10 @@ export class SandboxController {
   @HttpCode(200)
   async receive(
     @Req() req: Request & { rawBody?: Buffer },
-    @Headers('x-hamin-signature') sig?: string,
-    @Headers('x-hamin-connector') connectorId?: string,
-    @Headers('x-hamin-tenant') tenantId?: string,
-    @Headers('x-hamin-batch') batch?: string,
+    @Headers('x-livo-signature') sig?: string,
+    @Headers('x-livo-connector') connectorId?: string,
+    @Headers('x-livo-tenant') tenantId?: string,
+    @Headers('x-livo-batch') batch?: string,
   ) {
     const raw = req.rawBody?.toString('utf8') ?? JSON.stringify(req.body)
     let valid: boolean | null = null

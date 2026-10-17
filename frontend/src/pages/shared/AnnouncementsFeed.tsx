@@ -14,7 +14,7 @@ export function AnnouncementsFeed() {
   const { toast, toastNode } = useToast()
 
   useEffect(() => {
-    document.title = 'اعلانات · همین'
+    document.title = 'اعلانات · Livo'
     const t = window.setInterval(() => document.visibilityState === 'visible' && void reload(true), 60_000)
     return () => window.clearInterval(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps

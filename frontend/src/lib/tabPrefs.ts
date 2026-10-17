@@ -10,8 +10,8 @@ import type { Role } from './types'
  * بقیه در «بیشتر» می‌مانند. برای هر نقش جدا در localStorage ذخیره می‌شود (روی همین دستگاه).
  * اگر چیزی ذخیره نشده یا بخش ذخیره‌شده دیگر دسترس‌پذیر نیست، پیش‌فرض نقش اعمال می‌شود.
  */
-const key = (role: Role) => `hamin.tabs.v1.${role}`
-const EVENT = 'hamin:tabs-changed'
+const key = (role: Role) => `livo.tabs.v1.${role}`
+const EVENT = 'livo:tabs-changed'
 
 function read(role: Role): string[] | null {
   try {

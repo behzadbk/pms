@@ -85,7 +85,7 @@ export class PushService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async initVapid() {
-    const subject = process.env.VAPID_SUBJECT || 'mailto:admin@hamin.app'
+    const subject = process.env.VAPID_SUBJECT || 'mailto:admin@livo.app'
     let pub = process.env.VAPID_PUBLIC_KEY
     let priv = process.env.VAPID_PRIVATE_KEY
     if (!pub || !priv) {
@@ -149,7 +149,7 @@ export class PushService implements OnModuleInit, OnModuleDestroy {
         `SELECT id, endpoint, p256dh, auth FROM notification.push_subscriptions
           WHERE ($1::uuid IS NOT NULL AND login_id = $1) OR ($2::uuid IS NOT NULL AND person_id = $2)`,
         [user.kind === 'family' ? null : user.sub, user.pid ?? null])).rows)
-    const sent = await this.deliver(user.tenant_id, subs, { title: 'همین — اعلان آزمایشی', body: 'اعلان‌ها روی این دستگاه فعال است ✅', url: '/', tag: 'test', kind: 'test' })
+    const sent = await this.deliver(user.tenant_id, subs, { title: 'Livo — اعلان آزمایشی', body: 'اعلان‌ها روی این دستگاه فعال است ✅', url: '/', tag: 'test', kind: 'test' })
     return { sent }
   }
 

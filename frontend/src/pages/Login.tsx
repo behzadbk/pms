@@ -4,7 +4,7 @@ import { Loader2, QrCode } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 
 /** آخرین مجتمعی که از این دستگاه وارد شده — روی تبلت لابی/آشپزخانه هر بار تایپ نشود */
-export const LAST_TENANT_KEY = 'hamin.last-tenant'
+export const LAST_TENANT_KEY = 'livo.last-tenant'
 function readLastTenant() {
   try {
     return localStorage.getItem(LAST_TENANT_KEY) ?? ''
@@ -97,8 +97,9 @@ export function Login() {
     >
       <div className="w-full max-w-sm">
         <div className="flex flex-col items-center gap-2 mb-6">
-          <img src="/icons/icon-192.png" alt="همین" className="w-16 h-16 rounded-2xl shadow-sm" />
-          <h1 className="font-bold text-xl text-ink-text">همین</h1>
+          <img src="/icons/icon-192.png" alt="Livo" className="w-16 h-16 rounded-2xl shadow-sm" />
+          <h1 className="font-bold text-xl text-ink-text">Livo</h1>
+          <p dir="ltr" className="text-xs text-muted">Better living, Smart, together</p>
         </div>
 
         {mode === 'family' ? (

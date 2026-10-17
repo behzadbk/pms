@@ -9,7 +9,7 @@ import type { CapacitorConfig } from '@capacitor/cli'
  */
 const config: CapacitorConfig = {
   appId: 'ir.barouco.pms',
-  appName: 'همین',
+  appName: 'Livo',
   webDir: 'dist',
   android: {
     // فقط HTTPS — سرور تولیدی باید گواهی SSL معتبر داشته باشد
@@ -21,12 +21,12 @@ const config: CapacitorConfig = {
   plugins: {
     SplashScreen: {
       launchShowDuration: 1200,
-      backgroundColor: '#16324f',
+      backgroundColor: '#26292f',
       showSpinner: false,
     },
     StatusBar: {
       style: 'DARK',
-      backgroundColor: '#16324f',
+      backgroundColor: '#26292f',
       overlaysWebView: false,
     },
   },

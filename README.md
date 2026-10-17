@@ -2,7 +2,7 @@
 
 سامانه‌ی چندمستأجری (Multi-tenant) برای مدیریت برج/مجتمع مسکونی: احراز هویت و نقش‌ها، مدیریت واحدها و مالکان/ساکنان، رزرو امکانات مشترک، مالی و شارژ، نگهبانی (مهمان/پارکینگ/بسته)، اطلاع‌رسانی و تیکتینگ، سفارش غذا (F&B) داخل ساختمان، و لاگ/ممیزی متمرکز.
 
-نام محصول: **«همین» (Hamin)** — یک اپ (PWA + اندروید/iOS) برای مدیر ساختمان، حسابداری، ساکنین، کارکنان (لابی، آشپزخانه، کافی‌شاپ، مشاعات، نگهبانی، تأسیسات) و مدیر پلتفرم.
+نام محصول: **Livo** — Better living, Smart, together — یک اپ (PWA + اندروید/iOS) برای مدیر ساختمان، حسابداری، ساکنین، کارکنان (لابی، آشپزخانه، کافی‌شاپ، مشاعات، نگهبانی، تأسیسات) و مدیر پلتفرم.
 
 این README نمای کلی پروژه است: هر نقش چه می‌بیند، داده کجا ذخیره می‌شود، چطور نصب و اجرا کنید و وضعیت هر بخش. جزئیات فنی هر مرحله در پوشه‌ی [`docs/`](./docs) آمده و تاریخچه‌ی تغییرات در [`CHANGELOG.md`](./CHANGELOG.md).
 
@@ -72,7 +72,7 @@ sudo NPM_REGISTRY=https://registry.npmjs.org bash install.sh        # میرور
 
 ## 🪟 اجرای محلی روی ویندوز (بدون نصب)
 
-از [Releases → windows-portable](https://github.com/behzadbk/pms/releases/tag/windows-portable) فایل `Hamin-PMS-windows.zip` را دانلود کنید، در مسیری مثل `C:\Hamin` اکسترکت کنید و `start.bat` را اجرا کنید — دیتابیس، ۸ سرویس و اپ بدون نصب هیچ برنامه‌ای روی `http://localhost:8080` بالا می‌آیند. راهنما: [`windows/README.txt`](./windows/README.txt).
+از [Releases → windows-portable](https://github.com/behzadbk/pms/releases/tag/windows-portable) فایل `Livo-PMS-windows.zip` را دانلود کنید، در مسیری مثل `C:\Livo` اکسترکت کنید و `start.bat` را اجرا کنید — دیتابیس، ۸ سرویس و اپ بدون نصب هیچ برنامه‌ای روی `http://localhost:8080` بالا می‌آیند. راهنما: [`windows/README.txt`](./windows/README.txt).
 
 این زیپ را workflow «Windows portable» بعد از هر تغییر کد خودکار می‌سازد و قبل از انتشار، روی یک ویندوز واقعی اجرا و ورود ساختمان و سوپرادمین را تست می‌کند.
 
@@ -217,7 +217,7 @@ sudo NPM_REGISTRY=https://registry.npmjs.org bash install.sh        # میرور
 | منوی رستوران/کافی‌شاپ و سفارش‌ها | ⏳ استور کلاینت | fnb-service برای منو و سفارش endpoint دارد؛ اتصال مانده است |
 | فاکتورها، صدور شارژ، گردش صندوق | ⏳ استور کلاینت | finance-service برای صدور شارژ endpoint دارد |
 
-برای برگرداندن داده‌ی نمونه‌ی بخش‌های ⏳، در کنسول مرورگر `localStorage.removeItem('hamin.demo-store')` را بزنید و صفحه را رفرش کنید. اکشن‌های `store.ts` (`publishAnnouncement`، `decideReservation`، `placeFnbOrder`، `addInvoice`، …) طوری نوشته شده‌اند که برای اتصال به API فقط بدنه‌شان با `fetch` عوض شود.
+برای برگرداندن داده‌ی نمونه‌ی بخش‌های ⏳، در کنسول مرورگر `localStorage.removeItem('livo.demo-store')` را بزنید و صفحه را رفرش کنید. اکشن‌های `store.ts` (`publishAnnouncement`، `decideReservation`، `placeFnbOrder`، `addInvoice`، …) طوری نوشته شده‌اند که برای اتصال به API فقط بدنه‌شان با `fetch` عوض شود.
 
 ## حساب‌های تست
 

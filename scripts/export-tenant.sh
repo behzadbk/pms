@@ -73,7 +73,7 @@ done <<< "$TABLES"
 
 psql "$LOOKUP_URL" -X -q -v ON_ERROR_STOP=1 -c "\copy (SELECT * FROM identity.tenants WHERE id = '$TID') TO '$WORK/tenant.csv' WITH (FORMAT csv, HEADER true)"
 
-printf '{ "format": "hamin-tenant-export/1", "tenant_id": "%s", "subdomain": "%s", "exported_at": "%s", "rows": { %s } }\n' \
+printf '{ "format": "livo-tenant-export/1", "tenant_id": "%s", "subdomain": "%s", "exported_at": "%s", "rows": { %s } }\n' \
   "$TID" "$SUB" "$(date -u +%FT%TZ)" "${MANIFEST_ROWS%, }" > "$WORK/manifest.json"
 
 tar -C "$WORK" -czf "$OUT" .

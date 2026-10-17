@@ -1,8 +1,8 @@
 /**
- * پریمیتیوهای رابط Hamino v5 (ماژول ساکنین، خانوار، حالت والدین، رزرو مشاعات).
+ * پریمیتیوهای رابط Livo v5 (ماژول ساکنین، خانوار، حالت والدین، رزرو مشاعات).
  * ظاهر عیناً از «Hamino - New Modules v2.dc.html»: دکمه‌ی بازگشت گرد ۴۴px، کارت شیشه‌ای ۲۴،
  * سگمنت کپسولی با لنز، برچسب‌های رنگی، سوییچ ۵۱×۳۱، برگه‌ی شیشه‌ای و برگه‌ی موفقیت.
- * کلاس‌ها در styles/liquid-glass.css (بخش Hamino v5) تعریف شده‌اند.
+ * کلاس‌ها در styles/liquid-glass.css (بخش Livo v5) تعریف شده‌اند.
  */
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'

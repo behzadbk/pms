@@ -20,7 +20,7 @@ export function AmenityManager() {
   const { toast, toastNode } = useToast()
 
   useEffect(() => {
-    document.title = 'مشاعات · همین'
+    document.title = 'مشاعات · Livo'
   }, [])
 
   if (loading && !data) return <Loading />

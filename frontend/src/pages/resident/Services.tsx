@@ -21,7 +21,7 @@ export function ResidentServices() {
   const [busy, setBusy] = useState(false)
   const { toast, toastNode } = useToast()
   useEffect(() => {
-    document.title = 'خدمات · همین'
+    document.title = 'خدمات · Livo'
   }, [])
 
   async function submit() {

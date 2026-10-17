@@ -255,7 +255,7 @@ export class AdminController {
     const started = Date.now()
     const result = await this.dispatcher.send(
       con,
-      [{ seq: 0, entity: 'test', id, action: 'created', occurredAt: new Date().toISOString(), data: { message: 'اتصال «همین» به ERP برقرار است ✅' } }],
+      [{ seq: 0, entity: 'test', id, action: 'created', occurredAt: new Date().toISOString(), data: { message: 'اتصال Livo به ERP برقرار است ✅' } }],
       'test',
     )
     return { ...result, durationMs: Date.now() - started }

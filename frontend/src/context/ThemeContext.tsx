@@ -20,7 +20,7 @@ interface ThemePrefs {
 }
 
 const DEFAULTS: ThemePrefs = { mode: 'system', palette: DEFAULT_PALETTE, easy: false }
-const STORAGE_KEY = 'hamin.theme-prefs.v1'
+const STORAGE_KEY = 'livo.theme-prefs.v1'
 
 function readPrefs(): ThemePrefs {
   try {

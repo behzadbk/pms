@@ -18,7 +18,7 @@ const errors = []
 
 async function session(viewport = MOBILE) {
   const ctx = await browser.newContext({ viewport, locale: 'fa-IR', timezoneId: 'Asia/Tehran', deviceScaleFactor: 2 })
-  await ctx.addInitScript(() => localStorage.setItem('hamino_onboarding_seen', '1'))
+  await ctx.addInitScript(() => localStorage.setItem('livo_onboarding_seen', '1'))
   const page = await ctx.newPage()
   page.on('pageerror', (e) => errors.push(e.message))
   page.on('console', (m) => {
