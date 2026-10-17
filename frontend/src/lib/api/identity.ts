@@ -15,6 +15,8 @@ export interface AuthUser {
   tenantName?: string
   /** فقط برای کارکنان (role=staff): بخش و دسترسی‌های مؤثر — تعیین می‌کند کدام پنل‌ها باز شود */
   department?: string | null
+  /** نام نمایشی دپارتمان (برای دپارتمان‌های سفارشی) */
+  departmentName?: string | null
   permissions?: string[]
   /** حساب با رمز موقت/اولیه (مثلاً شماره واحد) — تا تعویض رمز، فقط فرم تغییر رمز نمایش داده می‌شود */
   mustChangePassword?: boolean

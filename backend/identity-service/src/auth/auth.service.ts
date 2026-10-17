@@ -24,6 +24,8 @@ interface UserRow {
   username: string | null
   role: string
   department: string | null
+  /** نام نمایشی دپارتمان (identity.departments) — برای دپارتمان‌های سفارشی که نامشان در فرانت ثابت نیست */
+  department_name?: string | null
   permissions: string[] | null
   is_active: boolean
   must_change_password: boolean
@@ -36,6 +38,7 @@ const USER_COLUMNS = `id, full_name, email, username, role, department, permissi
   (SELECT p.status FROM residency.users p WHERE p.id = identity.users.person_id) AS person_status,
   (SELECT t.name FROM identity.tenants t WHERE t.id = identity.users.tenant_id) AS tenant_name,
   (SELECT t.tier FROM identity.tenants t WHERE t.id = identity.users.tenant_id) AS tenant_tier,
+  (SELECT d.name FROM identity.departments d WHERE d.tenant_id = identity.users.tenant_id AND d.code = identity.users.department) AS department_name,
   GREATEST(sessions_valid_after,
            COALESCE((SELECT p.sessions_valid_after FROM residency.users p WHERE p.id = identity.users.person_id), '-infinity')) AS sessions_valid_after`
 
@@ -56,7 +59,7 @@ function publicUser(u: UserRow, tenantId: string) {
     ...(isBuildingTier(u.tenant_tier) ? { tier: u.tenant_tier } : {}),
     ...(u.must_change_password ? { mustChangePassword: true } : {}),
     ...(u.role === 'staff'
-      ? { department: u.department, permissions: effectivePermissions(u.department, u.permissions) }
+      ? { department: u.department, ...(u.department_name ? { departmentName: u.department_name } : {}), permissions: effectivePermissions(u.department, u.permissions) }
       : {}),
     ...(u.person_id ? { personId: u.person_id } : {}),
   }

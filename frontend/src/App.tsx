@@ -34,6 +34,10 @@ const ResidentHouseholdAdd = lazy(() => import('./pages/resident/household/AddMe
 const ResidentParentControl = lazy(() => import('./pages/resident/household/ParentControl').then((m) => ({ default: m.ResidentParentControl })))
 const ResidentChildLogin = lazy(() => import('./pages/resident/household/ChildAccess').then((m) => ({ default: m.ResidentChildLogin })))
 const ResidentChildRequests = lazy(() => import('./pages/resident/household/ChildAccess').then((m) => ({ default: m.ResidentChildRequests })))
+const ResidentServices = lazy(() => import('./pages/resident/Services').then((m) => ({ default: m.ResidentServices })))
+const ResidentEvents = lazy(() => import('./pages/resident/Events').then((m) => ({ default: m.ResidentEvents })))
+const AdminServices = lazy(() => import('./pages/admin/Services').then((m) => ({ default: m.AdminServices })))
+const StaffServices = lazy(() => import('./pages/staff/ServiceDesk').then((m) => ({ default: m.StaffServices })))
 const ResidentBook = lazy(() => import('./pages/resident/Book').then((m) => ({ default: m.ResidentBook })))
 const ChildHome = lazy(() => import('./pages/child/ChildApp').then((m) => ({ default: m.ChildHome })))
 const ChildWaiting = lazy(() => import('./pages/child/ChildApp').then((m) => ({ default: m.ChildWaiting })))
@@ -201,6 +205,7 @@ function AppRoutes() {
         <Route path="/admin/units/:id" element={<RequireRole role="admin"><AdminUnitFile /></RequireRole>} />
         <Route path="/admin/units/:id/edit" element={<RequireRole role="admin"><AdminResidentForm /></RequireRole>} />
         <Route path="/admin/units/:id/move-out" element={<RequireRole role="admin"><AdminMoveOut /></RequireRole>} />
+        <Route path="/admin/services" element={<RequireRole role="admin"><AdminServices /></RequireRole>} />
         <Route path="/admin/staff" element={<RequireRole role="admin"><AdminStaff /></RequireRole>} />
         <Route path="/admin/logs" element={<RequireRole role="admin"><AdminAuditLog /></RequireRole>} />
 
@@ -209,6 +214,8 @@ function AppRoutes() {
         <Route path="/resident/finance" element={<RequireRole role="resident"><RequireModule module="finance"><ResidentFinance /></RequireModule></RequireRole>} />
         <Route path="/resident/guest" element={<RequireRole role="resident"><RequireModule module="guest"><ResidentGuestPass /></RequireModule></RequireRole>} />
         <Route path="/resident/reservations" element={<RequireRole role="resident"><RequireModule module="amenity"><ResidentBook /></RequireModule></RequireRole>} />
+        <Route path="/resident/services" element={<RequireRole role="resident"><ResidentServices /></RequireRole>} />
+        <Route path="/resident/events" element={<RequireRole role="resident"><RequireModule module="amenity"><ResidentEvents /></RequireModule></RequireRole>} />
         <Route path="/resident/offers" element={<RequireRole role="resident"><RequireModule module="amenity"><ResidentOffers /></RequireModule></RequireRole>} />
         <Route path="/resident/tickets" element={<RequireRole role="resident"><RequireModule module="ticket"><ResidentTickets /></RequireModule></RequireRole>} />
         <Route path="/resident/food-order" element={<RequireRole role="resident"><RequireModule module="food"><ResidentFoodOrder /></RequireModule></RequireRole>} />
@@ -246,6 +253,7 @@ function AppRoutes() {
         <Route path="/staff/security" element={<RequirePermission permission="security"><StaffSecurityDesk /></RequirePermission>} />
         <Route path="/staff/work-orders" element={<RequirePermission permission="maintenance"><StaffWorkOrders /></RequirePermission>} />
         <Route path="/staff/schedule" element={<RequirePermission permission="maintenance"><StaffSchedule /></RequirePermission>} />
+        <Route path="/staff/services" element={<RequirePermission permission="service_desk"><StaffServices /></RequirePermission>} />
         <Route path="/staff/announcements" element={<RequireRole role="staff"><AnnouncementsFeed /></RequireRole>} />
 
         <Route path="/accountant" element={<RequireRole role="accountant"><AccountantDashboard /></RequireRole>} />

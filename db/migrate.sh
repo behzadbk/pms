@@ -69,6 +69,8 @@ MIGRATIONS=(
   "db/migrations/902_fk_indexes.sql"
   "backend/identity-service/prisma/migrations/008_platform_admin_sessions.sql"
   "db/migrations/903_audit_append_only.sql"
+  "backend/identity-service/prisma/migrations/009_departments.sql"
+  "backend/facility-service/prisma/migrations/007_events_and_service_requests.sql"
   "db/migrations/904_delivery_zones_unique.sql"
 )
 

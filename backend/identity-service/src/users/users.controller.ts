@@ -6,6 +6,8 @@ import { StaffService } from './staff.service'
 import { CreateStaffDto, UpdateStaffDto } from './dto/staff.dto'
 import { AccountantsService } from './accountants.service'
 import { CreateAccountantDto, UpdateAccountantDto } from './dto/accountant.dto'
+import { DepartmentsService } from './departments.service'
+import { CreateDepartmentDto, UpdateDepartmentDto } from './dto/department.dto'
 
 /**
  * نمونه یک Endpoint tenant-scoped — نشان می‌دهد چطور بقیه ماژول‌های
@@ -17,6 +19,7 @@ export class UsersController {
     private readonly db: DatabaseService,
     private readonly staff: StaffService,
     private readonly accountants: AccountantsService,
+    private readonly departments: DepartmentsService,
   ) {}
 
   @Roles('admin', 'super_admin')
@@ -57,6 +60,32 @@ export class UsersController {
   @Delete('staff/:id')
   deleteStaff(@CurrentUser() user: JwtPayload, @Param('id', ParseUUIDPipe) id: string) {
     return this.staff.remove(user.tenant_id!, id, user.sub)
+  }
+
+  /* ───────────── دپارتمان‌ها (تعریف توسط مدیر ساختمان) ───────────── */
+
+  @Roles('admin')
+  @Get('departments')
+  listDepartments(@CurrentUser() user: JwtPayload) {
+    return this.departments.list(user.tenant_id!)
+  }
+
+  @Roles('admin')
+  @Post('departments')
+  createDepartment(@CurrentUser() user: JwtPayload, @Body() dto: CreateDepartmentDto) {
+    return this.departments.create(user.tenant_id!, dto, user.sub)
+  }
+
+  @Roles('admin')
+  @Patch('departments/:id')
+  updateDepartment(@CurrentUser() user: JwtPayload, @Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateDepartmentDto) {
+    return this.departments.update(user.tenant_id!, id, dto, user.sub)
+  }
+
+  @Roles('admin')
+  @Delete('departments/:id')
+  deleteDepartment(@CurrentUser() user: JwtPayload, @Param('id', ParseUUIDPipe) id: string) {
+    return this.departments.remove(user.tenant_id!, id, user.sub)
   }
 
   /* ───────────── حسابداران (ساخت توسط مدیر ساختمان) ───────────── */

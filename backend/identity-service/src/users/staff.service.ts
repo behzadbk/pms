@@ -4,6 +4,8 @@ import { DatabaseService } from '../database/database.service'
 import { EventsService } from '../events/events.service'
 import { CreateStaffDto, UpdateStaffDto } from './dto/staff.dto'
 import { effectivePermissions } from './staff.constants'
+import { ensureSystemDepartments } from './departments.service'
+import type { PoolClient } from 'pg'
 import { passwordPolicyError } from '../auth/password.util'
 import { BadRequestException } from '@nestjs/common'
 
@@ -54,6 +56,15 @@ function mapUnique(err: unknown): never {
   throw err
 }
 
+
+/** دپارتمان باید در همین ساختمان وجود داشته باشد و فعال باشد (دپارتمان‌ها پویا هستند، CHECK ثابت ندارند) */
+async function assertDepartment(client: PoolClient, code: string) {
+  await ensureSystemDepartments(client)
+  const r = await client.query<{ is_active: boolean }>(`SELECT is_active FROM identity.departments WHERE code = $1`, [code])
+  if (!r.rows[0]) throw new BadRequestException('این دپارتمان در ساختمان تعریف نشده است')
+  if (!r.rows[0].is_active) throw new BadRequestException('این دپارتمان غیرفعال است')
+}
+
 /**
  * مدیریت کارکنان مجتمع توسط مدیر ساختمان.
  * همه‌ی queryها داخل withTenant اجرا می‌شوند؛ RLS تضمین می‌کند مدیر یک مجتمع
@@ -82,6 +93,7 @@ export class StaffService {
     const hash = await bcrypt.hash(dto.password, 10)
     const row = await this.db
       .withTenant(tenantId, async (client) => {
+        await assertDepartment(client, dto.department)
         const res = await client.query<StaffRow>(
           `INSERT INTO identity.users
              (tenant_id, full_name, username, email, password_hash, role, phone, national_id,
@@ -136,6 +148,7 @@ export class StaffService {
 
     const row = await this.db
       .withTenant(tenantId, async (client) => {
+        if (dto.department !== undefined) await assertDepartment(client, dto.department)
         if (sets.length === 0) {
           const r = await client.query<StaffRow>(`SELECT ${COLUMNS} FROM identity.users WHERE id = $1 AND role = 'staff'`, [id])
           return r.rows[0]
@@ -147,6 +160,14 @@ export class StaffService {
             RETURNING ${COLUMNS}`,
           vals,
         )
+        // کارمندی که به دپارتمان دیگری منتقل شد دیگر مدیر دپارتمان قبلی نیست
+        if (dto.department !== undefined && r.rows[0]) {
+          await client.query(
+            `UPDATE identity.departments SET manager_user_id = NULL, updated_at = now()
+              WHERE manager_user_id = $1 AND code <> $2`,
+            [id, dto.department],
+          )
+        }
         // غیرفعال‌سازی: auth.service در refresh و /auth/me ستون is_active را چک می‌کند،
         // پس نشست کارمند غیرفعال حداکثر تا انقضای accessToken (۱۵ دقیقه) باقی می‌ماند.
         return r.rows[0]

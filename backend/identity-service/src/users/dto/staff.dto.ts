@@ -12,7 +12,7 @@ import {
   MinLength,
   ValidateNested,
 } from 'class-validator'
-import { STAFF_DEPARTMENTS, STAFF_PERMISSIONS } from '../staff.constants'
+import { DEPARTMENT_CODE_RE, STAFF_PERMISSIONS } from '../staff.constants'
 
 /** اطلاعات شخصی تکمیلی — در ستون jsonb ذخیره می‌شود */
 export class StaffProfileDto {
@@ -42,7 +42,7 @@ export class CreateStaffDto {
   @MaxLength(128)
   password: string
 
-  @IsIn(STAFF_DEPARTMENTS as unknown as string[], { message: 'بخش نامعتبر است' })
+  @Matches(DEPARTMENT_CODE_RE, { message: 'دپارتمان نامعتبر است' })
   department: string
 
   @IsOptional()
@@ -86,7 +86,7 @@ export class UpdateStaffDto {
 
   @IsOptional() @IsString() @MinLength(8, { message: 'رمز عبور باید حداقل ۸ کاراکتر باشد' }) @MaxLength(128) password?: string
 
-  @IsOptional() @IsIn(STAFF_DEPARTMENTS as unknown as string[], { message: 'بخش نامعتبر است' }) department?: string
+  @IsOptional() @Matches(DEPARTMENT_CODE_RE, { message: 'دپارتمان نامعتبر است' }) department?: string
 
   @IsOptional()
   @IsArray()
