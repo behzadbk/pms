@@ -9,22 +9,22 @@
 :root {
   color-scheme: light dark;
   /* هدر موبایل + منوی کشویی — مقدار نهایی را ThemeContext بر اساس رنگ‌بندی/حالت می‌گذارد */
-  --hdr-bg: #004e72;
-  --hdr-soft: #0b648f;
-  --hdr-acc: #ff6e42;
+  --hdr-bg: #1e2126;
+  --hdr-soft: #4a4f57;
+  --hdr-acc: #c9a27e;
 
   /* ---------- Light Mode ---------- */
-  --lg-bg-base: #f4f6f9;
-  --lg-bg-elevated: #ffffff;
+  --lg-bg-base: #e1e3e6;
+  --lg-bg-elevated: #f7f7f8;
   --lg-surface-glass: rgba(255, 255, 255, 0.65);
   --lg-glass-tint: rgba(198, 214, 235, 0.28);
   --lg-glass-border: rgba(255, 255, 255, 0.55);
 
-  --lg-primary: #0e5c63;
-  --lg-primary-hover: #0b4b51;
-  --lg-primary-soft: #dceef0;
-  --lg-accent: #c9a227;
-  --lg-accent-soft: #f7efd8;
+  --lg-primary: #3b5b7a;
+  --lg-primary-hover: #324d68;
+  --lg-primary-soft: #dfe6ee;
+  --lg-accent: #c9a27e;
+  --lg-accent-soft: #f1e8dd;
 
   --lg-text-primary: #141c26;
   --lg-text-secondary: #5b6878;
@@ -128,9 +128,8 @@
  * «شخصی‌سازی» (حالت نمایش + رنگ‌بندی + حالت آسان + کاهش حرکت). افزوده می‌شود
  * روی توکن‌های v2 بالا — جایگزین نمی‌کند، همان الگوی مهاجرت تدریجی این فایل.
  *
- * رنگ‌بندی پیش‌فرض «teal» را انتخاب کرده‌ایم (نه «blue» پیش‌فرض طراحی) چون به‌شدت
- * نزدیک به برند فعلی Livo (فیروزه‌ای #0e9594 / --color-tile) است؛ رنگ‌بندی‌های
- * دیگر برای شخصی‌سازی کاربر در دسترس‌اند.
+ * رنگ‌بندی پیش‌فرض «livo» (پالت برند Livo: آبی اسلیت #3b5b7a، گرافیت #1e2126 و شنی #c9a27e)
+ * است؛ رنگ‌بندی‌های دیگر برای شخصی‌سازی کاربر در دسترس‌اند.
  */
 
 :root {
@@ -138,8 +137,9 @@
   --lg4-pri-soft: var(--lg-primary-soft);
   --lg4-acc: var(--lg-accent);
   --lg4-acc-soft: var(--lg-accent-soft);
-  --lg4-hero-a: #0a6a99;
-  --lg4-hero-b: #004e72;
+  --lg4-hero-a: #3b5b7a;
+  --lg4-hero-b: #1e2126;
+  --lg4-cta: #e4572e; /* رنگ دکمه‌ی اصلی صفحه — فقط CTA */
 
   --lg4-card: rgba(255, 255, 255, 0.5);
   --lg4-card-border: rgba(255, 255, 255, 0.72);
@@ -223,6 +223,14 @@
   background: linear-gradient(180deg, color-mix(in oklab, var(--lg4-pri) 80%, white), var(--lg4-pri));
   color: var(--on-pri, #fff);
   box-shadow: 0 8px 22px color-mix(in srgb, var(--lg4-pri) 30%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.4), inset 0 -1px 0 rgba(0, 0, 0, 0.1);
+}
+/* دکمه‌ی اصلی صفحه (CTA): رنگ --lg4-cta می‌گیرد (در پالت Livo نارنجی سیگنال؛ در بقیه‌ی پالت‌ها همان رنگ اصلی) */
+.hm-cta.lg4-capsule,
+.lg4-capsule.lg4-cta {
+  background: linear-gradient(180deg, color-mix(in oklab, var(--lg4-cta, var(--lg4-pri)) 82%, white), var(--lg4-cta, var(--lg4-pri)));
+  color: var(--on-cta, var(--on-pri, #fff));
+  box-shadow: 0 8px 22px color-mix(in srgb, var(--lg4-cta, var(--lg4-pri)) 30%, transparent),
     inset 0 1px 0 rgba(255, 255, 255, 0.4), inset 0 -1px 0 rgba(0, 0, 0, 0.1);
 }
 .lg4-capsule:active {

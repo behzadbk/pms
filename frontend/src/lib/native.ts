@@ -18,7 +18,7 @@ export async function initNativeShell() {
 
   try {
     await StatusBar.setStyle({ style: Style.Dark })
-    if (Capacitor.getPlatform() === 'android') await StatusBar.setBackgroundColor({ color: '#16324f' })
+    if (Capacitor.getPlatform() === 'android') await StatusBar.setBackgroundColor({ color: '#1e2126' })
   } catch {
     // StatusBar روی برخی نسخه‌ها در دسترس نیست — بی‌خطر
   }

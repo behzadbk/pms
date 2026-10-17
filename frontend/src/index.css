@@ -10,16 +10,16 @@
 @theme {
   --font-sans: "Vazirmatn", ui-sans-serif, system-ui, sans-serif;
 
-  /* Persian tilework — inspired palette. Deliberately not the cream/terracotta
-     or dark+neon defaults: deep night-tile navy, turquoise, and brass accent. */
-  --color-ink: #16324f;        /* deep navy — sidebar, headers */
-  --color-ink-soft: #223f5f;
-  --color-tile: #0e9594;       /* turquoise — primary actions, active states */
-  --color-tile-soft: #e3f4f3;
-  --color-brass: #c08a3e;      /* warm brass — highlights, secondary CTA */
-  --color-brass-soft: #f6ecd9;
-  --color-canvas: #f3f5f7;     /* page background — cool light gray, not cream */
-  --color-card: #ffffff;
+  /* Livo brand palette — light grays (60%), dark grays (30%), accents (10%):
+     deep slate blue, warm sand, signal orange (CTA only). مقدار نهایی را ThemeContext می‌نویسد. */
+  --color-ink: #1e2126;        /* graphite — sidebar, headers */
+  --color-ink-soft: #4a4f57;
+  --color-tile: #3b5b7a;       /* deep slate blue — primary actions, active states */
+  --color-tile-soft: #dfe6ee;
+  --color-brass: #c9a27e;      /* warm sand — highlights, details */
+  --color-brass-soft: #f1e8dd;
+  --color-canvas: #e1e3e6;     /* page background — Livo light gray */
+  --color-card: #f7f7f8;
   --color-ink-text: #1d2733;
   --color-muted: #64748b;
   --color-line: #e2e6ea;
