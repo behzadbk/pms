@@ -7,6 +7,24 @@ import { PgExceptionFilter } from './common/pg-exception.filter'
 async function bootstrap() {
   // عکس آیتم‌های منو (data URL کوچک‌شده) در بدنه‌ی JSON می‌آید؛ سقف پیش‌فرض ۱۰۰KB کافی نیست
   const app = await NestFactory.create<NestExpressApplication>(AppModule, { bodyParser: false })
+  // خاموشی تمیز روی SIGTERM/SIGINT (هر دیپلوی یا ری‌استارت docker):
+  // ۱) دیگر اتصال جدید نپذیر و صبر کن درخواست‌های در جریان تمام شوند؛ ۲) بعد app.close() (بستن pool دیتابیس و صف‌ها).
+  // نکته: enableShutdownHooks()ِ Nest اول onModuleDestroy (pool.end) را اجرا می‌کند و بعد سرور را می‌بندد؛
+  // درخواست‌های در جریان با «Cannot use a pool after calling end» شکست می‌خوردند، پس ترتیب را خودمان تعیین می‌کنیم.
+  // docker stop بعد از ۱۰ ثانیه SIGKILL می‌زند، پس سقف تخلیه ۷ ثانیه و خروج اجباری ۹ ثانیه است.
+  let shuttingDown = false
+  const shutdown = async (signal: string) => {
+    if (shuttingDown) return
+    shuttingDown = true
+    Logger.log(`${signal} دریافت شد؛ تخلیه‌ی درخواست‌های در جریان…`, 'Shutdown')
+    setTimeout(() => process.exit(1), 9_000).unref()
+    const server = app.getHttpServer()
+    await Promise.race([new Promise<void>((resolve) => server.close(() => resolve())), new Promise<void>((resolve) => setTimeout(resolve, 7_000))])
+    await app.close()
+    process.exit(0)
+  }
+  process.on('SIGTERM', () => void shutdown('SIGTERM'))
+  process.on('SIGINT', () => void shutdown('SIGINT'))
   app.useBodyParser('json', { limit: '1mb' })
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }))
   // خطاهای ورودی نامعتبر دیتابیس (UUID/تاریخ غلط، تکراری، …) → 4xx به‌جای 500

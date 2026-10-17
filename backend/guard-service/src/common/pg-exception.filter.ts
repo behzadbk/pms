@@ -20,6 +20,9 @@ const PG_CODE_TO_HTTP: Record<string, { status: number; message: string }> = {
   '42501': { status: HttpStatus.FORBIDDEN, message: 'دسترسی به این داده مجاز نیست' },
 }
 
+/** کدهای PG/شبکه که یعنی «موقتاً در دسترس نیست»: قطع/ری‌استارت دیتابیس، پر بودن max_connections، لغو کوئری با statement_timeout */
+const UNAVAILABLE_CODES = new Set(['57P01', '57P02', '57P03', '53300', '57014', '08000', '08001', '08003', '08006', 'ECONNREFUSED', 'ECONNRESET', 'ETIMEDOUT'])
+
 @Catch()
 export class PgExceptionFilter extends BaseExceptionFilter implements ExceptionFilter {
   private readonly logger = new Logger(PgExceptionFilter.name)
@@ -31,6 +34,17 @@ export class PgExceptionFilter extends BaseExceptionFilter implements ExceptionF
       this.logger.warn(`PG ${code}: ${(exception as Error).message}`)
       const res = host.switchToHttp().getResponse()
       return res.status(mapped.status).json({ statusCode: mapped.status, message: mapped.message })
+    }
+    // دیتابیس در دسترس نیست / pool پر است / کوئری از statement_timeout گذشت → 503 قابل‌تلاش‌مجدد، نه 500 مبهم
+    const msg = String((exception as { message?: unknown })?.message ?? '')
+    if (
+      host.getType() === 'http' &&
+      ((typeof code === 'string' && UNAVAILABLE_CODES.has(code)) || /timeout exceeded when trying to connect|Connection terminated|the database system is (starting up|shutting down)/i.test(msg))
+    ) {
+      this.logger.error(`DB unavailable (${String(code ?? 'no-code')}): ${msg}`)
+      const res = host.switchToHttp().getResponse()
+      res.setHeader('Retry-After', '5')
+      return res.status(HttpStatus.SERVICE_UNAVAILABLE).json({ statusCode: HttpStatus.SERVICE_UNAVAILABLE, message: 'سرویس موقتاً در دسترس نیست؛ چند لحظه دیگر دوباره تلاش کنید' })
     }
     return super.catch(exception, host)
   }
