@@ -42,15 +42,15 @@ export function AdminDashboard() {
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={trend} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
                 <defs>
-                  <linearGradient id="income" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#0E9594" stopOpacity={0.35} /><stop offset="95%" stopColor="#0E9594" stopOpacity={0} /></linearGradient>
-                  <linearGradient id="expense" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#C08A3E" stopOpacity={0.3} /><stop offset="95%" stopColor="#C08A3E" stopOpacity={0} /></linearGradient>
+                  <linearGradient id="income" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="var(--lg4-pri)" stopOpacity={0.35} /><stop offset="95%" stopColor="var(--lg4-pri)" stopOpacity={0} /></linearGradient>
+                  <linearGradient id="expense" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#C9A27E" stopOpacity={0.3} /><stop offset="95%" stopColor="#C9A27E" stopOpacity={0} /></linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--color-line)" vertical={false} />
                 <XAxis dataKey="month" tick={{ fontSize: 12, fill: '#64748b' }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fontSize: 12, fill: '#64748b' }} axisLine={false} tickLine={false} />
                 <Tooltip contentStyle={{ fontFamily: 'Vazirmatn', borderRadius: 12, border: '1px solid var(--color-line)', fontSize: 12, background: 'var(--color-card)', color: 'var(--color-ink-text)' }} labelStyle={{ color: 'var(--color-ink-text)' }} itemStyle={{ color: 'var(--color-ink-text)' }} />
-                <Area type="monotone" dataKey="income" name="درآمد" stroke="#0E9594" fill="url(#income)" strokeWidth={2} />
-                <Area type="monotone" dataKey="expense" name="هزینه" stroke="#C08A3E" fill="url(#expense)" strokeWidth={2} />
+                <Area type="monotone" dataKey="income" name="درآمد" stroke="var(--lg4-pri)" fill="url(#income)" strokeWidth={2} />
+                <Area type="monotone" dataKey="expense" name="هزینه" stroke="#C9A27E" fill="url(#expense)" strokeWidth={2} />
               </AreaChart>
             </ResponsiveContainer>
           </div>

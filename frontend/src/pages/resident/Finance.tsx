@@ -4,7 +4,7 @@ import { Card, CardHeader } from '../../components/ui/Card'
 import { Loading, ErrorBlock, useLoad } from '../../components/hm'
 import { dayFa, financeApi, instantFa, methodFa, periodFa, tomanText, type MonthExpenses } from '../../lib/api/finance'
 
-const COLORS = ['#16324F', '#0E9594', '#C08A3E', '#1D9A6C', '#C4442E', '#7A5C3E', '#6B7FA8']
+const COLORS = ['#3B5B7A', '#C9A27E', '#4A4F57', '#1D9A6C', '#C4442E', '#7A5C3E', '#6B7FA8']
 
 export function ResidentFinance() {
   const t = useLoad(() => financeApi.transparency(), [])

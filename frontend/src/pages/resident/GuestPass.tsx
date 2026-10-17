@@ -139,7 +139,7 @@ export function ResidentGuestPass() {
             {shown ? (
               <div className="flex flex-col items-center gap-3">
                 <div className="p-3 bg-white rounded-xl border border-line">
-                  <QRCodeSVG value={`guest-pass:${shown.code}`} size={140} fgColor="#16324F" />
+                  <QRCodeSVG value={`guest-pass:${shown.code}`} size={140} fgColor="#1E2126" />
                 </div>
                 <p className="text-sm font-medium">{shown.guest_name}</p>
                 <p className="text-xs text-muted">کد عددی: <span className="font-mono text-ink-text text-base">{fa(shown.code)}</span></p>

@@ -1,11 +1,11 @@
 /**
- * رنگ‌بندی‌های Livo — هفت پالت لوکس (ورودی: طراحی «Best Luxury Color Palettes»).
+ * رنگ‌بندی‌های Livo — پالت پیش‌فرض Livo + هفت پالت لوکس (ورودی: طراحی «Best Luxury Color Palettes»).
  * هر پالت برای حالت روشن و تاریک جداگانه تنظیم شده تا کنتراست متن/دکمه همیشه خوانا بماند.
  * ThemeContext همه‌ی این توکن‌ها را روی <html> می‌نویسد؛ هدر، منوی کشویی، کارت‌ها و دکمه‌ها
  * همه از همین منبع واحد رنگ می‌گیرند.
  */
 
-export type Palette = 'ruby' | 'sapphire' | 'candle' | 'linen' | 'rosegold' | 'emerald' | 'ocean'
+export type Palette = 'livo' | 'ruby' | 'sapphire' | 'candle' | 'linen' | 'rosegold' | 'emerald' | 'ocean'
 
 export interface PaletteTokens {
   base: string // پس‌زمینه‌ی صفحه
@@ -17,6 +17,8 @@ export interface PaletteTokens {
   hdr: string // هدر / منوی کشویی
   hdrSoft: string
   hdrAcc: string
+  /** رنگ دکمه‌ی اصلی صفحه (CTA)؛ اگر نباشد همان pri است */
+  cta?: string
 }
 
 export interface PaletteDef {
@@ -29,6 +31,14 @@ export interface PaletteDef {
 }
 
 export const PALETTE_DEFS: PaletteDef[] = [
+  {
+    // پالت برند Livo (۶۰٪ خاکستری روشن / ۳۰٪ خاکستری تیره / ۱۰٪ تأکید) — تم پیش‌فرض
+    id: 'livo',
+    label: 'Livo',
+    swatch: ['#3B5B7A', '#1E2126', '#C9A27E'],
+    light: { base: '#E1E3E6', elevated: '#F7F7F8', pri: '#3B5B7A', acc: '#C9A27E', heroA: '#3B5B7A', heroB: '#1E2126', hdr: '#1E2126', hdrSoft: '#4A4F57', hdrAcc: '#C9A27E', cta: '#E4572E' },
+    dark: { base: '#14161a', elevated: '#1E2126', pri: '#86A8C8', acc: '#C9A27E', heroA: '#3B5B7A', heroB: '#1E2126', hdr: '#1E2126', hdrSoft: '#2d3138', hdrAcc: '#C9A27E', cta: '#E4572E' },
+  },
   {
     id: 'ocean',
     label: 'اقیانوس',
@@ -80,16 +90,16 @@ export const PALETTE_DEFS: PaletteDef[] = [
   },
 ]
 
-export const DEFAULT_PALETTE: Palette = 'ocean'
+export const DEFAULT_PALETTE: Palette = 'livo'
 
 /** شناسه‌های قدیمی (قبل از پالت‌های جدید) که ممکن است در localStorage کاربران مانده باشد */
 const LEGACY: Record<string, Palette> = {
-  teal: 'ocean', // «teal» پیش‌فرض قدیمیِ ذخیره‌شده بود، نه انتخاب کاربر → پیش‌فرض فعلی (قبلاً سبزِ زمرد می‌شد)
+  teal: 'livo', // «teal» پیش‌فرض قدیمیِ ذخیره‌شده بود، نه انتخاب کاربر → پیش‌فرض فعلی
   blue: 'sapphire',
   violet: 'sapphire',
   coral: 'linen',
   rose: 'rosegold',
-  graphite: 'ocean',
+  graphite: 'livo',
 }
 
 export function normalizePalette(id: unknown): Palette {
@@ -142,6 +152,8 @@ export function paletteVars(id: Palette, mode: 'light' | 'dark'): Record<string,
     // متن روی دکمه/تگ رنگ اصلی و رنگ برس (در حالت تیره رنگ اصلی روشن است و متن سفید ناخوانا می‌شود)
     '--on-pri': readableOn(t.pri),
     '--on-acc': readableOn(t.acc),
+    '--on-cta': readableOn(t.cta ?? t.pri),
+    '--lg4-cta': t.cta ?? t.pri,
     '--lg-bg-base': t.base,
     '--lg-bg-elevated': t.elevated,
     '--color-canvas': t.base,

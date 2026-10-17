@@ -127,7 +127,7 @@ export function Login() {
               className="w-full rounded-2xl border border-[var(--lg-border-hairline)] bg-[var(--lg-bg-elevated)] px-3 py-3 text-center text-2xl font-bold tracking-[6px] outline-none"
             />
             {error && <p className="text-sm text-bad bg-bad/10 rounded-lg px-3 py-2">{error}</p>}
-            <button type="submit" disabled={submitting} className="lg4-capsule w-full flex items-center justify-center gap-2 py-3 text-sm disabled:opacity-60">
+            <button type="submit" disabled={submitting} className="lg4-capsule lg4-cta w-full flex items-center justify-center gap-2 py-3 text-sm disabled:opacity-60">
               {submitting && <Loader2 size={16} className="animate-spin" />}
               ورود
             </button>
@@ -195,7 +195,7 @@ export function Login() {
           <button
             type="submit"
             disabled={submitting}
-            className="lg4-capsule w-full flex items-center justify-center gap-2 py-3 text-sm disabled:opacity-60"
+            className="lg4-capsule lg4-cta w-full flex items-center justify-center gap-2 py-3 text-sm disabled:opacity-60"
           >
             {submitting && <Loader2 size={16} className="animate-spin" />}
             ورود
