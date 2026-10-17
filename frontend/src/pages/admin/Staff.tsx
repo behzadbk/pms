@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Calculator, KeyRound, Pencil, Plus, RefreshCw, Search, ShieldCheck, Trash2, UserRound, Users } from 'lucide-react'
+import { Building2, Calculator, Crown, KeyRound, Pencil, Plus, RefreshCw, Search, ShieldCheck, Trash2, UserRound, Users } from 'lucide-react'
 import { Card } from '../../components/ui/Card'
 import { Modal, TextField, TextArea, SelectField, PrimaryButton, GhostButton } from '../../components/ui/Modal'
-import { staffApi, ApiError } from '../../lib/api'
+import { staffApi, departmentsApi, ApiError } from '../../lib/api'
+import type { Department } from '../../lib/api/departments'
 import type { StaffInput, StaffMember, StaffProfile } from '../../lib/api/staff'
 import {
   ALL_PERMISSIONS,
-  departments,
   departmentDefaults,
   departmentLabel,
   permissionInfo,
@@ -33,12 +33,12 @@ type FormState = {
   profile: StaffProfile
 }
 
-const emptyForm = (): FormState => ({
+const emptyForm = (department = 'lobby'): FormState => ({
   fullName: '',
   nationalId: '',
   phone: '',
   email: '',
-  department: 'lobby',
+  department,
   extra: [],
   username: '',
   password: generatePassword(),
@@ -46,25 +46,212 @@ const emptyForm = (): FormState => ({
   profile: { shift: 'morning' },
 })
 
-/** کارکنان و حسابداران ساختمان — هر دو توسط مدیر تعریف می‌شوند و هرکدام پنل مخصوص خودشان را دارند */
+/**
+ * دپارتمان‌ها، کارکنان و حسابداران ساختمان — همه توسط مدیر تعریف می‌شوند.
+ * جریان: ۱) دپارتمان تعریف می‌شود (مثلاً «تأسیسات»)  ۲) برایش مدیر تعیین می‌شود  ۳) کارکنان زیردست اضافه می‌شوند.
+ */
 export function AdminStaff() {
-  const [tab, setTab] = useState<'staff' | 'accountants'>('staff')
+  const [tab, setTab] = useState<'departments' | 'staff' | 'accountants'>('departments')
+  const [deps, setDeps] = useState<Department[]>([])
+  const [depsError, setDepsError] = useState('')
+  const [preset, setPreset] = useState<string | null>(null)
+  const loadDeps = useCallback(async () => {
+    try {
+      setDeps(await departmentsApi.list())
+      setDepsError('')
+    } catch (e) {
+      setDepsError(e instanceof ApiError ? e.message : 'دریافت دپارتمان‌ها ناموفق بود')
+    }
+  }, [])
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void loadDeps()
+  }, [loadDeps])
+
   return (
     <div className="space-y-6">
       <h1 className="text-xl font-bold">کارکنان</h1>
-      <div className="flex gap-2 flex-wrap">
-        {([['staff', 'کارکنان', Users], ['accountants', 'حسابداران', Calculator]] as const).map(([id, label, Icon]) => (
-          <button key={id} onClick={() => setTab(id)} className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm border ${tab === id ? 'bg-ink text-white border-ink' : 'border-line hover:border-ink-soft'}`}>
+      <div className="flex gap-2 flex-wrap" role="tablist" aria-label="بخش‌های کارکنان">
+        {([['departments', 'دپارتمان‌ها', Building2], ['staff', 'کارکنان', Users], ['accountants', 'حسابداران', Calculator]] as const).map(([id, label, Icon]) => (
+          <button key={id} role="tab" aria-selected={tab === id} onClick={() => setTab(id)} className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm border ${tab === id ? 'bg-ink text-white border-ink' : 'border-line hover:border-ink-soft'}`}>
             <Icon size={15} /> {label}
           </button>
         ))}
       </div>
-      {tab === 'staff' ? <StaffList /> : <AccountantsPanel />}
+      {depsError && <p className="bg-bad-soft text-bad text-sm rounded-xl px-4 py-3">{depsError}</p>}
+      {tab === 'departments' && (
+        <DepartmentsPanel
+          deps={deps}
+          reload={loadDeps}
+          onAddStaff={(code) => {
+            setPreset(code)
+            setTab('staff')
+          }}
+        />
+      )}
+      {tab === 'staff' && <StaffList deps={deps} reloadDeps={loadDeps} preset={preset} clearPreset={() => setPreset(null)} />}
+      {tab === 'accountants' && <AccountantsPanel />}
     </div>
   )
 }
 
-function StaffList() {
+/** تعریف دپارتمان، تعیین مدیر از میان اعضا، رفتن به افزودن کارمند */
+function DepartmentsPanel({ deps, reload, onAddStaff }: { deps: Department[]; reload: () => Promise<void>; onAddStaff: (code: string) => void }) {
+  const [name, setName] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const [pick, setPick] = useState<Department | null>(null)
+  const [del, setDel] = useState<Department | null>(null)
+
+  async function add() {
+    if (name.trim().length < 2) return
+    setBusy(true)
+    setError('')
+    try {
+      await departmentsApi.create({ name: name.trim() })
+      setName('')
+      await reload()
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : 'ساخت دپارتمان ناموفق بود')
+    } finally {
+      setBusy(false)
+    }
+  }
+  async function setManager(d: Department, userId: string | null) {
+    try {
+      await departmentsApi.update(d.id, { managerUserId: userId })
+      setPick(null)
+      await reload()
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : 'تعیین مدیر ناموفق بود')
+    }
+  }
+  async function confirmDelete() {
+    if (!del) return
+    try {
+      await departmentsApi.remove(del.id)
+      setDel(null)
+      await reload()
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : 'حذف ناموفق بود')
+      setDel(null)
+    }
+  }
+
+  return (
+    <div className="space-y-5">
+      <Card>
+        <form
+          className="p-4 flex flex-col sm:flex-row gap-3 sm:items-end"
+          onSubmit={(e) => {
+            e.preventDefault()
+            void add()
+          }}
+        >
+          <div className="flex-1">
+            <TextField label="دپارتمان جدید" value={name} onChange={(e) => setName(e.target.value)} placeholder="مثلاً تأسیسات، کارواش، خانه‌داری" />
+          </div>
+          <PrimaryButton type="submit" disabled={busy || name.trim().length < 2}>
+            <Plus size={16} /> تعریف دپارتمان
+          </PrimaryButton>
+        </form>
+        <p className="px-4 pb-4 text-xs text-muted leading-6">
+          بعد از تعریف دپارتمان، اولین کارمندش را اضافه کنید و او را «مدیر دپارتمان» کنید. مدیر دپارتمان درخواست‌های خدمات را می‌پذیرد، زمان را تأیید می‌کند و کار را بین کارکنان زیردست تقسیم می‌کند.
+        </p>
+      </Card>
+
+      {error && <p className="bg-bad-soft text-bad text-sm rounded-xl px-4 py-3" role="alert">{error}</p>}
+
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+        {deps.map((d) => (
+          <Card key={d.id}>
+            <div className="p-4 space-y-3">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-full bg-tile-soft text-tile flex items-center justify-center shrink-0">
+                  <Building2 size={20} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="font-semibold truncate">{d.name}</p>
+                  <p className="text-xs text-muted mt-0.5">
+                    {d.memberCount.toLocaleString('fa-IR')} کارمند{d.isSystem && ' · دپارتمان پایه'}
+                  </p>
+                </div>
+              </div>
+              <p className="text-sm flex items-center gap-1.5">
+                <Crown size={14} className="text-brass" />
+                {d.managerName ? <span>مدیر: <b>{d.managerName}</b></span> : <span className="text-muted">مدیر تعیین نشده — درخواست‌ها به مدیر ساختمان می‌رسد</span>}
+              </p>
+              {d.members.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {d.members.map((m) => (
+                    <span key={m.id} className={`text-[11px] px-2 py-0.5 rounded-full ${m.id === d.managerId ? 'bg-brass-soft text-brass' : 'bg-canvas text-muted'} ${m.isActive ? '' : 'line-through'}`}>
+                      {m.fullName}
+                    </span>
+                  ))}
+                </div>
+              )}
+              <div className="flex items-center gap-1 pt-1 border-t border-line flex-wrap">
+                <button onClick={() => onAddStaff(d.code)} className="flex items-center gap-1 text-xs font-medium text-tile hover:bg-tile-soft px-2.5 py-2 rounded-lg">
+                  <Plus size={13} /> کارمند
+                </button>
+                <button
+                  onClick={() => setPick(d)}
+                  disabled={d.members.length === 0}
+                  className="flex items-center gap-1 text-xs font-medium text-tile hover:bg-tile-soft px-2.5 py-2 rounded-lg disabled:opacity-40"
+                  title={d.members.length === 0 ? 'ابتدا یک کارمند به این دپارتمان اضافه کنید' : undefined}
+                >
+                  <Crown size={13} /> {d.managerName ? 'تغییر مدیر' : 'تعیین مدیر'}
+                </button>
+                {!d.isSystem && (
+                  <button onClick={() => setDel(d)} className="mr-auto flex items-center gap-1 text-xs font-medium text-bad hover:bg-bad-soft px-2.5 py-2 rounded-lg" aria-label={`حذف دپارتمان ${d.name}`}>
+                    <Trash2 size={13} /> حذف
+                  </button>
+                )}
+              </div>
+            </div>
+          </Card>
+        ))}
+      </div>
+
+      <Modal open={!!pick} title={`مدیر «${pick?.name ?? ''}»`} onClose={() => setPick(null)} footer={<GhostButton onClick={() => setPick(null)}>بستن</GhostButton>}>
+        <div className="space-y-2">
+          {pick?.members.filter((m) => m.isActive).map((m) => (
+            <button
+              key={m.id}
+              onClick={() => void setManager(pick, m.id)}
+              className={`w-full flex items-center gap-2 text-right p-3 rounded-xl border text-sm ${m.id === pick.managerId ? 'border-tile bg-tile-soft/50' : 'border-line hover:border-ink-soft'}`}
+            >
+              <UserRound size={16} /> <span className="flex-1">{m.fullName}</span>
+              {m.id === pick.managerId && <span className="text-xs text-tile">مدیر فعلی</span>}
+            </button>
+          ))}
+          {pick?.managerId && (
+            <button onClick={() => void setManager(pick, null)} className="text-xs text-bad hover:underline mt-2">
+              برداشتن مدیر
+            </button>
+          )}
+          <p className="text-xs text-muted leading-6">مدیر باید ابتدا به‌عنوان کارمند در همین دپارتمان ثبت شده باشد. پنل «درخواست‌های خدمات» در ورود بعدی او باز می‌شود.</p>
+        </div>
+      </Modal>
+
+      <Modal
+        open={!!del}
+        title="حذف دپارتمان"
+        onClose={() => setDel(null)}
+        footer={
+          <>
+            <GhostButton onClick={() => setDel(null)}>انصراف</GhostButton>
+            <PrimaryButton className="!bg-bad" onClick={confirmDelete}>حذف</PrimaryButton>
+          </>
+        }
+      >
+        <p className="text-sm leading-7">دپارتمان «{del?.name}» حذف شود؟ اگر کارمند یا خدمت فعالی به آن وصل باشد، حذف انجام نمی‌شود.</p>
+      </Modal>
+    </div>
+  )
+}
+
+function StaffList({ deps, reloadDeps, preset, clearPreset }: { deps: Department[]; reloadDeps: () => Promise<void>; preset: string | null; clearPreset: () => void }) {
   const [list, setList] = useState<StaffMember[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -92,6 +279,16 @@ function StaffList() {
     load()
   }, [load])
 
+  // رسیدن از کارت دپارتمان: فرم کارمند جدید با همان دپارتمان باز می‌شود
+  useEffect(() => {
+    if (!preset) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setForm({ ...emptyForm(preset), extra: [] })
+    clearPreset()
+  }, [preset, clearPreset])
+
+  const deptName = useCallback((code: string | null) => deps.find((d) => d.code === code)?.name ?? departmentLabel(code), [deps])
+
   const filtered = useMemo(
     () =>
       list.filter(
@@ -110,7 +307,7 @@ function StaffList() {
       nationalId: s.nationalId ?? '',
       phone: s.phone ?? '',
       email: s.email ?? '',
-      department: (s.department ?? 'lobby') as StaffDepartment,
+      department: s.department ?? 'lobby',
       extra: s.permissions.filter((p) => !defaults.includes(p)),
       username: s.username ?? '',
       password: '',
@@ -149,7 +346,7 @@ function StaffList() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-end gap-3 flex-wrap">
-        <PrimaryButton onClick={() => setForm(emptyForm())}>
+        <PrimaryButton onClick={() => setForm(emptyForm(deps[0]?.code))}>
           <Plus size={16} /> کارمند جدید
         </PrimaryButton>
       </div>
@@ -161,13 +358,13 @@ function StaffList() {
         >
           همه ({list.length.toLocaleString('fa-IR')})
         </button>
-        {departments.map((d) => (
+        {deps.map((d) => (
           <button
             key={d.id}
-            onClick={() => setDept(d.id)}
-            className={`px-3.5 py-2 rounded-xl text-sm border ${dept === d.id ? 'bg-ink text-white border-ink' : 'border-line hover:border-ink-soft'}`}
+            onClick={() => setDept(d.code)}
+            className={`px-3.5 py-2 rounded-xl text-sm border ${dept === d.code ? 'bg-ink text-white border-ink' : 'border-line hover:border-ink-soft'}`}
           >
-            {d.label} {counts[d.id] ? `(${counts[d.id].toLocaleString('fa-IR')})` : ''}
+            {d.name} {counts[d.code] ? `(${counts[d.code].toLocaleString('fa-IR')})` : ''}
           </button>
         ))}
       </div>
@@ -212,7 +409,7 @@ function StaffList() {
                   <div className="min-w-0 flex-1">
                     <p className="font-semibold truncate">{s.fullName}</p>
                     <p className="text-xs text-muted mt-0.5">
-                      {departmentLabel(s.department)}
+                      {deptName(s.department)}
                       {s.profile.shift && ` · شیفت ${shiftLabels[s.profile.shift]}`}
                     </p>
                   </div>
@@ -265,10 +462,12 @@ function StaffList() {
       {form && (
         <StaffForm
           value={form}
+          deps={deps}
           onChange={setForm}
           onClose={() => setForm(null)}
           onSaved={(m, password) => {
             setList((l) => (l.some((x) => x.id === m.id) ? l.map((x) => (x.id === m.id ? m : x)) : [m, ...l]))
+            void reloadDeps()
             if (password) setCreated({ name: m.fullName, username: m.username ?? '', password })
             setForm(null)
           }}
@@ -307,11 +506,13 @@ function StaffList() {
 
 function StaffForm({
   value: f,
+  deps,
   onChange,
   onClose,
   onSaved,
 }: {
   value: FormState
+  deps: Department[]
   onChange: (f: FormState) => void
   onClose: () => void
   onSaved: (m: StaffMember, newPassword?: string) => void
@@ -401,7 +602,7 @@ function StaffForm({
                 const d = e.target.value as StaffDepartment
                 set({ department: d, extra: f.extra.filter((p) => !departmentDefaults(d).includes(p)) })
               }}
-              options={departments.map((d) => ({ value: d.id, label: d.label }))}
+              options={deps.map((d) => ({ value: d.code, label: d.name }))}
             />
             <SelectField
               label="شیفت"

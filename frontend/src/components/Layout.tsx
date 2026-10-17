@@ -193,7 +193,7 @@ export function Layout() {
             </div>
             <div className="text-right flex-1 min-w-0">
               <p className="text-sm font-medium truncate">{user?.fullName ?? info.label}</p>
-              <p className="text-xs text-white/50 truncate">{user?.role === 'staff' ? departmentLabel(user.department) : info.label}</p>
+              <p className="text-xs text-white/50 truncate">{user?.role === 'staff' ? departmentLabel(user.department, user.departmentName) : info.label}</p>
             </div>
             <motion.span animate={{ rotate: switcherOpen ? 180 : 0 }} transition={{ duration: 0.2 }}>
               <ChevronDown size={16} className="text-white/50" />
@@ -256,7 +256,7 @@ export function Layout() {
         <header className="hidden lg:flex h-16 border-b border-line bg-card items-center justify-between px-6 shrink-0">
           <div>
             <p className="text-sm text-muted">خوش آمدید،</p>
-            <p className="font-semibold">{user?.fullName ?? info.label} — {user?.role === 'staff' ? departmentLabel(user.department) : info.sub}</p>
+            <p className="font-semibold">{user?.fullName ?? info.label} — {user?.role === 'staff' ? departmentLabel(user.department, user.departmentName) : info.sub}</p>
           </div>
           <div className="flex items-center gap-2">
             <NotificationBell variant="light" />
@@ -478,7 +478,7 @@ export function AccountScreen() {
       <div className="flex flex-col items-center gap-2 pt-2">
         <Avatar name={name} size={96} />
         <p className="text-xl font-bold mt-2">{name}</p>
-        <p className="text-sm text-[var(--hm-t2)]">{user?.role === 'staff' ? departmentLabel(user.department) : info.label}{user?.tenantName ? ` · ${user.tenantName}` : ''}</p>
+        <p className="text-sm text-[var(--hm-t2)]">{user?.role === 'staff' ? departmentLabel(user.department, user.departmentName) : info.label}{user?.tenantName ? ` · ${user.tenantName}` : ''}</p>
       </div>
       <Group>
         <Row icon={Palette} label="تنظیمات و حساب" onClick={() => navigate('/settings')} />

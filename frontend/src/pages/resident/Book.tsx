@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { CalendarX2, Lock, ShieldCheck } from 'lucide-react'
+import { ArrowRight, CalendarX2, ChevronDown, Lock, Search, ShieldCheck } from 'lucide-react'
 import { ApiError } from '../../lib/api/client'
 import { usePermissions } from '../../context/PermissionsContext'
 import { DebtorLock } from '../../components/DebtorLock'
@@ -38,7 +38,11 @@ export function BookAmenity({ child = false }: { child?: boolean }) {
   const navigate = useNavigate()
   const { data: amenities, error, loading, reload: reloadAmenities } = useLoad<Amenity[]>(() => residentsApi.amenities(), [])
   const { data: mine, reload: reloadMine } = useLoad<ReservationRow[]>(() => residentsApi.myReservations().catch(() => []), [])
-  const [am, setAm] = useState<string>('')
+  // دو فهرست جدا: مشاعات عمومی و «رزرو خصوصی» (مشاعاتی که مدیر خصوصی‌شان کرده)
+  const [mode, setMode] = useState<'public' | 'private'>('public')
+  const [amSel, setAmSel] = useState<Record<'public' | 'private', string>>({ public: '', private: '' })
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const [pickerQ, setPickerQ] = useState('')
   const [day, setDay] = useState(0)
   const [slots, setSlots] = useState<Slot[] | null>(null)
   const [slot, setSlot] = useState<Slot | null>(null)
@@ -50,10 +54,31 @@ export function BookAmenity({ child = false }: { child?: boolean }) {
   const [success, setSuccess] = useState<{ title: string; sub?: string; rows: { k: string; v: string }[] } | null>(null)
   const { toast, toastNode } = useToast()
   const { perms } = usePermissions()
-  const a = amenities?.find((x) => x.id === am) ?? amenities?.[0]
+  const isPrivate = mode === 'private'
+  const list = useMemo(() => (amenities ?? []).filter((x) => !!x.private_enabled === isPrivate), [amenities, isPrivate])
+  const am = amSel[mode]
+  const setAm = (id: string) => setAmSel((m) => ({ ...m, [mode]: id }))
+  const a = list.find((x) => x.id === am) ?? list[0]
+  // پرکاربردترین‌ها اول (بر اساس رزروهای قبلی خود کاربر)، سپس ترتیب پیش‌فرض
+  const ranked = useMemo(() => {
+    const cnt = new Map<string, number>()
+    for (const r of mine ?? []) cnt.set(r.amenity, (cnt.get(r.amenity) ?? 0) + 1)
+    return list.map((x, i) => ({ x, i, n: cnt.get(x.name) ?? 0 })).sort((p, q) => q.n - p.n || p.i - q.i).map((e) => e.x)
+  }, [list, mine])
+  const TOP = 6
+  const top = useMemo(() => {
+    const t = ranked.slice(0, TOP)
+    // مشاعِ انتخاب‌شده همیشه دیده شود، حتی اگر خارج از ۶ تای اول باشد
+    if (a && !t.some((x) => x.id === a.id)) t[TOP - 1] = a
+    return t
+  }, [ranked, a])
+  const pickerList = useMemo(() => {
+    const q = pickerQ.trim()
+    return q ? ranked.filter((x) => x.name.includes(q)) : ranked
+  }, [ranked, pickerQ])
   const span = Math.min(14, Math.max(1, a?.max_advance_days ?? 4))
   const days = useMemo(() => Array.from({ length: span }, (_, i) => ({ i, iso: tehranDate(i) })), [span])
-  const gated = !!a?.private_enabled && !acked[a.id]
+  const gated = isPrivate && !!a && !acked[a.id]
   const locked = !!a?.locked || (!!a && !!perms?.locked_amenities?.includes(a.id))
 
   useEffect(() => {
@@ -112,18 +137,55 @@ export function BookAmenity({ child = false }: { child?: boolean }) {
 
   return (
     <div className="flex flex-col gap-4 hm-fade-in">
-      <p className="text-xl font-bold">رزرو مشاعات</p>
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
-        {amenities.map((x) => {
-          const Icon = amenityIcon(x.icon)
-          return (
-            <button key={x.id} className="hm-chip !min-h-[44px] inline-flex items-center justify-center gap-2" data-on={x.id === a?.id} onClick={() => setAm(x.id)}>
-              {x.locked ? <Lock size={18} /> : <Icon size={18} />}
-              {x.name}
-            </button>
-          )
-        })}
+      <div className="flex items-center gap-3">
+        {isPrivate && (
+          <button className="hm-back" aria-label="بازگشت به مشاعات عمومی" onClick={() => setMode('public')}>
+            <ArrowRight size={22} />
+          </button>
+        )}
+        <h1 className="flex-1 text-xl font-bold m-0">{isPrivate ? 'رزرو خصوصی' : 'رزرو مشاعات'}</h1>
+        {!isPrivate && (
+          <button className="hm-chip !min-h-[44px] inline-flex items-center gap-2 font-bold" onClick={() => setMode('private')}>
+            <ShieldCheck size={18} />
+            رزرو خصوصی
+          </button>
+        )}
       </div>
+      {isPrivate && <p className="-mt-2 text-sm leading-7 text-[var(--hm-t2)]">مشاعاتی که می‌توانید برای خودتان و مهمانانتان به‌صورت اختصاصی رزرو کنید.</p>}
+      {list.length === 0 ? (
+        <div className="hm-row-dashed flex-col !items-center text-center py-6">
+          <p className="text-sm font-bold">{isPrivate ? 'مشاعی برای رزرو خصوصی تعریف نشده است' : 'مشاع عمومی برای رزرو وجود ندارد'}</p>
+          {isPrivate && <p className="text-xs text-[var(--hm-t2)]">مدیر ساختمان می‌تواند رزرو خصوصی را برای هر مشاع فعال کند.</p>}
+        </div>
+      ) : (
+        <>
+          <div className={`grid gap-2 ${top.length === 4 ? 'grid-cols-2' : 'grid-cols-3'}`} role="radiogroup" aria-label="انتخاب مشاع">
+            {top.map((x) => {
+              const Icon = amenityIcon(x.icon)
+              const on = x.id === a?.id
+              return (
+                <button
+                  key={x.id}
+                  role="radio"
+                  aria-checked={on}
+                  data-on={on}
+                  className="hm-chip !min-h-[76px] !rounded-3xl !px-2 flex flex-col items-center justify-center gap-1 text-center leading-5"
+                  onClick={() => setAm(x.id)}
+                >
+                  {x.locked ? <Lock size={22} aria-hidden /> : <Icon size={22} aria-hidden />}
+                  <span className="text-xs font-bold line-clamp-2">{x.name}</span>
+                </button>
+              )
+            })}
+          </div>
+          {ranked.length > TOP && (
+            <button className="hm-chip !min-h-[48px] inline-flex items-center justify-center gap-2 font-bold" aria-haspopup="dialog" onClick={() => { setPickerQ(''); setPickerOpen(true) }}>
+              همه مشاعات ({fa(ranked.length)})
+              <ChevronDown size={18} aria-hidden />
+            </button>
+          )}
+        </>
+      )}
       {locked && <DebtorLock debtor={perms?.debtor} child={child} />}
       {gated && (
         <button
@@ -131,10 +193,13 @@ export function BookAmenity({ child = false }: { child?: boolean }) {
           onClick={() => (a?.private_rules ? setRulesFor(a) : a && setAcked((m) => ({ ...m, [a.id]: true })))}
         >
           <span className="grid place-items-center w-12 h-12 rounded-2xl hm-tone-pri"><ShieldCheck size={24} /></span>
-          <span className="flex-1 font-bold">رزرو خصوصی</span>
+          <span className="flex-1">
+            <span className="block font-bold">قوانین رزرو خصوصی {a?.name}</span>
+            <span className="block text-xs text-[var(--hm-t2)] mt-0.5">برای دیدن ساعت‌های آزاد، قوانین را بپذیرید</span>
+          </span>
         </button>
       )}
-      {!gated && <>
+      {!gated && a && <>
       <div className="flex gap-2 overflow-x-auto pb-1 -mx-4 px-4 sm:mx-0 sm:px-0" role="radiogroup" aria-label="روز">
         {days.map((d) => (
           <button key={d.iso} role="radio" aria-checked={day === d.i} data-on={day === d.i} className="hm-chip !min-h-[52px] !px-4 flex flex-col items-center justify-center leading-5" onClick={() => setDay(d.i)}>
@@ -213,6 +278,36 @@ export function BookAmenity({ child = false }: { child?: boolean }) {
         </>
       )}
 
+      <Sheet open={pickerOpen} onClose={() => setPickerOpen(false)} label="همه مشاعات">
+        <p className="text-lg font-bold">{isPrivate ? 'همه مشاعات خصوصی' : 'همه مشاعات'}</p>
+        <label className="hm-card mt-3 flex items-center gap-2 px-4 min-h-[48px]">
+          <Search size={18} aria-hidden className="text-[var(--hm-t2)]" />
+          <span className="sr-only">جست‌وجوی مشاع</span>
+          <input className="hm-input flex-1" placeholder="جست‌وجوی مشاع…" value={pickerQ} onChange={(e) => setPickerQ(e.target.value)} data-autofocus />
+        </label>
+        <div className="mt-3 flex flex-col gap-1" role="listbox" aria-label="فهرست مشاعات">
+          {pickerList.length === 0 && <p className="text-sm text-[var(--hm-t2)] py-4 text-center">مشاعی با این نام پیدا نشد.</p>}
+          {pickerList.map((x) => {
+            const Icon = amenityIcon(x.icon)
+            const on = x.id === a?.id
+            return (
+              <button
+                key={x.id}
+                role="option"
+                aria-selected={on}
+                className="flex items-center gap-3 min-h-[52px] px-3 rounded-2xl text-right"
+                style={{ background: on ? 'var(--hm-pri-soft, var(--lg4-inner))' : 'transparent' }}
+                onClick={() => { setAm(x.id); setPickerOpen(false) }}
+              >
+                {x.locked ? <Lock size={20} aria-hidden /> : <Icon size={20} aria-hidden />}
+                <span className="flex-1 font-bold text-sm">{x.name}</span>
+                {on && <span className="text-xs text-[var(--hm-pri)] font-bold">انتخاب‌شده</span>}
+              </button>
+            )
+          })}
+        </div>
+      </Sheet>
+
       <Sheet open={!!rulesFor} onClose={() => setRulesFor(null)} label="قوانین رزرو خصوصی">
         <p className="text-lg font-bold">قوانین رزرو خصوصی</p>
         <p className="text-sm leading-7 mt-2 whitespace-pre-line">{rulesFor?.private_rules}</p>
@@ -248,7 +343,7 @@ export function BookAmenity({ child = false }: { child?: boolean }) {
         </div>
       </Sheet>
 
-      {!gated && <StickyCta>
+      {!gated && !!a && <StickyCta>
         <Cta
           onClick={gated && a ? () => (a.private_rules ? setRulesFor(a) : setAcked((m) => ({ ...m, [a.id]: true }))) : submit}
           busy={busy}
