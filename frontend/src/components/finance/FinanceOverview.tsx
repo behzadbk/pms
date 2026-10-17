@@ -4,7 +4,7 @@ import { StatCard } from '../ui/StatCard'
 import { Loading, ErrorBlock, useLoad } from '../hm'
 import { dayFa, financeApi, periodFa, tomanText } from '../../lib/api/finance'
 
-const barColors = ['#16324F', '#0E9594', '#C08A3E', '#1D9A6C', '#C4442E', '#7A5C3E']
+const barColors = ['#3B5B7A', '#C9A27E', '#4A4F57', '#1D9A6C', '#C4442E', '#7A5C3E']
 
 /** خلاصه‌ی مالی — مشترک بین داشبورد حسابداری و گزارش مالی مدیر (همه‌چیز از /finance/summary) */
 export function FinanceOverview() {

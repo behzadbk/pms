@@ -263,7 +263,7 @@ function VenueOrdering({
         </div>
       )}
 
-      <div className="rounded-2xl p-4 flex items-center gap-3 text-white" style={{ background: 'linear-gradient(145deg,#0e5c63,#0b3d47)' }}>
+      <div className="rounded-2xl p-4 flex items-center gap-3 text-white" style={{ background: 'linear-gradient(145deg,var(--lg4-hero-a),var(--lg4-hero-b))' }}>
         <span className="rounded-2xl p-2.5 bg-white/15 shrink-0"><VIcon size={22} /></span>
         <div className="min-w-0 flex-1">
           <p className="font-extrabold text-[15px]">{venue.name}</p>
@@ -489,7 +489,7 @@ function OrderTracking({ order, onNew, onCancel }: { order: Order; onNew: () => 
     <div className="space-y-5">
       <div
         className="rounded-3xl p-5 text-white text-center"
-        style={{ background: rejected ? 'linear-gradient(145deg,#8a2f22,#5e1f17)' : 'linear-gradient(145deg,#0e5c63,#0b3d47)' }}
+        style={{ background: rejected ? 'linear-gradient(145deg,#8a2f22,#5e1f17)' : 'linear-gradient(145deg,var(--lg4-hero-a),var(--lg4-hero-b))' }}
       >
         <p className="text-xs text-white/75">سفارش #{fa(order.order_number)} · {order.venue_name}</p>
         <p className="text-xl font-extrabold mt-2">

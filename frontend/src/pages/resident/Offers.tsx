@@ -143,7 +143,7 @@ function TicketSection({ service, onChanged }: { service: ServiceLine; onChanged
             {shown ? (
               <div className="flex flex-col items-center gap-2.5">
                 <div className="p-3 bg-white rounded-xl border border-line">
-                  <QRCodeSVG value={shown.qr} size={150} fgColor="#16324F" />
+                  <QRCodeSVG value={shown.qr} size={150} fgColor="#1E2126" />
                 </div>
                 <p className="text-sm font-medium">{shown.guest_name}</p>
                 <p className="text-xs text-muted">اعتبار تا {whenLabel(shown.valid_until)}</p>
