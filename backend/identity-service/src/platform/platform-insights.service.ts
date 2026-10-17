@@ -284,7 +284,7 @@ export class PlatformInsightsService {
     this.events.publish('platform.tenant_exported', { tenantId })
     return {
       exportedAt: new Date().toISOString(),
-      format: 'hamin-tenant-export/1',
+      format: 'livo-tenant-export/1',
       tenant: { id: tenant.id, name: tenant.name, subdomain: tenant.subdomain, tier: tenant.tier, status: tenant.status },
       counts: Object.fromEntries(Object.entries(data).map(([k, v]) => [k, v.length])),
       tables: data,

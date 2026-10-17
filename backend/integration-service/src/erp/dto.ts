@@ -355,7 +355,7 @@ export class ConnectorDto {
   @IsString()
   type?: string
 
-  @ApiProperty({ example: 'https://erp.example.com/hamin/inbox' })
+  @ApiProperty({ example: 'https://erp.example.com/livo/inbox' })
   @IsString()
   @MaxLength(500)
   url!: string

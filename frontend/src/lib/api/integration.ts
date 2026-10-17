@@ -2,7 +2,7 @@ import { api } from './client'
 
 /**
  * اتصال ERP / نرم‌افزار حسابداری — integration-service (پشت /api/integration).
- * فقط مدیر ساختمان و حسابدار. جهت داده: همین → ERP.
+ * فقط مدیر ساختمان و حسابدار. جهت داده: Livo → ERP.
  */
 const I = '/integration/admin'
 

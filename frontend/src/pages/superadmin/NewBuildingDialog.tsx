@@ -121,7 +121,7 @@ export function NewBuildingDialog({
                 type="button"
                 onClick={() => {
                   const c = created.adminCredentials!
-                  const text = `ورود به پنل «همین»\nمجتمع: ${created.subdomain}\nایمیل: ${c.email}\nرمز موقت: ${c.password}`
+                  const text = `ورود به پنل Livo\nمجتمع: ${created.subdomain}\nایمیل: ${c.email}\nرمز موقت: ${c.password}`
                   navigator.clipboard?.writeText(text).then(() => setCopied(true), () => undefined)
                 }}
                 className="flex items-center gap-2 border border-line px-4 py-2.5 rounded-xl text-sm hover:bg-canvas"

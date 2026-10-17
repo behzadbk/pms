@@ -45,7 +45,7 @@ export function sign(secret: string, t: number, body: string): string {
   return createHmac('sha256', secret).update(`${t}.${body}`, 'utf8').digest('hex')
 }
 
-/** اعتبارسنجی هدر X-Hamin-Signature با قالب "t=<unix>,v1=<hex>" (همان چیزی که ERP باید پیاده کند) */
+/** اعتبارسنجی هدر X-Livo-Signature با قالب "t=<unix>,v1=<hex>" (همان چیزی که ERP باید پیاده کند) */
 export function verifySignature(secret: string, header: string | undefined, body: string, toleranceSec = 300): boolean {
   if (!header) return false
   const parts = Object.fromEntries(header.split(',').map((p) => p.trim().split('=', 2) as [string, string]))

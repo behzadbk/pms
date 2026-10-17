@@ -12,7 +12,7 @@ export function Credentials({ name, username, password }: { name: string; userna
   } catch {
     /* ignore */
   }
-  const text = `ورود به پنل «همین»\n${tenant ? `مجتمع: ${tenant}\n` : ''}نام کاربری: ${username}\nرمز عبور: ${password}`
+  const text = `ورود به پنل Livo\n${tenant ? `مجتمع: ${tenant}\n` : ''}نام کاربری: ${username}\nرمز عبور: ${password}`
   return (
     <div className="space-y-4">
       <p className="text-sm">حساب «{name}» ساخته شد. این اطلاعات را به او بدهید — رمز بعداً قابل مشاهده نیست (فقط قابل تغییر است).</p>

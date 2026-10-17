@@ -35,7 +35,7 @@ export function ResidentTickets() {
   const [openId, setOpenId] = useState<string | null>(null)
 
   useEffect(() => {
-    document.title = 'تیکت‌های من · همین'
+    document.title = 'تیکت‌های من · Livo'
     const t = window.setInterval(() => document.visibilityState === 'visible' && void list.reload(true), 30_000)
     return () => window.clearInterval(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps

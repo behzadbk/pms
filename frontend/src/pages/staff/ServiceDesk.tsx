@@ -214,7 +214,7 @@ function ManageSheet({ r, onClose, onDone, toast }: { r: ManagedRequest; onClose
 export function StaffServices() {
   const { toast, toastNode } = useToast()
   useEffect(() => {
-    document.title = 'درخواست‌های خدمات · همین'
+    document.title = 'درخواست‌های خدمات · Livo'
   }, [])
   return (
     <div className="max-w-3xl mx-auto flex flex-col gap-4 hm-fade-in">

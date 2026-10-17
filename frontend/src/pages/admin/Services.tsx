@@ -16,7 +16,7 @@ export function AdminServices() {
   const [tab, setTab] = useState<Tab>('requests')
   const { toast, toastNode } = useToast()
   useEffect(() => {
-    document.title = 'خدمات ساختمان · همین'
+    document.title = 'خدمات ساختمان · Livo'
   }, [])
   return (
     <div className="max-w-4xl mx-auto flex flex-col gap-4 hm-fade-in">

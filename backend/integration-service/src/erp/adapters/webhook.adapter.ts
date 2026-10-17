@@ -8,9 +8,9 @@ const TIMEOUT_MS = 15_000
  * مناسب هر ERP یا میان‌افزاری که بتواند یک endpoint HTTP داشته باشد.
  *
  * هدرها:
- *   X-Hamin-Signature: t=<unix>,v1=<hex(HMAC-SHA256(secret, t + "." + body))>
- *   X-Hamin-Batch:     <fromSeq>-<toSeq>   (برای تشخیص دسته‌ی تکراری)
- *   X-Hamin-Tenant / X-Hamin-Connector
+ *   X-Livo-Signature: t=<unix>,v1=<hex(HMAC-SHA256(secret, t + "." + body))>
+ *   X-Livo-Batch:     <fromSeq>-<toSeq>   (برای تشخیص دسته‌ی تکراری)
+ *   X-Livo-Tenant / X-Livo-Connector
  *
  * پاسخ 2xx یعنی دسته پذیرفته شد. ERP می‌تواند در پاسخ، شماره سندها را هم برگرداند:
  *   { "results": [ { "entity": "charge", "id": "...", "status": "synced", "erpRef": "SF-1234" } ] }
@@ -36,11 +36,11 @@ export class WebhookAdapter implements ErpAdapter {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json; charset=utf-8',
-          'User-Agent': 'Hamin-ERP-Connector/1.0',
-          'X-Hamin-Signature': `t=${t},v1=${sign(connector.secret, t, body)}`,
-          'X-Hamin-Batch': meta.batchId,
-          'X-Hamin-Tenant': connector.tenantId,
-          'X-Hamin-Connector': connector.id,
+          'User-Agent': 'Livo-ERP-Connector/1.0',
+          'X-Livo-Signature': `t=${t},v1=${sign(connector.secret, t, body)}`,
+          'X-Livo-Batch': meta.batchId,
+          'X-Livo-Tenant': connector.tenantId,
+          'X-Livo-Connector': connector.id,
         },
         body,
         signal: ctrl.signal,

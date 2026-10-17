@@ -214,7 +214,7 @@ d('integration-service (ERP) — e2e روی دیتابیس واقعی', () => {
 
       const test = (await http.post(`/admin/connectors/${con.id}/test`).set(auth).expect(200)).body
       expect(test.ok).toBe(true)
-      expect(verifySignature(con.secret, received[0].headers['x-hamin-signature'], received[0].body)).toBe(true)
+      expect(verifySignature(con.secret, received[0].headers['x-livo-signature'], received[0].body)).toBe(true)
 
       const bf = (await http.post('/admin/backfill').set(auth).send({ entities: ['payment', 'unit'] }).expect(200)).body
       expect(bf.queued.payment).toBeGreaterThan(0)
@@ -232,7 +232,7 @@ d('integration-service (ERP) — e2e روی دیتابیس واقعی', () => {
       expect(ok?.result?.ok).toBe(true)
       const last = JSON.parse(received[received.length - 1].body)
       expect(last.events.every((e: any) => ['payment', 'charge'].includes(e.entity))).toBe(true)
-      expect(verifySignature(con.secret, received[received.length - 1].headers['x-hamin-signature'], received[received.length - 1].body)).toBe(true)
+      expect(verifySignature(con.secret, received[received.length - 1].headers['x-livo-signature'], received[received.length - 1].body)).toBe(true)
       state = (await http.get('/admin/connectors').set(auth).expect(200)).body.find((c: any) => c.id === con.id)
       expect(state.failureCount).toBe(0)
       expect(state.cursorSeq).toBeGreaterThan(con.cursorSeq)

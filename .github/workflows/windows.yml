@@ -1,5 +1,5 @@
 # ساخت نسخه‌ی پرتابل ویندوز (زیپ بدون نیاز به نصب) — Node + PostgreSQL + Redis + ۸ سرویس + اپ
-# خروجی: صفحه‌ی Releases ← «Hamin PMS — Windows portable» ← فایل Hamin-PMS-windows.zip
+# خروجی: صفحه‌ی Releases ← «Livo PMS — Windows portable» ← فایل Livo-PMS-windows.zip
 # اجرا: خودکار روی push به main (وقتی کد تغییر کند) یا دستی از Actions → "Windows portable" → Run workflow
 name: Windows portable
 
@@ -22,7 +22,7 @@ jobs:
     timeout-minutes: 60
     defaults: { run: { shell: bash } }
     env:
-      OUT: Hamin-PMS
+      OUT: Livo-PMS
       REDIS_URL: https://github.com/tporadowski/redis/releases/download/v5.0.14.1/Redis-x64-5.0.14.1.zip
     steps:
       - uses: actions/checkout@v4
@@ -120,7 +120,7 @@ jobs:
           done
 
       - name: ساخت زیپ
-        run: 7z a -tzip -mx=5 -bso0 Hamin-PMS-windows.zip "$OUT" && ls -la Hamin-PMS-windows.zip
+        run: 7z a -tzip -mx=5 -bso0 Livo-PMS-windows.zip "$OUT" && ls -la Livo-PMS-windows.zip
 
       - name: انتشار در Releases
         env: { GH_TOKEN: '${{ github.token }}' }
@@ -128,17 +128,17 @@ jobs:
           set -e
           TAG=windows-portable
           NOTES="نسخه‌ی پرتابل ویندوز — ساخته‌شده از commit ${GITHUB_SHA::7} در $(date -u '+%Y-%m-%d %H:%M') UTC.
-          زیپ را اکسترکت کنید (مثلاً در C:\\Hamin) و start.bat را اجرا کنید. راهنما: README.txt داخل زیپ."
+          زیپ را اکسترکت کنید (مثلاً در C:\\Livo) و start.bat را اجرا کنید. راهنما: README.txt داخل زیپ."
           if ! gh release view "$TAG" >/dev/null 2>&1; then
-            gh release create "$TAG" --prerelease --title "Hamin PMS — Windows portable" --notes "$NOTES" --target "$GITHUB_SHA"
+            gh release create "$TAG" --prerelease --title "Livo PMS — Windows portable" --notes "$NOTES" --target "$GITHUB_SHA"
           else
             gh release edit "$TAG" --notes "$NOTES"
           fi
-          gh release upload "$TAG" Hamin-PMS-windows.zip --clobber
+          gh release upload "$TAG" Livo-PMS-windows.zip --clobber
 
       - uses: actions/upload-artifact@v4
         with:
-          name: Hamin-PMS-windows
-          path: Hamin-PMS-windows.zip
+          name: Livo-PMS-windows
+          path: Livo-PMS-windows.zip
           compression-level: 0
           retention-days: 14

@@ -1,7 +1,7 @@
 {
   "name": "integration-service",
   "version": "0.0.1",
-  "description": "ERP / accounting integration API for Hamin (pull API + push connectors)",
+  "description": "ERP / accounting integration API for Livo (pull API + push connectors)",
   "author": "",
   "private": true,
   "license": "UNLICENSED",

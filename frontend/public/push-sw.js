@@ -1,12 +1,12 @@
-/* Web Push — همین. توسط Workbox (importScripts) داخل service worker اصلی بارگذاری می‌شود. */
+/* Web Push — Livo. توسط Workbox (importScripts) داخل service worker اصلی بارگذاری می‌شود. */
 self.addEventListener('push', (event) => {
   let d = {}
   try {
     d = event.data ? event.data.json() : {}
   } catch (e) {
-    d = { title: 'همین', body: event.data ? event.data.text() : '' }
+    d = { title: 'Livo', body: event.data ? event.data.text() : '' }
   }
-  const title = d.title || 'همین'
+  const title = d.title || 'Livo'
   event.waitUntil(
     (async () => {
       await self.registration.showNotification(title, {

@@ -1,6 +1,6 @@
 @echo off
 chcp 65001 >nul
-title Hamin PMS
+title Livo PMS
 cd /d "%~dp0"
 rem  To change the web port, remove "rem" from the next line:
 rem set PMS_PORT=8090

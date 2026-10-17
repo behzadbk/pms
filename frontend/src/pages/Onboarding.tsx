@@ -1,5 +1,5 @@
 /**
- * صفحات معرفی (Onboarding) «همین» — بازطراحی کامل.
+ * صفحات معرفی (Onboarding) Livo — بازطراحی کامل.
  *
  * ایده‌ی طراحی: یک «روز در مجتمع». اسپلش سپیده‌دم است، چهار اسلاید با رنگ‌مایه‌ی
  * متفاوت به‌ترتیب می‌گذرند و صفحه‌ی پایانی شب است؛ یعنی کاربر در طی معرفی، یک
@@ -20,7 +20,7 @@ import {
   SplashScene, ManageScene, PhoneScene, SecurityScene, LifeScene, NightSky, NightScene,
 } from './onboarding/illustrations'
 
-export const ONBOARDING_SEEN_KEY = 'hamino_onboarding_seen'
+export const ONBOARDING_SEEN_KEY = 'livo_onboarding_seen'
 
 interface Slide {
   eyebrow: string
@@ -69,23 +69,21 @@ const FINAL = (SLIDES.length + 1) as Step
 
 const fa = (n: number) => n.toLocaleString('fa-IR')
 
-/** آیکن برند: کارت سفید گرد + خانه‌ی فیروزه‌ای + نقطه‌ی برنجی (مطابق آیکن اپ) */
+/** آیکن برند Livo — همان آیکن اپ (public/icons) با گوشه‌ی گرد و سایه */
 function BrandMark({ size = 96, dark = false }: { size?: number; dark?: boolean }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 96 96" aria-hidden="true" style={{ overflow: 'visible' }}>
-      <defs>
-        <filter id="bm-sh" filterUnits="userSpaceOnUse" x="-30" y="-30" width="160" height="170">
-          <feDropShadow dx="0" dy="8" stdDeviation="8" floodColor="#052f30" floodOpacity={dark ? 0.5 : 0.25} />
-        </filter>
-      </defs>
-      <rect x="6" y="6" width="84" height="84" rx="26" fill="white" filter="url(#bm-sh)" />
-      <path
-        d="M24 50 L48 28 L72 50 V68 a5 5 0 0 1 -5 5 H29 a5 5 0 0 1 -5 -5Z"
-        fill="var(--color-tile)"
-      />
-      <path d="M41 73 V58 a7 7 0 0 1 14 0 V73Z" fill="white" />
-      <circle cx="68" cy="30" r="7" fill="var(--color-brass)" />
-    </svg>
+    <img
+      src="/icons/icon-512.png"
+      width={size}
+      height={size}
+      alt=""
+      aria-hidden="true"
+      draggable={false}
+      style={{
+        borderRadius: Math.round(size * 0.26),
+        boxShadow: `0 8px 24px rgba(0,0,0,${dark ? 0.5 : 0.25})`,
+      }}
+    />
   )
 }
 
@@ -261,9 +259,9 @@ export function Onboarding() {
             <div className="ob-brand ob-rise" style={{ animation: 'ob-rise .6s cubic-bezier(.32,.72,0,1) both, ob-float 6s ease-in-out .6s infinite' }}>
               <BrandMark size={104} />
             </div>
-            <p className="ob-rise mt-6 font-extrabold tracking-tight" style={{ animationDelay: '.12s', fontSize: 'clamp(40px, 3vw + 24px, 64px)' }}>همین</p>
+            <p className="ob-rise mt-6 font-extrabold tracking-tight" style={{ animationDelay: '.12s', fontSize: 'clamp(40px, 3vw + 24px, 64px)' }}>Livo</p>
             <p className="ob-rise mt-3 font-semibold text-muted" style={{ animationDelay: '.22s', fontSize: 'clamp(15px, .6vw + 12px, 20px)' }}>
-              برای یک ساختمان، همین کافیست
+              Better living, Smart, together
             </p>
           </div>
           <div className="ob-world z-[3]">
@@ -369,8 +367,8 @@ export function Onboarding() {
             <div className="ob-brand ob-rise" style={{ animation: 'ob-rise .6s cubic-bezier(.32,.72,0,1) both, ob-float 6s ease-in-out .6s infinite' }}>
               <BrandMark size={84} dark />
             </div>
-            <h1 className="ob-rise mt-5 text-[38px] lg:text-5xl font-extrabold tracking-tight text-white" style={{ animationDelay: '.1s' }}>همین</h1>
-            <p className="ob-rise mt-2 text-base font-semibold text-white/80" style={{ animationDelay: '.18s' }}>همه‌چیز، همین‌جا.</p>
+            <h1 className="ob-rise mt-5 text-[38px] lg:text-5xl font-extrabold tracking-tight text-white" style={{ animationDelay: '.1s' }}>Livo</h1>
+            <p className="ob-rise mt-2 text-base font-semibold text-white/80" style={{ animationDelay: '.18s' }}>Better living, Smart, together</p>
 
             <div className="flex-1" />
 

@@ -247,7 +247,7 @@ function CreateSheet({ open, onClose, onDone }: { open: boolean; onClose: () => 
 export function StaffWorkOrders() {
   const { toast, toastNode } = useToast()
   useEffect(() => {
-    document.title = 'کارهای نگهداری · همین'
+    document.title = 'کارهای نگهداری · Livo'
   }, [])
   return (
     <div className="max-w-4xl mx-auto flex flex-col gap-4 hm-fade-in">

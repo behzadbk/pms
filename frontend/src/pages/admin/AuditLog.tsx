@@ -61,7 +61,7 @@ export function AdminAuditLog() {
   const [chainLoading, setChainLoading] = useState(false)
 
   useEffect(() => {
-    document.title = 'داشبورد لاگ · همین'
+    document.title = 'داشبورد لاگ · Livo'
     const t = window.setTimeout(() => setDebouncedQ(q.trim()), 300)
     return () => window.clearTimeout(t)
   }, [q])

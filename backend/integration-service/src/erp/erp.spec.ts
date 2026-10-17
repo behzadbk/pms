@@ -81,7 +81,7 @@ describe('محافظ آدرس مقصد (SSRF)', () => {
     'https://[::1]/',
     'https://user:pass@erp.example.com/',
   ])('رد: %s', (u) => expect(checkConnectorUrl(u)).not.toBeNull())
-  it('پذیرش آدرس عمومی https', () => expect(checkConnectorUrl('https://erp.example.com/hamin')).toBeNull())
+  it('پذیرش آدرس عمومی https', () => expect(checkConnectorUrl('https://erp.example.com/livo')).toBeNull())
   it('در توسعه/شبکه‌ی داخلی با اجازه‌ی صریح', () => {
     process.env.ERP_ALLOW_INSECURE_URLS = 'true'
     expect(checkConnectorUrl('http://192.168.1.10:8080/hook')).toBeNull()

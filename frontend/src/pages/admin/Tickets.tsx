@@ -32,7 +32,7 @@ export function AdminTickets() {
   const tab = (params.get('tab') as Tab) || 'tickets'
   const { toast, toastNode } = useToast()
   useEffect(() => {
-    document.title = 'تیکت‌ها و نگهداری · همین'
+    document.title = 'تیکت‌ها و نگهداری · Livo'
   }, [])
   return (
     <div className="max-w-6xl mx-auto flex flex-col gap-4 hm-fade-in">

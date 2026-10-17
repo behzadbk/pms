@@ -15,7 +15,7 @@ export function AdminAnnouncements() {
   const { toast, toastNode } = useToast()
 
   useEffect(() => {
-    document.title = 'اعلانات و رأی‌گیری · همین'
+    document.title = 'اعلانات و رأی‌گیری · Livo'
   }, [])
 
   async function remove(a: Announcement) {

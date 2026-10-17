@@ -51,8 +51,8 @@ export default defineConfig(({ mode }) => ({
       includeAssets: ['favicon.ico', 'icons/apple-touch-icon.png'],
       manifest: {
         id: '/',
-        name: 'همین — سامانه مدیریت ساختمان',
-        short_name: 'همین',
+        name: 'Livo — Better living, Smart, together',
+        short_name: 'Livo',
         description: 'سامانه جامع مدیریت مجتمع مسکونی: شارژ و پرداخت، رزرو مشاعات، نگهبانی و شفافیت مالی',
         lang: 'fa',
         dir: 'rtl',
@@ -61,7 +61,7 @@ export default defineConfig(({ mode }) => ({
         display: 'standalone',
         orientation: 'portrait',
         background_color: '#f3f5f7',
-        theme_color: '#16324f',
+        theme_color: '#26292f',
         icons: [
           { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
           { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },

@@ -141,7 +141,7 @@ export function Settings() {
       </button>
 
       <p className="text-center text-[11px] text-[var(--lg-text-tertiary)]" dir="ltr" data-selectable>
-        همین · build {BUILD_ID}
+        Livo · build {BUILD_ID}
       </p>
     </div>
   )

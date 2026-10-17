@@ -415,7 +415,7 @@ export class HouseholdService {
         code,
         qr_token: qr,
         // محتوای QR: اپ با اسکن آن مستقیماً POST /auth/family-code را صدا می‌زند
-        qr_payload: `hamino://family?t=${encodeURIComponent(t.subdomain)}&k=${qr}`,
+        qr_payload: `livo://family?t=${encodeURIComponent(t.subdomain)}&k=${qr}`,
         subdomain: t.subdomain,
         expires_at: res.rows[0].expires_at,
       }

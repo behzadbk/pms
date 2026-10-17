@@ -212,7 +212,7 @@ check("rules", "دسترسی پرستار در تاریخ پایان خودکا�
 # ═══════════════ ۷) ورود کودک با کد یا QR ═══════════════
 s, b = call("identity", "POST", f"/me/household/members/{M['sara']}/login-code", token=reza)
 code, qr = b.get("code"), b.get("qr_token")
-check("child", "کد ۶ رقمی + QR پنج‌دقیقه‌ای", s in (200, 201) and len(code) == 6 and b["qr_payload"].startswith("hamino://family?t=borj-aftab"), (s, b))
+check("child", "کد ۶ رقمی + QR پنج‌دقیقه‌ای", s in (200, 201) and len(code) == 6 and b["qr_payload"].startswith("livo://family?t=borj-aftab"), (s, b))
 s, b = call("identity", "POST", "/auth/family-code", {"tenantSubdomain": T, "code": code})
 sara = b.get("accessToken")
 check("child", "ورود سارا با کد خانواده", s == 200 and b["user"]["role"] == "child", (s, b))
