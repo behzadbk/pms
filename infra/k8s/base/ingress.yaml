@@ -41,6 +41,9 @@ spec:
           - path: /api/fnb(/|$)(.*)
             pathType: ImplementationSpecific
             backend: { service: { name: fnb-svc, port: { number: 3008 } } }
+          - path: /api/integration(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend: { service: { name: integration-svc, port: { number: 3009 } } }
           # نکته: مسیر WebSocket پنل نگهبانی (facility-svc تقویم زنده، guard-svc ترافیک زنده)
           # از همین Ingress عبور می‌کند؛ annotation زیر Upgrade/Connection header را حفظ می‌کند
           - path: /()(.*)
@@ -70,6 +73,9 @@ spec:
           - path: /api/fnb(/|$)(.*)
             pathType: ImplementationSpecific
             backend: { service: { name: fnb-svc, port: { number: 3008 } } }
+          - path: /api/integration(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend: { service: { name: integration-svc, port: { number: 3009 } } }
           - path: /()(.*)
             pathType: ImplementationSpecific
             backend: { service: { name: pms-frontend, port: { number: 8080 } } }

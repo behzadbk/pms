@@ -20,6 +20,7 @@ const serviceProxy = {
   notification: 3006,
   audit: 3007,
   fnb: 3008,
+  integration: 3009,
 } as const
 
 const apiProxy = Object.fromEntries(

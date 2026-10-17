@@ -72,6 +72,7 @@ MIGRATIONS=(
   "backend/identity-service/prisma/migrations/009_departments.sql"
   "backend/facility-service/prisma/migrations/007_events_and_service_requests.sql"
   "db/migrations/904_delivery_zones_unique.sql"
+  "backend/integration-service/prisma/migrations/001_integration_schema.sql"
 )
 
 SEEDS=(
@@ -80,6 +81,7 @@ SEEDS=(
   "db/seeds/003_demo_operational_data.sql"
   "db/seeds/004_residents_demo.sql"
   "db/seeds/maint_notices_demo.sql"
+  "db/seeds/005_integration_demo.sql"
 )
 
 log() { printf '%s\n' "$*"; }
@@ -173,7 +175,7 @@ case "${1:-}" in
          fi ;;
     esac
     log "⚠  حذف کامل اسکیماها…"
-    "${PSQL[@]}" -c "DROP SCHEMA IF EXISTS residency, identity, property, facility, finance, guard, notification, audit, fnb, platform CASCADE" >/dev/null
+    "${PSQL[@]}" -c "DROP SCHEMA IF EXISTS residency, identity, property, facility, finance, guard, notification, audit, fnb, entitlement, integration, platform CASCADE" >/dev/null
     cmd_migrate; cmd_seed ;;
   "")       cmd_migrate ;;
   *)        log "گزینه نامعتبر: $1"; exit 1 ;;

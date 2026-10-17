@@ -37,10 +37,11 @@ jobs:
             notification-service: 'backend/notification-service/**'
             audit-service:       'backend/audit-service/**'
             fnb-service:         'backend/fnb-service/**'
+            integration-service: 'backend/integration-service/**'
             frontend:             'frontend/**'
       - id: build-matrix
         run: |
-          SERVICES='["identity-service","property-service","facility-service","finance-service","guard-service","notification-service","audit-service","fnb-service"]'
+          SERVICES='["identity-service","property-service","facility-service","finance-service","guard-service","notification-service","audit-service","fnb-service","integration-service"]'
           CHANGED=$(python3 -c "
           import json
           all_svcs = json.loads('$SERVICES')
@@ -53,6 +54,7 @@ jobs:
             'notification-service': '${{ steps.filter.outputs.notification-service }}',
             'audit-service': '${{ steps.filter.outputs.audit-service }}',
             'fnb-service': '${{ steps.filter.outputs.fnb-service }}',
+            'integration-service': '${{ steps.filter.outputs.integration-service }}',
           }
           changed = [s for s in all_svcs if flags[s] == 'true']
           print(json.dumps(changed))

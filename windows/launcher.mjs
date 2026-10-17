@@ -44,7 +44,7 @@ const APP_DB_PASSWORD = 'pms_local_only'
 
 const SERVICES = {
   identity: 3001, property: 3002, facility: 3003, finance: 3004,
-  guard: 3005, notification: 3006, audit: 3007, fnb: 3008,
+  guard: 3005, notification: 3006, audit: 3007, fnb: 3008, integration: 3009,
 }
 
 const children = []
