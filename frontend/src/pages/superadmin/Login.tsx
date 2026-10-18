@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
+import { BrandGlyph } from '../../components/BrandGlyph'
 import { useNavigate } from 'react-router-dom'
-import { Building2, Loader2, Lock, ShieldCheck, User } from 'lucide-react'
+import { Building2, Loader2, Lock, User } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 
 /**
@@ -33,9 +34,7 @@ export function SuperAdminLogin() {
     <div className="min-h-screen flex items-center justify-center bg-ink px-4 py-10">
       <div className="w-full max-w-sm">
         <div className="flex flex-col items-center gap-2.5 mb-7 text-center">
-          <div className="bg-tile text-white rounded-2xl p-3.5 shadow-lg shadow-black/20">
-            <ShieldCheck size={26} />
-          </div>
+          <BrandGlyph size={56} tone="light" title="Livo" />
           <h1 className="font-bold text-lg text-white">پنل سوپر ادمین</h1>
           <p className="text-sm text-white/60 leading-6">
             مدیریت ساختمان‌ها و برج‌های تحت همکاری، سطح سرویس و تسویه‌ی اشتراک
