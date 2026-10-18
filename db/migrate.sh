@@ -73,6 +73,7 @@ MIGRATIONS=(
   "backend/facility-service/prisma/migrations/007_events_and_service_requests.sql"
   "db/migrations/904_delivery_zones_unique.sql"
   "backend/integration-service/prisma/migrations/001_integration_schema.sql"
+  "db/migrations/905_fk_indexes_events_requests.sql"
 )
 
 SEEDS=(
