@@ -1,7 +1,8 @@
 import { NavLink, Outlet, useNavigate, useLocation, useOutletContext } from 'react-router-dom'
-import { Bell, Building2, ChevronDown, ChevronLeft, LayoutGrid, Lock, LogOut, Menu, Palette, Phone, ShieldCheck } from 'lucide-react'
+import { Bell, ChevronDown, ChevronLeft, LayoutGrid, Lock, LogOut, Menu, Palette, Phone, ShieldCheck } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
+import { BrandGlyph } from './BrandGlyph'
 import { ROLE_SWITCHER_ENABLED, useRole, useRoleInfo } from '../context/RoleContext'
 import { useAuth } from '../context/AuthContext'
 import { navByRole, moduleForPath, type NavItem } from '../lib/nav'
@@ -124,9 +125,7 @@ export function Layout() {
           <Avatar name={user?.fullName ?? info.label} size={40} ring />
         </button>
         <div className="flex items-center gap-2 min-w-0">
-          <div className="bg-[var(--hdr-acc)] rounded-lg p-1.5 shrink-0">
-            <Building2 size={16} />
-          </div>
+          <BrandGlyph size={24} tone="light" />
           <p className="font-semibold text-sm truncate">{user?.tenantName ?? 'Livo'}</p>
           {isChild && (
             <span className="flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full bg-white/15">
@@ -149,9 +148,7 @@ export function Layout() {
         <div className="border-b border-white/10 pt-safe lg:pt-0 shrink-0">
         <div className="flex items-center justify-between gap-2.5 px-5 h-16">
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className="bg-[var(--hdr-acc)] rounded-lg p-1.5 shrink-0">
-              <Building2 size={20} />
-            </div>
+            <BrandGlyph size={30} tone="light" />
             <div className="min-w-0">
               <p className="font-bold leading-none truncate">{user?.tenantName ?? 'Livo'}</p>
             </div>

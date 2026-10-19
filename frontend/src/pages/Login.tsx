@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Loader2, QrCode } from 'lucide-react'
+import { BrandGlyph } from '../components/BrandGlyph'
 import { useAuth } from '../context/AuthContext'
 
 /** آخرین مجتمعی که از این دستگاه وارد شده — روی تبلت لابی/آشپزخانه هر بار تایپ نشود */
@@ -97,7 +98,7 @@ export function Login() {
     >
       <div className="w-full max-w-sm">
         <div className="flex flex-col items-center gap-2 mb-6">
-          <img src="/icons/icon-192.png" alt="Livo" className="w-16 h-16 rounded-2xl shadow-sm" />
+          <BrandGlyph size={64} title="Livo" />
           <h1 className="font-bold text-xl text-ink-text">Livo</h1>
           <p dir="ltr" className="text-xs text-muted">Better living, Smart, together</p>
         </div>

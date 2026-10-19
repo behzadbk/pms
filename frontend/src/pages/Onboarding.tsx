@@ -13,6 +13,7 @@
  *  - «شروع کنید» مستقیم به صفحه‌ی ورود واقعی (Login.tsx) می‌رود؛ ورود جعلی ساخته نشده است.
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { BrandGlyph } from '../components/BrandGlyph'
 import type { ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
@@ -69,21 +70,12 @@ const FINAL = (SLIDES.length + 1) as Step
 
 const fa = (n: number) => n.toLocaleString('fa-IR')
 
-/** آیکن برند Livo — همان آیکن اپ (public/icons) با گوشه‌ی گرد و سایه */
+/** نشان برند Livo — فقط برج‌ها (بدون کاشی آیکون اپ)؛ dark = روی پس‌زمینه‌ی تیره */
 function BrandMark({ size = 96, dark = false }: { size?: number; dark?: boolean }) {
   return (
-    <img
-      src="/icons/icon-512.png"
-      width={size}
-      height={size}
-      alt=""
-      aria-hidden="true"
-      draggable={false}
-      style={{
-        borderRadius: Math.round(size * 0.26),
-        boxShadow: `0 8px 24px rgba(0,0,0,${dark ? 0.5 : 0.25})`,
-      }}
-    />
+    <span style={{ display: 'inline-block', filter: `drop-shadow(0 8px 18px rgba(0,0,0,${dark ? 0.45 : 0.18}))` }}>
+      <BrandGlyph size={size} tone={dark ? 'light' : 'auto'} />
+    </span>
   )
 }
 
