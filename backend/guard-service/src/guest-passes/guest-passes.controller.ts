@@ -3,6 +3,7 @@ import { randomInt } from 'crypto'
 import type { PoolClient } from 'pg'
 import { DatabaseService } from '../database/database.service'
 import { CurrentUser, JwtPayload } from '../auth/decorators/current-user.decorator'
+import { RequireModule } from '../auth/decorators/require-module.decorator'
 import { Roles } from '../auth/decorators/roles.decorator'
 import { EventsService } from '../events/events.service'
 import { GuardGateway } from '../realtime/guard.gateway'
@@ -24,6 +25,7 @@ const PASS_SELECT = `
 /**
  * «پنل فوق‌ساده نگهبانی» — docs/FEATURES-DEEP-DIVE.md بخش ۷.۳ (guardQuickCheckIn / guardConfirmCheckIn).
  */
+@RequireModule('guest_pass')
 @Controller()
 export class GuestPassesController {
   constructor(

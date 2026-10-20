@@ -1,4 +1,5 @@
 import { BadRequestException, Body, Controller, Get, NotFoundException, Param, ParseUUIDPipe, Post, Query } from '@nestjs/common'
+import { RequireModule } from '../auth/decorators/require-module.decorator'
 import { Roles } from '../auth/decorators/roles.decorator'
 import { DatabaseService } from '../database/database.service'
 import { CurrentUser, JwtPayload } from '../auth/decorators/current-user.decorator'
@@ -22,6 +23,7 @@ const PARCEL_SELECT = `
  * نگهبان واحد را انتخاب می‌کند و کد رهگیری را وارد می‌کند؛ همین یک POST هم رکورد را ثبت می‌کند
  * و هم برای ساکنان واحد اعلان (پوش) می‌سازد.
  */
+@RequireModule('parcels')
 @Controller('parcels')
 export class ParcelsController {
   constructor(
