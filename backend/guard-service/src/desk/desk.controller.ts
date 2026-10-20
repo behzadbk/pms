@@ -1,6 +1,7 @@
 import { BadRequestException, Body, ConflictException, Controller, Delete, Get, NotFoundException, Param, ParseUUIDPipe, Post, Query } from '@nestjs/common'
 import { DatabaseService } from '../database/database.service'
 import { CurrentUser, JwtPayload } from '../auth/decorators/current-user.decorator'
+import { RequireModule } from '../auth/decorators/require-module.decorator'
 import { Roles } from '../auth/decorators/roles.decorator'
 import { GuardGateway } from '../realtime/guard.gateway'
 import { assertDesk, faDigits, normPlate } from '../common/access'
@@ -13,6 +14,7 @@ const today = (col: string) => TODAY.replace('x', col)
 const SEC = ['security']
 
 /** پنل نگهبانی: جست‌وجوی واحد، خلاصه‌ی داشبورد، رویدادهای زنده، پلاک و تردد خودرو */
+@RequireModule('guard_desk')
 @Controller()
 export class DeskController {
   constructor(
@@ -85,6 +87,7 @@ export class DeskController {
 
   /** جست‌وجوی پلاک در خودروهای ثبت‌شده‌ی ساکنین */
   @Roles('guard', 'admin', 'staff')
+  @RequireModule('vehicle_traffic')
   @Get('vehicles/lookup')
   lookup(@CurrentUser() user: JwtPayload, @Query('plate') plate: string) {
     assertDesk(user)
@@ -99,6 +102,7 @@ export class DeskController {
   }
 
   @Roles('guard', 'admin', 'staff')
+  @RequireModule('vehicle_traffic')
   @Post('vehicles')
   async addVehicle(@CurrentUser() user: JwtPayload, @Body() b: { unitId: string; plate: string; ownerName?: string; label?: string }) {
     assertDesk(user)
@@ -120,6 +124,7 @@ export class DeskController {
   }
 
   @Roles('guard', 'admin', 'staff')
+  @RequireModule('vehicle_traffic')
   @Delete('vehicles/:id')
   async removeVehicle(@CurrentUser() user: JwtPayload, @Param('id', ParseUUIDPipe) id: string) {
     assertDesk(user)
@@ -134,6 +139,7 @@ export class DeskController {
 
   /** تردد امروز (به وقت تهران) */
   @Roles('guard', 'admin', 'staff')
+  @RequireModule('vehicle_traffic')
   @Get('vehicle-logs')
   logs(@CurrentUser() user: JwtPayload) {
     assertDesk(user)
@@ -147,6 +153,7 @@ export class DeskController {
   }
 
   @Roles('guard', 'admin', 'staff')
+  @RequireModule('vehicle_traffic')
   @Post('vehicle-logs')
   async addLog(@CurrentUser() user: JwtPayload, @Body() b: { plate: string; direction: 'in' | 'out'; unitId?: string; isGuest?: boolean; note?: string }) {
     assertDesk(user, SEC)

@@ -14,6 +14,8 @@ export interface JwtPayload {
   /** 'family' برای ورود عضو خانواده (کودک) */
   kind?: string
   mid?: string
+  /** سطح سرویس ساختمان (simple | economic | professional) — برای @RequireModule */
+  tier?: string
 }
 
 export const CurrentUser = createParamDecorator((_: unknown, ctx: ExecutionContext): JwtPayload => {
