@@ -1,19 +1,19 @@
-import { Injectable } from '@nestjs/common'
-import { PoolClient } from 'pg'
+import { Injectable } from '@nestjs/common';
+import { PoolClient } from 'pg';
 
 export interface BookingRule {
-  id: string
-  amenity_id: string
-  max_bookings_per_unit_per_period: number
-  period_type: 'day' | 'week' | 'month'
-  min_advance_hours: number
-  max_advance_days: number
-  deposit_amount: number
+  id: string;
+  amenity_id: string;
+  max_bookings_per_unit_per_period: number;
+  period_type: 'day' | 'week' | 'month';
+  min_advance_hours: number;
+  max_advance_days: number;
+  deposit_amount: number;
 }
 
 export interface BookingCheckResult {
-  ok: boolean
-  violations: string[]
+  ok: boolean;
+  violations: string[];
 }
 
 /**
@@ -31,7 +31,7 @@ export class BookingValidationService {
     endAt: Date,
     opts: { skipOverlap?: boolean } = {},
   ): Promise<BookingCheckResult> {
-    const violations: string[] = []
+    const violations: string[] = [];
 
     // ۱) سقف تعداد رزرو واحد در بازه‌ی جاری — بازه به وقت تهران و هفته از شنبه است و از هر دو طرف بسته؛
     //    (نسخه‌ی قبل فقط «شروع بازه» را می‌گرفت و رزروهای هفته‌های بعد را هم می‌شمرد)
@@ -48,23 +48,29 @@ export class BookingValidationService {
           AND (r.start_at AT TIME ZONE 'Asia/Tehran') >= p.s
           AND (r.start_at AT TIME ZONE 'Asia/Tehran') <  p.s + p.len`,
       [rule.amenity_id, unitId, startAt, rule.period_type],
-    )
-    if (Number(countRes.rows[0].count) >= rule.max_bookings_per_unit_per_period) {
+    );
+    if (
+      Number(countRes.rows[0].count) >= rule.max_bookings_per_unit_per_period
+    ) {
       violations.push(
         `سقف رزرو این واحد برای این مشاع (${rule.max_bookings_per_unit_per_period} بار در هر ${this.periodFa(rule.period_type)}) تکمیل شده است.`,
-      )
+      );
     }
 
     // ۲) و ۳) بازه پیش‌سفارش
-    const hoursUntil = (startAt.getTime() - Date.now()) / (1000 * 60 * 60)
+    const hoursUntil = (startAt.getTime() - Date.now()) / (1000 * 60 * 60);
     if (hoursUntil < rule.min_advance_hours) {
-      violations.push(`این بازه باید حداقل ${rule.min_advance_hours} ساعت زودتر رزرو شود.`)
+      violations.push(
+        `این بازه باید حداقل ${rule.min_advance_hours} ساعت زودتر رزرو شود.`,
+      );
     }
     if (hoursUntil > rule.max_advance_days * 24) {
-      violations.push(`رزرو این مشاع حداکثر تا ${rule.max_advance_days} روز آینده امکان‌پذیر است.`)
+      violations.push(
+        `رزرو این مشاع حداکثر تا ${rule.max_advance_days} روز آینده امکان‌پذیر است.`,
+      );
     }
 
-    if (opts.skipOverlap) return { ok: violations.length === 0, violations }
+    if (opts.skipOverlap) return { ok: violations.length === 0, violations };
 
     // ۴) بررسی همپوشانی (پیش‌بررسی UX-پسند — تضمین نهایی همچنان EXCLUDE Constraint دیتابیس است)
     const overlapRes = await client.query(
@@ -72,15 +78,15 @@ export class BookingValidationService {
        WHERE amenity_id = $1 AND status IN ('confirmed', 'pending')
          AND tstzrange(start_at, end_at) && tstzrange($2, $3)`,
       [rule.amenity_id, startAt, endAt],
-    )
+    );
     if ((overlapRes.rowCount ?? 0) > 0) {
-      violations.push('این بازه قبلاً توسط واحد دیگری رزرو شده است.')
+      violations.push('این بازه قبلاً توسط واحد دیگری رزرو شده است.');
     }
 
-    return { ok: violations.length === 0, violations }
+    return { ok: violations.length === 0, violations };
   }
 
   private periodFa(p: string) {
-    return p === 'day' ? 'روز' : p === 'week' ? 'هفته' : 'ماه'
+    return p === 'day' ? 'روز' : p === 'week' ? 'هفته' : 'ماه';
   }
 }

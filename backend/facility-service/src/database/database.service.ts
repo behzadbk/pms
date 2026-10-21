@@ -1,13 +1,13 @@
-import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common'
-import { Pool, PoolClient, types } from 'pg'
-import { HealthIndicatorResult, HealthCheckError } from '@nestjs/terminus'
+import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
+import { Pool, PoolClient, types } from 'pg';
+import { HealthIndicatorResult, HealthCheckError } from '@nestjs/terminus';
 
 /**
  * ستون DATE (oid 1082) را به‌صورت رشته‌ی ساده‌ی 'YYYY-MM-DD' برمی‌گردانیم، نه Date.
  * pg به‌طور پیش‌فرض آن را در منطقه‌ی زمانی سرور به Date تبدیل می‌کرد و due_date/تاریخ‌ها
  * روی سرورِ TZ=Asia/Tehran در JSON یک روز عقب (…T20:30:00.000Z) می‌رفت.
  */
-types.setTypeParser(1082, (v: string) => v)
+types.setTypeParser(1082, (v: string) => v);
 
 /**
  * پیاده‌سازی واقعیِ الگوی Row-Level Security توضیح‌داده‌شده در
@@ -20,7 +20,7 @@ types.setTypeParser(1082, (v: string) => v)
  */
 @Injectable()
 export class DatabaseService implements OnModuleDestroy {
-  private readonly pool: Pool
+  private readonly pool: Pool;
 
   constructor() {
     this.pool = new Pool({
@@ -32,12 +32,15 @@ export class DatabaseService implements OnModuleDestroy {
       // اتصال بیکار را آزاد کن تا پستگرس با چند سرویس بی‌دلیل پر نشود
       idleTimeoutMillis: 30_000,
       // وقتی pool پر است درخواست تا ابد منتظر نماند؛ بعد از ۵ ثانیه خطا بده تا سرویس قفل نشود
-      connectionTimeoutMillis: Number(process.env.DB_CONNECT_TIMEOUT_MS) || 5_000,
+      connectionTimeoutMillis:
+        Number(process.env.DB_CONNECT_TIMEOUT_MS) || 5_000,
       // کوئری سنگین/گیرکرده بیش از این زمان اتصال را اشغال نکند
       statement_timeout: Number(process.env.DB_STATEMENT_TIMEOUT_MS) || 60_000,
-    })
+    });
     // بدون این handler، خطای یک اتصال بیکار (مثلاً ری‌استارت پستگرس) یک 'error' مدیریت‌نشده است و کل پروسه را می‌اندازد
-    this.pool.on('error', (err) => Logger.error(`خطای اتصال بیکار pool: ${err.message}`, 'DatabaseService'))
+    this.pool.on('error', (err) =>
+      Logger.error(`خطای اتصال بیکار pool: ${err.message}`, 'DatabaseService'),
+    );
   }
 
   /**
@@ -45,48 +48,58 @@ export class DatabaseService implements OnModuleDestroy {
    * `SET LOCAL` ست می‌کند — همه Query‌های داخل fn فقط به رکوردهای همان
    * tenant دسترسی دارند (به‌شرط فعال بودن Policy روی جدول مقصد).
    */
-  async withTenant<T>(tenantId: string, fn: (client: PoolClient) => Promise<T>): Promise<T> {
-    const client = await this.pool.connect()
-    let broken: Error | undefined
+  async withTenant<T>(
+    tenantId: string,
+    fn: (client: PoolClient) => Promise<T>,
+  ): Promise<T> {
+    const client = await this.pool.connect();
+    let broken: Error | undefined;
     try {
-      await client.query('BEGIN')
-      await client.query('SELECT set_config($1, $2, true)', ['app.current_tenant_id', tenantId])
-      const result = await fn(client)
-      await client.query('COMMIT')
-      return result
+      await client.query('BEGIN');
+      await client.query('SELECT set_config($1, $2, true)', [
+        'app.current_tenant_id',
+        tenantId,
+      ]);
+      const result = await fn(client);
+      await client.query('COMMIT');
+      return result;
     } catch (err) {
       // اگر خود ROLLBACK هم شکست خورد، خطای اصلی پنهان نشود و اتصال خراب به pool برنگردد
       try {
-        await client.query('ROLLBACK')
+        await client.query('ROLLBACK');
       } catch (rollbackErr) {
-        broken = rollbackErr as Error
+        broken = rollbackErr as Error;
       }
-      throw err
+      throw err;
     } finally {
-      client.release(broken)
+      client.release(broken);
     }
   }
 
   /** برای عملیات سطح Super-Admin که باید cross-tenant بخوانند (پنل SaaS) — نقش دیتابیسی جدا با BYPASSRLS */
-  async withPlatformAccess<T>(fn: (client: PoolClient) => Promise<T>): Promise<T> {
-    const client = await this.pool.connect()
+  async withPlatformAccess<T>(
+    fn: (client: PoolClient) => Promise<T>,
+  ): Promise<T> {
+    const client = await this.pool.connect();
     try {
-      return await fn(client)
+      return await fn(client);
     } finally {
-      client.release()
+      client.release();
     }
   }
 
   async pingHealthIndicator(): Promise<HealthIndicatorResult> {
     try {
-      await this.pool.query('SELECT 1')
-      return { database: { status: 'up' } }
+      await this.pool.query('SELECT 1');
+      return { database: { status: 'up' } };
     } catch {
-      throw new HealthCheckError('اتصال دیتابیس برقرار نیست', { database: { status: 'down' } })
+      throw new HealthCheckError('اتصال دیتابیس برقرار نیست', {
+        database: { status: 'down' },
+      });
     }
   }
 
   async onModuleDestroy() {
-    await this.pool.end()
+    await this.pool.end();
   }
 }

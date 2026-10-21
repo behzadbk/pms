@@ -1,8 +1,8 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common'
-import { JWT_ALGORITHMS, jwtSecret } from './jwt-secret'
-import { PassportStrategy } from '@nestjs/passport'
-import { ExtractJwt, Strategy } from 'passport-jwt'
-import { JwtPayload } from './decorators/current-user.decorator'
+import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { JWT_ALGORITHMS, jwtSecret } from './jwt-secret';
+import { PassportStrategy } from '@nestjs/passport';
+import { ExtractJwt, Strategy } from 'passport-jwt';
+import { JwtPayload } from './decorators/current-user.decorator';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
@@ -15,7 +15,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       // خودشان اعتبارسنجی کنند (بخش ۲ سند ARCHITECTURE-SAAS.md — کاهش تماس‌های داخلی).
       secretOrKey: jwtSecret(),
       algorithms: JWT_ALGORITHMS,
-    })
+    });
   }
 
   async validate(payload: JwtPayload): Promise<JwtPayload> {
@@ -23,8 +23,10 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     // خود Passport پیش از این متد صحت امضا و انقضا را تأیید کرده است.
     // refreshToken (عمر ۳۰ روزه) نباید به‌عنوان accessToken روی Endpointها پذیرفته شود
     if (payload.typ === 'refresh') {
-      throw new UnauthorizedException('از refreshToken نمی‌توان برای دسترسی استفاده کرد')
+      throw new UnauthorizedException(
+        'از refreshToken نمی‌توان برای دسترسی استفاده کرد',
+      );
     }
-    return payload
+    return payload;
   }
 }

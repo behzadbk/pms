@@ -1,7 +1,7 @@
-import { Module } from '@nestjs/common'
-import { ClientsModule, Transport } from '@nestjs/microservices'
-import { join } from 'path'
-import { PropertyClientService } from './property-client.service'
+import { Module } from '@nestjs/common';
+import { ClientsModule, Transport } from '@nestjs/microservices';
+import { join } from 'path';
+import { PropertyClientService } from './property-client.service';
 
 @Module({
   imports: [
@@ -13,7 +13,9 @@ import { PropertyClientService } from './property-client.service'
           options: {
             package: 'property',
             protoPath: join(__dirname, '../proto/property.proto'),
-            url: process.env.PROPERTY_SVC_GRPC_URL ?? 'property-svc.pms-prod.svc.cluster.local:50052',
+            url:
+              process.env.PROPERTY_SVC_GRPC_URL ??
+              'property-svc.pms-prod.svc.cluster.local:50052',
           },
         }),
       },
