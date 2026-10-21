@@ -15,6 +15,8 @@ export interface JwtPayload {
   mid?: string
   /** دسترسی‌های مؤثر کارمند (مثلاً amenity_desk) */
   perms?: string[]
+  /** سطح سرویس ساختمان (simple | economic | professional) — برای @RequireModule */
+  tier?: string
 }
 
 export const CurrentUser = createParamDecorator((_: unknown, ctx: ExecutionContext): JwtPayload => {
