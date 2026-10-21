@@ -1,7 +1,7 @@
-import { Controller, Get } from '@nestjs/common';
-import { HealthCheck, HealthCheckService } from '@nestjs/terminus';
-import { DatabaseService } from '../database/database.service';
-import { Public } from '../auth/decorators/public.decorator';
+import { Controller, Get } from '@nestjs/common'
+import { HealthCheck, HealthCheckService } from '@nestjs/terminus'
+import { DatabaseService } from '../database/database.service'
+import { Public } from '../auth/decorators/public.decorator'
 
 /**
  * Endpointهای liveness/readiness برای Kubernetes probes
@@ -18,7 +18,7 @@ export class HealthController {
   @Public()
   @Get('live')
   live() {
-    return { status: 'ok' };
+    return { status: 'ok' }
   }
 
   // readiness: تأیید می‌کند سرویس آماده پذیرش ترافیک است (اتصال دیتابیس برقرار است)
@@ -26,6 +26,6 @@ export class HealthController {
   @Get('ready')
   @HealthCheck()
   ready() {
-    return this.health.check([() => this.db.pingHealthIndicator()]);
+    return this.health.check([() => this.db.pingHealthIndicator()])
   }
 }

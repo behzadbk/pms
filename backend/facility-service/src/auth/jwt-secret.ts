@@ -11,27 +11,25 @@
  *     قابل‌حدس استفاده کند (در آن حالت هر کسی می‌توانست توکن super_admin جعل کند).
  */
 export function jwtSecret(): string {
-  const secret = process.env.JWT_PUBLIC_KEY || process.env.JWT_SECRET;
+  const secret = process.env.JWT_PUBLIC_KEY || process.env.JWT_SECRET
   if (secret) {
     // کلید کوتاه با brute-force آفلاین روی یک توکن قابل کشف است؛ install.sh کلید ۶۴ نویسه‌ای می‌سازد.
     if (process.env.NODE_ENV === 'production' && secret.length < 32) {
-      throw new Error('JWT_SECRET در production باید حداقل ۳۲ نویسه باشد');
+      throw new Error('JWT_SECRET در production باید حداقل ۳۲ نویسه باشد')
     }
-    return secret;
+    return secret
   }
   if (process.env.NODE_ENV === 'production') {
-    throw new Error(
-      'JWT_SECRET تنظیم نشده است — سرویس در production بدون کلید اجرا نمی‌شود',
-    );
+    throw new Error('JWT_SECRET تنظیم نشده است — سرویس در production بدون کلید اجرا نمی‌شود')
   }
-  return 'dev-only-secret';
+  return 'dev-only-secret'
 }
 
 /**
  * تنها الگوریتم مجاز برای امضا/اعتبارسنجی توکن. همه‌ی توکن‌ها HS256 صادر می‌شوند؛ پین‌کردن الگوریتم جلوی
  * حملات «algorithm confusion» (مثلاً توکن با alg دلخواه) را می‌گیرد.
  */
-export const JWT_ALGORITHMS: ['HS256'] = ['HS256'];
+export const JWT_ALGORITHMS: ['HS256'] = ['HS256']
 
 /** نوع توکن — refreshToken هرگز نباید به‌جای accessToken پذیرفته شود (و برعکس) */
-export type TokenType = 'access' | 'refresh';
+export type TokenType = 'access' | 'refresh'
