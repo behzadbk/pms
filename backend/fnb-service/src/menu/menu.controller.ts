@@ -463,6 +463,10 @@ export class MenuController {
    * منطقه‌ای که کارمند دستی غیرفعال کرده دوباره فعال نمی‌شود. هزینه‌ی تحویل را کارمند می‌تواند تنظیم کند.
    */
   private async syncZonesWithAmenities(c: PoolClient, tenantId: string) {
+    // GET پرتکرار است: اگر چیزی برای همگام‌سازی نیست هیچ نوشتنی (و قفلی) انجام نمی‌دهیم
+    if (!(await this.zonesNeedSync(c))) return
+    // دو درخواست همزمان پشت هم همگام می‌شوند (قفل تا پایان تراکنش)
+    await c.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [`fnb.zones.sync:${tenantId}`])
     await c.query(
       `INSERT INTO fnb.delivery_zones (tenant_id, name, zone_type, amenity_id, surcharge, sort_order)
        SELECT $1, 'لابی', 'amenity_zone', NULL, 0, -1
@@ -489,6 +493,23 @@ export class MenuController {
         WHERE z.amenity_id IS NOT NULL AND z.is_active
           AND NOT EXISTS (SELECT 1 FROM facility.amenities a WHERE a.id = z.amenity_id)`,
     )
+  }
+
+  /** فقط‌خواندنی: همان شرط‌های نوشتنِ syncZonesWithAmenities؛ true یعنی حداقل یک تغییر لازم است */
+  private async zonesNeedSync(c: PoolClient): Promise<boolean> {
+    const lobby = await c.query(
+      `SELECT NOT EXISTS (SELECT 1 FROM fnb.delivery_zones WHERE amenity_id IS NULL AND lower(name) = 'لابی') AS need`)
+    if (lobby.rows[0].need) return true
+    const has = await c.query(`SELECT to_regclass('facility.amenities') IS NOT NULL AS ok`)
+    if (!has.rows[0]?.ok) return false
+    const r = await c.query(
+      `SELECT EXISTS (SELECT 1 FROM facility.amenities a
+                       WHERE NOT EXISTS (SELECT 1 FROM fnb.delivery_zones z WHERE z.amenity_id = a.id OR lower(z.name) = lower(a.name)))
+           OR EXISTS (SELECT 1 FROM fnb.delivery_zones z JOIN facility.amenities a ON z.amenity_id = a.id WHERE z.name <> a.name)
+           OR EXISTS (SELECT 1 FROM fnb.delivery_zones z
+                       WHERE z.amenity_id IS NOT NULL AND z.is_active
+                         AND NOT EXISTS (SELECT 1 FROM facility.amenities a WHERE a.id = z.amenity_id)) AS need`)
+    return r.rows[0].need
   }
 
   private assertAnyManager(user: JwtPayload) {
