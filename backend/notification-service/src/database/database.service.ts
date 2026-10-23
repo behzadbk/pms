@@ -21,6 +21,11 @@ types.setTypeParser(1082, (v: string) => v)
 @Injectable()
 export class DatabaseService implements OnModuleDestroy {
   private readonly pool: Pool
+  /**
+   * pool دوم و اختیاری با نقش platform_admin (BYPASSRLS) فقط برای withPlatformAccess.
+   * اگر PLATFORM_DATABASE_URL ست نباشد undefined است و رفتار قبلی (همان pool عادی) حفظ می‌شود.
+   */
+  private readonly platformPool?: Pool
 
   constructor() {
     this.pool = new Pool({
@@ -38,6 +43,20 @@ export class DatabaseService implements OnModuleDestroy {
     })
     // بدون این handler، خطای یک اتصال بیکار (مثلاً ری‌استارت پستگرس) یک 'error' مدیریت‌نشده است و کل پروسه را می‌اندازد
     this.pool.on('error', (err) => Logger.error(`خطای اتصال بیکار pool: ${err.message}`, 'DatabaseService'))
+
+    if (process.env.PLATFORM_DATABASE_URL) {
+      this.platformPool = new Pool({
+        connectionString: process.env.PLATFORM_DATABASE_URL,
+        // سقف کوچک: فقط کارهای سطح پلتفرم (پنل SaaS، زمان‌بندها) از این pool می‌گذرند
+        max: Number(process.env.PLATFORM_DB_POOL_MAX) || 3,
+        idleTimeoutMillis: 30_000,
+        connectionTimeoutMillis: Number(process.env.DB_CONNECT_TIMEOUT_MS) || 5_000,
+        statement_timeout: Number(process.env.DB_STATEMENT_TIMEOUT_MS) || 60_000,
+      })
+      this.platformPool.on('error', (err) =>
+        Logger.error(`خطای اتصال بیکار pool پلتفرم: ${err.message}`, 'DatabaseService'),
+      )
+    }
   }
 
   /**
@@ -67,9 +86,13 @@ export class DatabaseService implements OnModuleDestroy {
     }
   }
 
-  /** برای عملیات سطح Super-Admin که باید cross-tenant بخوانند (پنل SaaS) — نقش دیتابیسی جدا با BYPASSRLS */
+  /**
+   * برای عملیات سطح Super-Admin که باید cross-tenant بخوانند (پنل SaaS).
+   * با PLATFORM_DATABASE_URL از نقش جدای platform_admin (BYPASSRLS) استفاده می‌کند؛
+   * بدون آن همان pool عادی app_user (رفتار قبلی).
+   */
   async withPlatformAccess<T>(fn: (client: PoolClient) => Promise<T>): Promise<T> {
-    const client = await this.pool.connect()
+    const client = await (this.platformPool ?? this.pool).connect()
     try {
       return await fn(client)
     } finally {
@@ -87,6 +110,6 @@ export class DatabaseService implements OnModuleDestroy {
   }
 
   async onModuleDestroy() {
-    await this.pool.end()
+    await Promise.all([this.pool.end(), this.platformPool?.end()])
   }
 }
