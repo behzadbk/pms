@@ -6,6 +6,7 @@ import { Type } from 'class-transformer'
 import type { PoolClient } from 'pg'
 import { DatabaseService } from '../database/database.service'
 import { CurrentUser, JwtPayload } from '../auth/decorators/current-user.decorator'
+import { RequireModule } from '../auth/decorators/require-module.decorator'
 import { Roles } from '../auth/decorators/roles.decorator'
 import { ASSET_CATEGORIES, CATEGORY_INFO } from './detect'
 import { UUID_RE, actorName, audit, isAdmin, isMaint, isUuid, notify, requireManage } from './common'
@@ -75,6 +76,7 @@ class WoQuery {
  * CMMS: تجهیزات + سابقه‌ی سرویس + دستور کار + برنامه‌ی سرویس دوره‌ای.
  * دسترسی: مدیر و کارمند دارای دسترسی «maintenance».
  */
+@RequireModule('facility_cmms')
 @Controller()
 export class CmmsController {
   constructor(
