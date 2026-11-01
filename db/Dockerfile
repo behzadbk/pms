@@ -15,5 +15,7 @@ COPY backend/notification-service/prisma/ /repo/backend/notification-service/pri
 COPY backend/audit-service/prisma/        /repo/backend/audit-service/prisma/
 COPY backend/fnb-service/prisma/          /repo/backend/fnb-service/prisma/
 
+COPY backend/integration-service/prisma/ /repo/backend/integration-service/prisma/
+
 RUN chmod +x /repo/db/migrate.sh
 ENTRYPOINT ["/repo/db/migrate.sh"]
