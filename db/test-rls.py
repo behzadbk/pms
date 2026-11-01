@@ -242,6 +242,26 @@ for sch, rel in tables:
 conn.rollback()  # چیزی از این تست باقی نمی‌ماند
 check(f"ساختمان تازه در همه‌ی {len(tables)} جدول tenant‌دار خالی است (جز ۱ ساختمان + ۱ مدیر)", not non_empty, ", ".join(non_empty))
 
+# ۱۶) دسترسی موقت کارکنان (906): ایزوله‌سازی، جعل tenant_id، و CHECKهای بازه/permission
+uid = with_tenant(A, "SELECT id FROM identity.users LIMIT 1")[0][0]
+def grant_try(tenant, row_tenant, permission, starts, expires):
+    cur = conn.cursor()
+    cur.execute("BEGIN"); cur.execute("SELECT set_config('app.current_tenant_id', %s, true)", (tenant,))
+    try:
+        cur.execute("""INSERT INTO identity.user_permission_grants (tenant_id, user_id, permission, starts_at, expires_at)
+                       VALUES (%s, %s, %s, %s::timestamptz, %s::timestamptz)""", (row_tenant, uid, permission, starts, expires))
+        conn.rollback(); return None
+    except Exception as e:
+        conn.rollback(); return type(e)
+ok = grant_try(A, A, 'lobby', '2026-01-01', '2026-01-02') is None
+check("grants: درج معتبر با tenant خودی موفق است", ok)
+check("grants: جعل tenant_id در INSERT مسدود می‌شود", grant_try(B, A, 'lobby', '2026-01-01', '2026-01-02') is errors.InsufficientPrivilege)
+check("grants: expires_at <= starts_at رد می‌شود", grant_try(A, A, 'lobby', '2026-01-02', '2026-01-02') is errors.CheckViolation)
+check("grants: permission نامعتبر رد می‌شود", grant_try(A, A, 'root', '2026-01-01', '2026-01-02') is errors.CheckViolation)
+cur = conn.cursor()
+cur.execute("SELECT count(*) FROM identity.user_permission_grants"); n = cur.fetchone()[0]; conn.commit()
+check("grants: بدون tenant context صفر ردیف (fail-closed)", n == 0, f"count={n}")
+
 print("\n" + "="*60)
 print(f"نتیجه: {len(passed)} قبول / {len(failed)} رد")
 if failed:
