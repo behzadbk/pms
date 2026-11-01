@@ -101,6 +101,8 @@ services:
       <<: *common-env
       PORT: "3001"
       DATABASE_URL: postgresql://app_user:${APP_USER_PASSWORD}@postgres:5432/pms?schema=identity
+      # نقش platform_admin فقط برای withPlatformAccess (pool دوم، max 3)؛ حذف این خط = رفتار قبلی
+      PLATFORM_DATABASE_URL: postgresql://platform_admin:${PLATFORM_ADMIN_PASSWORD}@postgres:5432/pms?schema=identity
 
   property-svc:
     <<: *service
@@ -125,6 +127,8 @@ services:
       PORT: "3003"
       PROPERTY_SVC_GRPC_URL: property-svc:50052
       DATABASE_URL: postgresql://app_user:${APP_USER_PASSWORD}@postgres:5432/pms?schema=facility
+      # نقش platform_admin فقط برای withPlatformAccess (pool دوم، max 3)؛ حذف این خط = رفتار قبلی
+      PLATFORM_DATABASE_URL: postgresql://platform_admin:${PLATFORM_ADMIN_PASSWORD}@postgres:5432/pms?schema=facility
 
   finance-svc:
     <<: *service
@@ -166,6 +170,8 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: "6379"
       DATABASE_URL: postgresql://app_user:${APP_USER_PASSWORD}@postgres:5432/pms?schema=notification
+      # نقش platform_admin فقط برای withPlatformAccess (pool دوم، max 3)؛ حذف این خط = رفتار قبلی
+      PLATFORM_DATABASE_URL: postgresql://platform_admin:${PLATFORM_ADMIN_PASSWORD}@postgres:5432/pms?schema=notification
 
   audit-svc:
     <<: *service
