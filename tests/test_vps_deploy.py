@@ -115,8 +115,8 @@ class DeploymentTest(unittest.TestCase):
         result = self.run_deploy()
         self.assertEqual(result.returncode, 0, result.stderr)
         builds = [call for call in self.calls() if 'build' in call]
-        self.assertEqual(len(builds), 10)
-        self.assertEqual({call[-1] for call in builds}, {'migrate', 'identity-svc', 'property-svc', 'facility-svc', 'finance-svc', 'guard-svc', 'notification-svc', 'audit-svc', 'fnb-svc', 'frontend'})
+        self.assertEqual(len(builds), 11)
+        self.assertEqual({call[-1] for call in builds}, {'migrate', 'integration-svc', 'identity-svc', 'property-svc', 'facility-svc', 'finance-svc', 'guard-svc', 'notification-svc', 'audit-svc', 'fnb-svc', 'frontend'})
         self.assertTrue(all(call[-2] == 'build' for call in builds))
 
     def test_build_failure_preserves_current_release_and_blocks_repeat(self):

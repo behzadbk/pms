@@ -126,7 +126,7 @@ if [[ -f "$STATE_DIR/deployed-sha" ]]; then
   fi
 fi
 if [[ "$build_all" == 1 ]]; then
-  build_services=(identity-svc property-svc facility-svc finance-svc guard-svc notification-svc audit-svc fnb-svc frontend)
+  build_services=(integration-svc identity-svc property-svc facility-svc finance-svc guard-svc notification-svc audit-svc fnb-svc frontend)
 fi
 if (( ${#build_services[@]} )); then
   mapfile -t build_services < <(printf '%s\n' "${build_services[@]}" | sort -u)
