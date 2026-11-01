@@ -129,10 +129,12 @@ except Exception:
     conn.rollback(); check("app_user نمی‌تواند RLS را خاموش کند", True)
 
 # ۱۰) داده‌های لاگین seed
-cur = conn.cursor()
-cur.execute("SELECT count(*) FROM identity.platform_admins WHERE username IN ('behzad','amir')")
-n = cur.fetchone()[0]; conn.commit()
-check("دو کاربر سوپرادمین seed شده‌اند", n == 2, f"count={n}")
+# (بعد از 907 app_user به platform_admins دسترسی ندارد؛ با PLATFORM_DATABASE_URL (نقش platform_admin) خوانده می‌شود)
+if os.environ.get("PLATFORM_DATABASE_URL"):
+    _pc = psycopg2.connect(os.environ["PLATFORM_DATABASE_URL"]); _cur = _pc.cursor()
+    _cur.execute("SELECT count(*) FROM identity.platform_admins WHERE username IN ('behzad','amir')")
+    n = _cur.fetchone()[0]; _pc.rollback(); _pc.close()
+    check("دو کاربر سوپرادمین seed شده‌اند", n == 2, f"count={n}")
 
 cur = conn.cursor()
 cur.execute("SELECT count(*) FROM identity.tenants")
@@ -261,6 +263,30 @@ check("grants: permission نامعتبر رد می‌شود", grant_try(A, A, 'r
 cur = conn.cursor()
 cur.execute("SELECT count(*) FROM identity.user_permission_grants"); n = cur.fetchone()[0]; conn.commit()
 check("grants: بدون tenant context صفر ردیف (fail-closed)", n == 0, f"count={n}")
+
+# ۱۷) 907: app_user به جدول‌های سطح پلتفرم دسترسی ندارد؛ platform_admin (اگر PLATFORM_DATABASE_URL داده شده) دارد
+for t in ("identity.platform_admins", "identity.platform_invoices"):
+    cur = conn.cursor()
+    try:
+        cur.execute(f"SELECT count(*) FROM {t}"); conn.rollback()
+        check(f"907: app_user نباید {t} را بخواند", False)
+    except errors.InsufficientPrivilege:
+        conn.rollback(); check(f"907: app_user نباید {t} را بخواند", True)
+    cur = conn.cursor()
+    try:
+        cur.execute(f"DELETE FROM {t} WHERE false"); conn.rollback()
+        check(f"907: app_user نباید روی {t} بنویسد", False)
+    except errors.InsufficientPrivilege:
+        conn.rollback(); check(f"907: app_user نباید روی {t} بنویسد", True)
+PURL = os.environ.get("PLATFORM_DATABASE_URL")
+if PURL:
+    pc = psycopg2.connect(PURL); pcur = pc.cursor()
+    pcur.execute("SELECT count(*) FROM identity.platform_admins"); n = pcur.fetchone()[0]
+    pcur.execute("SELECT count(*) FROM identity.platform_invoices"); pc.rollback()
+    check("907: platform_admin به جدول‌های پلتفرم دسترسی دارد", n >= 0, f"admins={n}")
+    pc.close()
+else:
+    print("• PLATFORM_DATABASE_URL داده نشده؛ تست دسترسی platform_admin رد شد")
 
 print("\n" + "="*60)
 print(f"نتیجه: {len(passed)} قبول / {len(failed)} رد")
