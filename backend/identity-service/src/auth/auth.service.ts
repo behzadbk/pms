@@ -27,6 +27,8 @@ interface UserRow {
   /** نام نمایشی دپارتمان (identity.departments) — برای دپارتمان‌های سفارشی که نامشان در فرانت ثابت نیست */
   department_name?: string | null
   permissions: string[] | null
+  /** دسترسی‌های موقتِ فعال (identity.user_permission_grants) — فقط ردیف‌های لغو/منقضی‌نشده */
+  temp_permissions?: string[] | null
   is_active: boolean
   must_change_password: boolean
   /** سطح سرویس ساختمان (identity.tenants.tier) */
@@ -35,6 +37,9 @@ interface UserRow {
 
 // person_status/sessions_valid_after از حساب شخص (ماژول ساکنین) می‌آید: مسدودی/خروج از همه‌ی دستگاه‌ها
 const USER_COLUMNS = `id, full_name, email, username, role, department, permissions, is_active, person_id, must_change_password,
+  COALESCE((SELECT array_agg(DISTINCT g.permission) FROM identity.user_permission_grants g
+             WHERE g.user_id = identity.users.id AND g.revoked_at IS NULL
+               AND now() >= g.starts_at AND now() < g.expires_at), '{}') AS temp_permissions,
   (SELECT p.status FROM residency.users p WHERE p.id = identity.users.person_id) AS person_status,
   (SELECT t.name FROM identity.tenants t WHERE t.id = identity.users.tenant_id) AS tenant_name,
   (SELECT t.tier FROM identity.tenants t WHERE t.id = identity.users.tenant_id) AS tenant_tier,
@@ -59,7 +64,7 @@ function publicUser(u: UserRow, tenantId: string) {
     ...(isBuildingTier(u.tenant_tier) ? { tier: u.tenant_tier } : {}),
     ...(u.must_change_password ? { mustChangePassword: true } : {}),
     ...(u.role === 'staff'
-      ? { department: u.department, ...(u.department_name ? { departmentName: u.department_name } : {}), permissions: effectivePermissions(u.department, u.permissions) }
+      ? { department: u.department, ...(u.department_name ? { departmentName: u.department_name } : {}), permissions: effectivePermissions(u.department, u.permissions, u.temp_permissions) }
       : {}),
     ...(u.person_id ? { personId: u.person_id } : {}),
   }
@@ -70,7 +75,7 @@ function extraClaims(u: UserRow) {
   return {
     ...(u.person_id ? { pid: u.person_id } : {}),
     ...(isBuildingTier(u.tenant_tier) ? { tier: u.tenant_tier } : {}),
-    ...(u.role === 'staff' ? { perms: effectivePermissions(u.department, u.permissions) } : {}),
+    ...(u.role === 'staff' ? { perms: effectivePermissions(u.department, u.permissions, u.temp_permissions) } : {}),
   }
 }
 

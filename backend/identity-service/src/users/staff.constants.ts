@@ -42,10 +42,14 @@ export function isSystemDepartment(code: string | null | undefined): code is Sys
 /**
  * دسترسی مؤثر = پیش‌فرض دپارتمان ∪ دسترسی‌های دستی.
  * دپارتمان سفارشی (غیر سیستمی) پیش‌فرضش «service_desk» است.
+ * temp = دسترسی‌های موقتِ هنوز معتبر (identity.user_permission_grants)؛ انقضا قبل از رسیدن به اینجا در SQL چک شده.
  */
-export function effectivePermissions(department: string | null, extra: string[] | null): StaffPermission[] {
+export function effectivePermissions(department: string | null, extra: string[] | null, temp?: string[] | null): StaffPermission[] {
   const base = isSystemDepartment(department) ? DEPARTMENT_DEFAULTS[department] : department ? (['service_desk'] as StaffPermission[]) : []
-  return [...new Set([...base, ...((extra ?? []) as StaffPermission[])])].filter((p) =>
+  return [...new Set([...base, ...((extra ?? []) as StaffPermission[]), ...((temp ?? []) as StaffPermission[])])].filter((p) =>
     (STAFF_PERMISSIONS as readonly string[]).includes(p),
   )
 }
+
+/** سقف مدت یک دسترسی موقت (روز) — مدیر نمی‌تواند «موقت» را عملاً دائمی کند */
+export const MAX_GRANT_DAYS = 90
