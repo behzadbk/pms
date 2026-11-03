@@ -6,6 +6,8 @@ import { StaffService } from './staff.service'
 import { CreateStaffDto, UpdateStaffDto } from './dto/staff.dto'
 import { AccountantsService } from './accountants.service'
 import { CreateAccountantDto, UpdateAccountantDto } from './dto/accountant.dto'
+import { GrantsService } from './grants.service'
+import { CreateGrantDto } from './dto/grant.dto'
 import { DepartmentsService } from './departments.service'
 import { CreateDepartmentDto, UpdateDepartmentDto } from './dto/department.dto'
 
@@ -20,6 +22,7 @@ export class UsersController {
     private readonly staff: StaffService,
     private readonly accountants: AccountantsService,
     private readonly departments: DepartmentsService,
+    private readonly grants: GrantsService,
   ) {}
 
   @Roles('admin', 'super_admin')
@@ -60,6 +63,30 @@ export class UsersController {
   @Delete('staff/:id')
   deleteStaff(@CurrentUser() user: JwtPayload, @Param('id', ParseUUIDPipe) id: string) {
     return this.staff.remove(user.tenant_id!, id, user.sub)
+  }
+
+  /* ───────────── دسترسی موقت کارکنان (تاریخ‌دار؛ لغو = revoked_at) ───────────── */
+
+  @Roles('admin')
+  @Get('staff/:id/grants')
+  listGrants(@CurrentUser() user: JwtPayload, @Param('id', ParseUUIDPipe) id: string) {
+    return this.grants.list(user.tenant_id!, id)
+  }
+
+  @Roles('admin')
+  @Post('staff/:id/grants')
+  createGrant(@CurrentUser() user: JwtPayload, @Param('id', ParseUUIDPipe) id: string, @Body() dto: CreateGrantDto) {
+    return this.grants.create(user.tenant_id!, id, dto, user.sub)
+  }
+
+  @Roles('admin')
+  @Delete('staff/:id/grants/:grantId')
+  revokeGrant(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('grantId', ParseUUIDPipe) grantId: string,
+  ) {
+    return this.grants.revoke(user.tenant_id!, id, grantId, user.sub)
   }
 
   /* ───────────── دپارتمان‌ها (تعریف توسط مدیر ساختمان) ───────────── */
