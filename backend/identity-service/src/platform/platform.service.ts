@@ -7,7 +7,8 @@ import { EventsService } from '../events/events.service'
 import { CreateBuildingDto } from './dto/create-building.dto'
 import { UpdateBuildingDto } from './dto/update-building.dto'
 import { generateTempPassword } from '../auth/password.util'
-import { BuildingTier, TIERS, getTier, suggestMonthlyFee } from './tiers'
+import { PlatformSettingsService } from './platform-settings.service'
+import { BuildingTier, TIERS, getTier } from './tiers'
 
 export interface BuildingRow {
   id: string
@@ -26,6 +27,9 @@ export interface BuildingRow {
   last_payment_at: Date | null
   next_due_at: Date | null
   created_at: Date
+  suspended_at: Date | null
+  suspend_reason: string | null
+  trial_ends_at: Date | string | null
 }
 
 export interface Building {
@@ -46,12 +50,17 @@ export interface Building {
   lastPaymentAt: string | null
   nextDueAt: string | null
   createdAt: string
+  /** فقط وقتی status = suspended */
+  suspendedAt: string | null
+  suspendReason: string | null
+  /** پایان دوره‌ی آزمایشی (YYYY-MM-DD) — فقط ساختمان‌های trial */
+  trialEndsAt: string | null
 }
 
 const SELECT_COLUMNS = `
   id, name, subdomain, status, tier, unit_count, floor_count, address,
   manager_name, manager_phone, monthly_fee, outstanding_amount, billing_status,
-  last_payment_at, next_due_at, created_at
+  last_payment_at, next_due_at, created_at, suspended_at, suspend_reason, trial_ends_at
 `
 
 function toDateString(value: Date | null): string | null {
@@ -70,11 +79,13 @@ export class PlatformService {
   constructor(
     private readonly db: DatabaseService,
     private readonly events: EventsService,
+    private readonly settings: PlatformSettingsService,
   ) {}
 
-  /** ماتریس سطوح سرویس — برای نمایش در فرم «تعریف برج جدید» */
-  listTiers() {
-    return TIERS
+  /** ماتریس سطوح سرویس — برای فرم «تعریف برج جدید»؛ قیمت هر واحد همان مقدار مؤثر تنظیمات پلتفرم است */
+  async listTiers() {
+    const { pricePerUnit } = await this.settings.get()
+    return TIERS.map((t) => ({ ...t, pricePerUnit: pricePerUnit[t.id] ?? t.pricePerUnit }))
   }
 
   async listBuildings(): Promise<{ buildings: Building[]; summary: ReturnType<typeof buildSummary> }> {
@@ -103,7 +114,9 @@ export class PlatformService {
   async createBuilding(dto: CreateBuildingDto): Promise<Building & { adminCredentials?: { email: string; password: string; mustChangePassword: true; note: string } }> {
     // اعتبارسنجی سطح — getTier در صورت نامعتبر بودن throw می‌کند
     getTier(dto.tier)
-    const monthlyFee = dto.monthlyFee ?? suggestMonthlyFee(dto.tier, dto.unitCount)
+    const cfg = await this.settings.get()
+    const monthlyFee = dto.monthlyFee ?? (cfg.pricePerUnit[dto.tier] ?? getTier(dto.tier).pricePerUnit) * Math.max(dto.unitCount, 0)
+    const status = dto.status ?? 'trial'
 
     // ساختمان و مدیر اولیه‌اش در یک تراکنش ساخته می‌شوند (یا هر دو، یا هیچ‌کدام).
     // شناسه از قبل تولید می‌شود تا بتوان context تنانت را برای درج کاربر (زیر RLS) ست کرد.
@@ -122,13 +135,14 @@ export class PlatformService {
         `INSERT INTO identity.tenants
            (id, name, subdomain, status, tier, unit_count, floor_count, address,
             manager_name, manager_phone, monthly_fee, outstanding_amount,
-            billing_status, next_due_at)
-         VALUES ($11, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 0, 'settled', CURRENT_DATE + 30)
+            billing_status, next_due_at, trial_ends_at)
+         VALUES ($11, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 0, 'settled', CURRENT_DATE + 30,
+                 CASE WHEN $3 = 'trial' THEN CURRENT_DATE + $12::int END)
          RETURNING ${SELECT_COLUMNS}`,
         [
           dto.name,
           dto.subdomain,
-          dto.status ?? 'trial',
+          status,
           dto.tier,
           dto.unitCount,
           dto.floorCount ?? null,
@@ -137,6 +151,7 @@ export class PlatformService {
           dto.managerPhone ?? null,
           monthlyFee,
           tenantId,
+          cfg.trialDays,
         ],
       )
       // ردیف ساختمان (ساختار ملک) همان لحظه ساخته می‌شود تا مدیر بتواند بلافاصله واحد تعریف کند
@@ -263,6 +278,9 @@ function mapBuilding(row: BuildingRow): Building {
     lastPaymentAt: toDateString(row.last_payment_at),
     nextDueAt: toDateString(row.next_due_at),
     createdAt: new Date(row.created_at).toISOString(),
+    suspendedAt: row.suspended_at ? new Date(row.suspended_at).toISOString() : null,
+    suspendReason: row.suspend_reason,
+    trialEndsAt: row.trial_ends_at ? String(row.trial_ends_at).slice(0, 10) : null,
   }
 }
 

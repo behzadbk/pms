@@ -35,7 +35,20 @@ export function NewBuildingDialog({
   const [error, setError] = useState<string | null>(null)
 
   const units = Number(unitCount) || 0
-  const suggestedFee = useMemo(() => suggestMonthlyFee(tier, units), [tier, units])
+  // قیمت مؤثر هر سطح از تنظیمات پلتفرم می‌آید؛ تا رسیدنش، قیمت پایه‌ی محلی
+  const [prices, setPrices] = useState<Partial<Record<BuildingTier, number>>>({})
+  useEffect(() => {
+    platformApi.listTiers().then((r) => {
+      const list = Array.isArray(r) ? r : (r as { tiers?: { id: BuildingTier; pricePerUnit: number }[] }).tiers ?? []
+      setPrices(Object.fromEntries(list.map((t) => [t.id, t.pricePerUnit])))
+    }).catch(() => {})
+  }, [])
+  const priceOf = (id: BuildingTier) => prices[id] ?? tierById[id].pricePerUnit
+  const suggestedFee = useMemo(
+    () => (units > 0 ? priceOf(tier) * units : suggestMonthlyFee(tier, units)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [tier, units, prices],
+  )
 
   // تا وقتی کاربر دستی مبلغ را عوض نکرده، مبلغ پیشنهادی با سطح/تعداد واحد همگام می‌ماند
   useEffect(() => {
@@ -163,7 +176,7 @@ export function NewBuildingDialog({
                     </div>
                     <p className="text-xs text-muted mt-1.5 leading-5">{t.summary}</p>
                     <p className="text-xs mt-2.5 text-ink-text">
-                      {t.pricePerUnit.toLocaleString('fa-IR')} تومان / واحد در ماه
+                      {priceOf(t.id).toLocaleString('fa-IR')} تومان / واحد در ماه
                     </p>
                   </button>
                 )

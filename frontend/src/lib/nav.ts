@@ -2,6 +2,7 @@ import {
   LayoutDashboard, Wallet, Landmark, Ticket, Megaphone, CalendarRange,
   Building2, QrCode, PackageCheck, CarFront, SlidersHorizontal, PieChart,
   Receipt, CreditCard, UtensilsCrossed, ScrollText, FileText, Users, Home, UsersRound, Contact, Gift, Plug, HandHelping, CalendarHeart,
+  Activity, History, Settings2,
 } from 'lucide-react'
 import type { Role } from './types'
 import type { AppModule } from './api/residents'
@@ -17,6 +18,8 @@ export interface NavItem {
   sub?: string
   /** بخشی که با /me/permissions پنهان می‌شود (ساکن و کودک) */
   module?: AppModule
+  /** فقط سوپرادمین: نقش‌های تیم پلتفرم که این آیتم را می‌بینند (بدون مقدار = همه) */
+  platformRoles?: ('owner' | 'support' | 'sales')[]
 }
 
 /**
@@ -85,6 +88,9 @@ export const navByRole: Record<Role, NavItem[]> = {
     { to: '/super-admin/residents', label: 'ساکنین', icon: Users, sub: 'ساختمان‌ها با درصد پر بودن، پرونده‌ی شخص' },
     { to: '/super-admin/plans', label: 'سطوح سرویس', icon: CreditCard },
     { to: '/super-admin/billing', label: 'تراکنش‌های پلتفرم', short: 'تراکنش', icon: Receipt },
+    { to: '/super-admin/health', label: 'سلامت سیستم', short: 'سلامت', icon: Activity, sub: 'وضعیت سرویس‌ها، دیتابیس و هشدارها' },
+    { to: '/super-admin/audit', label: 'لاگ فعالیت', short: 'لاگ', icon: History, sub: 'چه کسی چه کاری کرد', platformRoles: ['owner', 'support'] },
+    { to: '/super-admin/settings', label: 'تنظیمات و تیم', short: 'تنظیمات', icon: Settings2, sub: 'قیمت، مهلت پرداخت، تعلیق خودکار، اعضای تیم و ۲FA' },
   ],
 }
 

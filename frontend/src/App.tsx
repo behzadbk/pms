@@ -82,6 +82,9 @@ const AdminStaff = lazy(() => import('./pages/admin/Staff').then((m) => ({ defau
 const SuperAdminDashboard = lazy(() => import('./pages/superadmin/Dashboard').then((m) => ({ default: m.SuperAdminDashboard })))
 const SuperAdminPlans = lazy(() => import('./pages/superadmin/Plans').then((m) => ({ default: m.SuperAdminPlans })))
 const SuperAdminBilling = lazy(() => import('./pages/superadmin/Billing').then((m) => ({ default: m.SuperAdminBilling })))
+const SuperAdminHealth = lazy(() => import('./pages/superadmin/Health').then((m) => ({ default: m.SuperAdminHealth })))
+const SuperAdminAuditLog = lazy(() => import('./pages/superadmin/AuditLog').then((m) => ({ default: m.SuperAdminAuditLog })))
+const SuperAdminSettings = lazy(() => import('./pages/superadmin/PlatformSettings').then((m) => ({ default: m.SuperAdminSettings })))
 const SuperAdminBuildings = lazy(() => import('./pages/superadmin/Buildings').then((m) => ({ default: m.SuperAdminBuildings })))
 
 function SessionLoading() {
@@ -280,6 +283,9 @@ function AppRoutes() {
         <Route path="/super-admin/tenants" element={<Navigate to="/super-admin/buildings" replace />} />
         <Route path="/super-admin/plans" element={<RequireSuperAdmin><SuperAdminPlans /></RequireSuperAdmin>} />
         <Route path="/super-admin/billing" element={<RequireSuperAdmin><SuperAdminBilling /></RequireSuperAdmin>} />
+        <Route path="/super-admin/health" element={<RequireSuperAdmin><SuperAdminHealth /></RequireSuperAdmin>} />
+        <Route path="/super-admin/audit" element={<RequireSuperAdmin><SuperAdminAuditLog /></RequireSuperAdmin>} />
+        <Route path="/super-admin/settings" element={<RequireSuperAdmin><SuperAdminSettings /></RequireSuperAdmin>} />
       </Route>
     </Routes>
     </Suspense>

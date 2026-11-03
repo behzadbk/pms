@@ -30,6 +30,9 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     // (سرویس‌های دیگر حداکثر تا انقضای ۱۵ دقیقه‌ای accessToken؛ تمدید هم رد می‌شود).
     if (payload.tenant_id && payload.role !== 'super_admin') {
       const revoked = await this.db.withTenant(payload.tenant_id, async (c) => {
+        // ساختمان تعلیق/لغوشده: همه‌ی نشست‌هایش همین لحظه رد می‌شود (identity.tenants عمداً بدون RLS است)
+        const st = await c.query<{ status: string }>('SELECT status FROM identity.tenants WHERE id = $1', [payload.tenant_id])
+        if (!st.rows[0] || st.rows[0].status === 'suspended' || st.rows[0].status === 'cancelled') return true
         const r = payload.kind === 'family'
           ? await c.query<{ ok: boolean }>(
             `SELECT (p.status = 'active' AND m.status = 'active'
@@ -47,13 +50,15 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       if (revoked) throw new UnauthorizedException('نشست شما باطل شده است؛ دوباره وارد شوید')
     } else if (payload.role === 'super_admin') {
       // سوپرادمین: غیرفعال‌شدن یا تغییر رمز باید accessToken جاری را هم (نه فقط تمدید را) فوراً از کار بیندازد
-      const ok = await this.db.withPlatformAccess(async (c) => {
-        const r = await c.query<{ ok: boolean }>(
-          `SELECT (is_active AND to_timestamp($2) >= sessions_valid_after - interval '1 second') AS ok
+      const admin = await this.db.withPlatformAccess(async (c) => {
+        const r = await c.query<{ ok: boolean; role: 'owner' | 'support' | 'sales' }>(
+          `SELECT (is_active AND to_timestamp($2) >= sessions_valid_after - interval '1 second') AS ok, role
              FROM identity.platform_admins WHERE id = $1`, [payload.sub, payload.iat ?? 0])
-        return !!r.rows[0]?.ok
+        return r.rows[0]
       })
-      if (!ok) throw new UnauthorizedException('نشست شما باطل شده است؛ دوباره وارد شوید')
+      if (!admin?.ok) throw new UnauthorizedException('نشست شما باطل شده است؛ دوباره وارد شوید')
+      // نقش از دیتابیس خوانده می‌شود تا تغییر/حذف نقش بلافاصله اعمال شود (نه بعد از انقضای توکن)
+      return { ...payload, prole: admin.role }
     }
     return payload
   }

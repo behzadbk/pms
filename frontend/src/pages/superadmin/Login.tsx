@@ -3,6 +3,7 @@ import { BrandGlyph } from '../../components/BrandGlyph'
 import { useNavigate } from 'react-router-dom'
 import { Building2, Loader2, Lock, User } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
+import { ApiError } from '../../lib/api/client'
 
 /**
  * صفحه‌ی ورود پنل سوپرادمین (سطح پلتفرم) — جدا از صفحه‌ی ورود ساکنین/مدیر ساختمان.
@@ -13,6 +14,9 @@ export function SuperAdminLogin() {
   const navigate = useNavigate()
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
+  const [otp, setOtp] = useState('')
+  /** سرور بعد از رمز درست می‌گوید ۲FA روشن است؛ تا آن موقع فیلد کد نمایش داده نمی‌شود */
+  const [otpRequired, setOtpRequired] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -21,9 +25,10 @@ export function SuperAdminLogin() {
     setError(null)
     setSubmitting(true)
     try {
-      await loginPlatform(username.trim(), password)
+      await loginPlatform(username.trim(), password, otpRequired ? otp.trim() : undefined)
       navigate('/super-admin/buildings', { replace: true })
     } catch (err) {
+      if (err instanceof ApiError && (err.body as { otpRequired?: boolean } | undefined)?.otpRequired) setOtpRequired(true)
       setError(err instanceof Error ? err.message : 'ورود ناموفق بود')
     } finally {
       setSubmitting(false)
@@ -83,6 +88,24 @@ export function SuperAdminLogin() {
               />
             </div>
           </div>
+
+          {otpRequired && (
+            <div className="space-y-1.5">
+              <label htmlFor="otp" className="text-sm font-medium text-ink-text">کد برنامه‌ی احراز هویت (۶ رقم)</label>
+              <input
+                id="otp"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                autoFocus
+                maxLength={7}
+                value={otp}
+                onChange={(e) => setOtp(e.target.value)}
+                required
+                dir="ltr"
+                className="w-full rounded-xl border border-line bg-canvas px-3 py-2.5 text-sm text-center tracking-[0.4em] outline-none focus:ring-2 focus:ring-tile/40"
+              />
+            </div>
+          )}
 
           {error && <p className="text-sm text-bad bg-bad-soft rounded-lg px-3 py-2">{error}</p>}
 

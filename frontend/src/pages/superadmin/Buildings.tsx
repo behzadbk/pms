@@ -9,6 +9,7 @@ import { tierById, tiers, type BuildingTier } from '../../lib/tiers'
 import { platformApi, ApiError } from '../../lib/api'
 import { fmtToman as toman, type Building, type BuildingsSummary, type BillingStatus } from '../../lib/api/platform'
 import { NewBuildingDialog } from './NewBuildingDialog'
+import { BuildingManageDialog } from './BuildingManageDialog'
 
 const billingLabels: Record<BillingStatus, { label: string; className: string }> = {
   settled: { label: 'تسویه‌شده', className: 'bg-good-soft text-good' },
@@ -35,6 +36,7 @@ export function SuperAdminBuildings() {
   const [tierFilter, setTierFilter] = useState<BuildingTier | 'all'>('all')
   const [billingFilter, setBillingFilter] = useState<BillingStatus | 'all'>('all')
   const [settlingId, setSettlingId] = useState<string | null>(null)
+  const [managing, setManaging] = useState<Building | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -266,9 +268,10 @@ export function SuperAdminBuildings() {
                             )}
                             ثبت تسویه
                           </button>
-                        ) : (
-                          <span className="text-xs text-muted">—</span>
-                        )}
+                        ) : null}
+                        <button onClick={() => setManaging(b)} className="block text-xs font-medium text-ink-text hover:underline mt-1 whitespace-nowrap">
+                          مدیریت
+                        </button>
                       </td>
                     </tr>
                   )
@@ -278,6 +281,7 @@ export function SuperAdminBuildings() {
         </div>
       </Card>
 
+      {managing && <BuildingManageDialog building={managing} onClose={() => setManaging(null)} onChanged={load} />}
       {dialogOpen && <NewBuildingDialog onClose={() => setDialogOpen(false)} onCreated={handleCreated} />}
     </div>
   )

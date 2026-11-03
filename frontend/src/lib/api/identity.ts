@@ -20,6 +20,11 @@ export interface AuthUser {
   permissions?: string[]
   /** حساب با رمز موقت/اولیه (مثلاً شماره واحد) — تا تعویض رمز، فقط فرم تغییر رمز نمایش داده می‌شود */
   mustChangePassword?: boolean
+  /** فقط سوپرادمین: نقش داخل تیم پلتفرم و وضعیت ورود دومرحله‌ای */
+  platformRole?: 'owner' | 'support' | 'sales'
+  totpEnabled?: boolean
+  /** فقط نشست «ورود به‌جای مدیر»: نام کاربری سوپرادمین */
+  impersonatedBy?: string
 }
 
 export interface LoginResponse {

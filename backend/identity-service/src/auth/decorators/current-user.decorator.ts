@@ -17,6 +17,10 @@ export interface JwtPayload {
   perms?: string[]
   /** سطح سرویس ساختمان در زمان صدور توکن (simple | economic | professional) — ماتریس: platform/tiers.ts */
   tier?: 'simple' | 'economic' | 'professional'
+  /** نقش داخل تیم پلتفرم (فقط super_admin) — توسط JwtStrategy از دیتابیس خوانده می‌شود، نه از توکن */
+  prole?: 'owner' | 'support' | 'sales'
+  /** فقط نشست «ورود به‌جای مدیر»: نام کاربری سوپرادمینی که وارد شده (در لاگ فعالیت ثبت می‌شود) */
+  imp?: string
   iat?: number
 }
 

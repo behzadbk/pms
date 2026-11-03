@@ -76,6 +76,7 @@ MIGRATIONS=(
   "db/migrations/905_fk_indexes_events_requests.sql"
   "db/migrations/906_user_permission_grants.sql"
   "db/migrations/907_revoke_app_user_platform_tables.sql"
+  "backend/identity-service/prisma/migrations/010_platform_ops.sql"
 )
 
 SEEDS=(

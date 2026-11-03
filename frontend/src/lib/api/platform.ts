@@ -36,6 +36,9 @@ export interface Building {
   lastPaymentAt: string | null
   nextDueAt: string | null
   createdAt: string
+  suspendedAt?: string | null
+  suspendReason?: string | null
+  trialEndsAt?: string | null
 }
 
 export interface BuildingsSummary {
@@ -83,8 +86,8 @@ export interface TierResponse {
 }
 
 /** ورود سوپرادمین — بدون subdomain، چون این کاربر به هیچ مجتمعی تعلق ندارد */
-export async function platformLogin(username: string, password: string): Promise<PlatformLoginResponse> {
-  const res = await api.post<PlatformLoginResponse>('/identity/auth/platform-login', { username, password })
+export async function platformLogin(username: string, password: string, otp?: string): Promise<PlatformLoginResponse> {
+  const res = await api.post<PlatformLoginResponse>('/identity/auth/platform-login', { username, password, ...(otp ? { otp } : {}) })
   setToken(res.accessToken)
   setRefreshToken(res.refreshToken)
   return res
@@ -188,3 +191,99 @@ export const setInvoiceStatus = (id: string, status: InvoiceStatus) =>
   api.patch<{ ok: boolean }>(`/identity/platform/invoices/${id}/status`, { status })
 /** خروجی کامل داده‌ی یک ساختمان (JSON) برای پشتیبان‌گیری/انتقال */
 export const exportBuilding = (id: string) => api.get<Record<string, unknown>>(`/identity/platform/buildings/${id}/export`)
+
+/* ───────────── عملیات پلتفرم: چرخه‌ی عمر، ورود به‌جای مدیر، یادداشت، لاگ، سلامت، تنظیمات، تیم، ۲FA ───────────── */
+
+export type PlatformRole = 'owner' | 'support' | 'sales'
+
+export const suspendBuilding = (id: string, reason: string) =>
+  api.post<{ id: string; status: BuildingStatus; suspendReason: string | null }>(`/identity/platform/buildings/${id}/suspend`, { reason })
+export const reactivateBuilding = (id: string, reason?: string) =>
+  api.post<{ id: string; status: BuildingStatus }>(`/identity/platform/buildings/${id}/reactivate`, { reason })
+export const cancelBuilding = (id: string, reason: string) =>
+  api.post<{ id: string; status: BuildingStatus }>(`/identity/platform/buildings/${id}/cancel`, { reason })
+
+export interface ImpersonationResult {
+  accessToken: string
+  expiresInSeconds: number
+  tenantName: string
+  user: AuthUser
+}
+export const impersonateBuilding = (id: string) => api.post<ImpersonationResult>(`/identity/platform/buildings/${id}/impersonate`, {})
+
+export type NoteKind = 'note' | 'call' | 'visit' | 'sales'
+export interface BuildingNote { id: string; kind: NoteKind; body: string; author: string; createdAt: string }
+export const listNotes = (id: string) => api.get<{ notes: BuildingNote[] }>(`/identity/platform/buildings/${id}/notes`)
+export const addNote = (id: string, kind: NoteKind, body: string) => api.post<BuildingNote>(`/identity/platform/buildings/${id}/notes`, { kind, body })
+export const deleteNote = (id: string, noteId: string) => api.delete<{ ok: boolean }>(`/identity/platform/buildings/${id}/notes/${noteId}`)
+
+export interface AuditEntry {
+  id: number
+  at: string
+  admin: string
+  action: string
+  buildingId: string | null
+  buildingName: string | null
+  target: string | null
+  detail: Record<string, unknown>
+  ip: string | null
+}
+export const listAudit = (q: { buildingId?: string; admin?: string; action?: string; limit?: number; before?: number } = {}) => {
+  const qs = new URLSearchParams(Object.entries(q).filter(([, v]) => v !== undefined && v !== '').map(([k, v]) => [k, String(v)])).toString()
+  return api.get<{ entries: AuditEntry[] }>(`/identity/platform/audit${qs ? `?${qs}` : ''}`)
+}
+
+export interface ServiceHealth { name: string; status: 'up' | 'down'; latencyMs: number | null; error?: string }
+export interface HealthReport {
+  checkedAt: string
+  tookMs: number
+  overall: 'ok' | 'degraded' | 'critical'
+  services: ServiceHealth[]
+  database: {
+    reachable: boolean
+    pingMs: number | null
+    sizeBytes: number
+    connections: number
+    maxConnections: number
+    lockedLogins: number
+    failedInvoices: number
+    overdueBuildings: number
+  }
+}
+export const getHealth = () => api.get<HealthReport>('/identity/platform/health')
+
+export interface PlatformSettings {
+  graceDays: number
+  autoSuspend: boolean
+  trialDays: number
+  autoSuspendTrial: boolean
+  pricePerUnit: Record<BuildingTier, number>
+}
+export const getSettings = () => api.get<PlatformSettings>('/identity/platform/settings')
+export const updateSettings = (patch: Partial<Omit<PlatformSettings, 'pricePerUnit'>> & { pricePerUnit?: Partial<Record<BuildingTier, number>> }) =>
+  api.put<PlatformSettings>('/identity/platform/settings', patch)
+export const runScheduler = () =>
+  api.post<{ ran: boolean; newlyOverdue: number; suspendedForDebt: number; suspendedTrialEnded: number }>('/identity/platform/scheduler/run', {})
+
+export interface PlatformAdminInfo {
+  id: string
+  username: string
+  fullName: string
+  role: PlatformRole
+  isActive: boolean
+  totpEnabled: boolean
+  lastLoginAt: string | null
+  createdAt: string
+}
+export const listAdmins = () => api.get<{ admins: PlatformAdminInfo[] }>('/identity/platform/admins')
+export const createAdmin = (b: { username: string; fullName: string; role: PlatformRole; password?: string }) =>
+  api.post<PlatformAdminInfo & { credentials: { username: string; password: string; note: string } }>('/identity/platform/admins', b)
+export const updateAdmin = (id: string, b: { role?: PlatformRole; isActive?: boolean; fullName?: string }) =>
+  api.patch<PlatformAdminInfo>(`/identity/platform/admins/${id}`, b)
+export const resetAdminPassword = (id: string) =>
+  api.post<{ username: string; password: string; note: string }>(`/identity/platform/admins/${id}/reset-password`, {})
+export const resetAdmin2fa = (id: string) => api.post<{ ok: boolean }>(`/identity/platform/admins/${id}/reset-2fa`, {})
+
+export const setup2fa = () => api.post<{ secret: string; otpauthUrl: string }>('/identity/platform/me/2fa/setup', {})
+export const enable2fa = (code: string) => api.post<{ ok: boolean }>('/identity/platform/me/2fa/enable', { code })
+export const disable2fa = (password: string, code: string) => api.post<{ ok: boolean }>('/identity/platform/me/2fa/disable', { password, code })
