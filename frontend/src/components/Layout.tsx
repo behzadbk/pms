@@ -17,6 +17,7 @@ import { ForcePasswordChange } from './ForcePasswordChange'
 import type { Role } from '../lib/types'
 import { NotificationPrompt } from './NotificationPrompt'
 import { NotificationBell } from './NotificationBell'
+import { ImpersonationBanner } from './ImpersonationBanner'
 
 export function Layout() {
   const { role, setRole } = useRole()
@@ -115,6 +116,8 @@ export function Layout() {
   }, [])
 
   return (
+    <>
+    <ImpersonationBanner />
     <div className="min-h-screen lg:flex">
       {/* ---------- هدر موبایل (فقط زیر lg) ---------- */}
       {/* pt-safe روی خود header و ارتفاع ثابت روی ردیف داخلی — قبلاً هر دو روی یک المان بودند و
@@ -328,6 +331,7 @@ export function Layout() {
         }}
       />
     </div>
+    </>
   )
 }
 

@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common'
+import { BadRequestException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common'
 import { JwtService } from '@nestjs/jwt'
 import * as bcrypt from 'bcrypt'
 import { DatabaseService } from '../database/database.service'
@@ -12,6 +12,8 @@ import { LoginThrottleService } from './login-throttle.service'
 import { passwordPolicyError } from './password.util'
 import { toLatinDigits } from '../residents/phone'
 import { JWT_ALGORITHMS } from './jwt-secret'
+import { PlatformAdminRole } from './platform-roles'
+import { decryptSecret, verifyTotp } from '../platform/totp.util'
 
 interface UserRow {
   person_id: string | null
@@ -88,7 +90,12 @@ interface PlatformAdminRow {
   must_change_password: boolean
   /** توکن‌های صادرشده قبل از این لحظه باطل‌اند (تغییر رمز سوپرادمین) */
   sessions_valid_after: Date | null
+  role: PlatformAdminRole
+  totp_enabled: boolean
+  totp_secret_enc: string | null
 }
+
+const PLATFORM_ADMIN_COLUMNS = 'id, username, full_name, password_hash, is_active, must_change_password, sessions_valid_after, role, totp_enabled, totp_secret_enc'
 
 export interface AuthResult {
   accessToken: string
@@ -102,6 +109,11 @@ export interface AuthResult {
     mustChangePassword?: boolean
     department?: string | null
     permissions?: string[]
+    /** فقط سوپرادمین: نقش داخل تیم پلتفرم (owner | support | sales) و وضعیت ۲FA */
+    platformRole?: PlatformAdminRole
+    totpEnabled?: boolean
+    /** فقط نشست «ورود به‌جای مدیر»: نام سوپرادمینی که وارد شده */
+    impersonatedBy?: string
   }
 }
 
@@ -192,7 +204,7 @@ export class AuthService {
     await this.throttle.assertAllowed('platform', username, ip)
     const admin = await this.db.withPlatformAccess(async (client) => {
       const res = await client.query<PlatformAdminRow>(
-        'SELECT id, username, full_name, password_hash, is_active, must_change_password, sessions_valid_after FROM identity.platform_admins WHERE username = $1',
+        `SELECT ${PLATFORM_ADMIN_COLUMNS} FROM identity.platform_admins WHERE username = $1`,
         [username],
       )
       return res.rows[0]
@@ -203,6 +215,16 @@ export class AuthService {
     if (!admin || !admin.is_active || !ok) {
       await this.throttle.recordFailure('platform', username, ip)
       throw new UnauthorizedException('نام کاربری یا رمز عبور نادرست است')
+    }
+    // ورود دومرحله‌ای: رمز درست بود ولی کد هنوز نیامده → خطای ۴۰۱ با پرچم otpRequired (شمارنده‌ی قفل زیاد نمی‌شود)
+    if (admin.totp_enabled && admin.totp_secret_enc) {
+      if (!dto.otp) {
+        throw new UnauthorizedException({ statusCode: 401, message: 'کد ورود دومرحله‌ای را وارد کنید', otpRequired: true })
+      }
+      if (!verifyTotp(decryptSecret(admin.totp_secret_enc), dto.otp)) {
+        await this.throttle.recordFailure('platform', username, ip)
+        throw new UnauthorizedException({ statusCode: 401, message: 'کد دومرحله‌ای نادرست است', otpRequired: true })
+      }
     }
     await this.throttle.recordSuccess('platform', username, ip)
 
@@ -238,6 +260,9 @@ export class AuthService {
       }
       return this.platformLoginResult(admin)
     }
+
+    // ساختمان تعلیق/لغوشده: تمدید توکن هم رد می‌شود (وگرنه refreshToken ۳۰ روزه تعلیق را بی‌اثر می‌کرد)
+    await this.assertTenantUsable(payload.tenant_id)
 
     // نشست کودک (کد خانواده): عضویت باید هنوز فعال باشد
     if (payload.kind === 'family') {
@@ -277,6 +302,7 @@ export class AuthService {
    */
   async changePassword(current: JwtPayload, oldPassword: string, newPassword: string, ip = ''): Promise<AuthResult> {
     if (current.kind === 'family') throw new BadRequestException('این نشست رمز عبور ندارد')
+    if (current.imp) throw new BadRequestException('در نشست «ورود به‌جای مدیر» تغییر رمز ممکن نیست')
     const scope = current.tenant_id ? `chg:${current.tenant_id}` : 'chg:platform'
     await this.throttle.assertAllowed(scope, current.sub, ip)
     if (oldPassword === newPassword) throw new BadRequestException('رمز جدید باید با رمز فعلی متفاوت باشد')
@@ -329,11 +355,51 @@ export class AuthService {
     return { ...this.issueTokens(payload), user: publicUser(fresh!, current.tenant_id) }
   }
 
+  private async assertTenantUsable(tenantId: string) {
+    const status = await this.db.withPlatformAccess(async (client) => {
+      const res = await client.query<{ status: string }>('SELECT status FROM identity.tenants WHERE id = $1', [tenantId])
+      return res.rows[0]?.status
+    })
+    if (!status || status === 'suspended' || status === 'cancelled') {
+      throw new UnauthorizedException('مجتمع یافت نشد یا غیرفعال است')
+    }
+  }
+
+  /**
+   * «ورود به‌جای مدیر» برای پشتیبانی: accessToken کوتاه‌عمر (۳۰ دقیقه) بدون refreshToken برای اولین مدیر فعال
+   * ساختمان. claim `imp` نام سوپرادمین را حمل می‌کند. ثبت در لاگ فعالیت توسط فراخواننده و *قبل* از صدور انجام می‌شود.
+   */
+  async impersonateTenantAdmin(tenantId: string, adminUsername: string, beforeIssue?: (tenantName: string) => Promise<void>) {
+    const tenant = await this.db.withPlatformAccess(async (client) => {
+      const res = await client.query<{ id: string; name: string; status: string }>('SELECT id, name, status FROM identity.tenants WHERE id = $1', [tenantId])
+      return res.rows[0]
+    })
+    if (!tenant) throw new NotFoundException('ساختمان یافت نشد')
+    if (tenant.status === 'suspended' || tenant.status === 'cancelled') throw new BadRequestException('ساختمان تعلیق/لغو شده است؛ ابتدا فعالش کنید')
+    const user = await this.db.withTenant(tenantId, async (client) => {
+      const res = await client.query<UserRow>(
+        `SELECT ${USER_COLUMNS} FROM identity.users WHERE role = 'admin' AND is_active ORDER BY created_at LIMIT 1`,
+      )
+      return res.rows[0]
+    })
+    if (!user) throw new BadRequestException('این ساختمان مدیر فعال ندارد')
+    // همه‌ی اعتبارسنجی‌ها گذشته؛ لاگ فعالیت دقیقاً قبل از صدور توکن ثبت می‌شود (اگر ثبت نشد، توکنی صادر نمی‌شود)
+    if (beforeIssue) await beforeIssue(tenant.name)
+    const payload = { sub: user.id, tenant_id: tenantId, role: user.role, email: user.email ?? user.username, ...extraClaims(user), imp: adminUsername }
+    const accessToken = this.jwt.sign({ ...payload, typ: 'access' }, { expiresIn: '30m' })
+    return {
+      accessToken,
+      expiresInSeconds: 30 * 60,
+      tenantName: tenant.name,
+      user: { ...publicUser(user, tenantId), impersonatedBy: adminUsername },
+    }
+  }
+
   private platformLoginResult(admin: PlatformAdminRow): AuthResult {
     const payload = { sub: admin.id, tenant_id: null, role: 'super_admin', email: admin.username }
     return {
       ...this.issueTokens(payload),
-      user: { id: admin.id, fullName: admin.full_name, role: 'super_admin', tenantId: null, ...(admin.must_change_password ? { mustChangePassword: true } : {}) },
+      user: { id: admin.id, fullName: admin.full_name, role: 'super_admin', tenantId: null, platformRole: admin.role, totpEnabled: admin.totp_enabled, ...(admin.must_change_password ? { mustChangePassword: true } : {}) },
     }
   }
 
@@ -344,7 +410,7 @@ export class AuthService {
       if (!admin || !admin.is_active) {
         throw new UnauthorizedException('کاربر یافت نشد')
       }
-      return { id: admin.id, fullName: admin.full_name, role: 'super_admin', tenantId: null, ...(admin.must_change_password ? { mustChangePassword: true } : {}) }
+      return { id: admin.id, fullName: admin.full_name, role: 'super_admin', tenantId: null, platformRole: admin.role, totpEnabled: admin.totp_enabled, ...(admin.must_change_password ? { mustChangePassword: true } : {}) }
     }
     if (current.kind === 'family') {
       const child = await this.fetchFamilyMember(current.tenant_id, current.mid, current.sub)
@@ -381,7 +447,7 @@ export class AuthService {
   private fetchPlatformAdmin(adminId: string): Promise<PlatformAdminRow | undefined> {
     return this.db.withPlatformAccess(async (client) => {
       const res = await client.query<PlatformAdminRow>(
-        'SELECT id, username, full_name, password_hash, is_active, must_change_password, sessions_valid_after FROM identity.platform_admins WHERE id = $1',
+        `SELECT ${PLATFORM_ADMIN_COLUMNS} FROM identity.platform_admins WHERE id = $1`,
         [adminId],
       )
       return res.rows[0]

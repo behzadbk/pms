@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRole } from '../context/RoleContext'
+import { useAuth } from '../context/AuthContext'
 import { usePermissions } from '../context/PermissionsContext'
 import { useStaffNav } from './access'
 import { MAX_TABS, navByRole, splitTabs, type NavItem } from './nav'
@@ -48,9 +49,15 @@ export function useNavSplit() {
   const { role } = useRole()
   const staffNav = useStaffNav()
   const { visible } = usePermissions()
+  const { user } = useAuth()
+  const platformRole = user?.platformRole
   const nav = useMemo(
-    () => (role === 'staff' ? staffNav : navByRole[role]).filter((i) => visible((i as NavItem).module)),
-    [role, staffNav, visible],
+    () =>
+      (role === 'staff' ? staffNav : navByRole[role])
+        .filter((i) => visible((i as NavItem).module))
+        // آیتم‌های مخصوص نقش‌های تیم پلتفرم (مثلاً لاگ فعالیت برای sales پنهان است؛ بک‌اند هم ۴۰۳ می‌دهد)
+        .filter((i) => !(i as NavItem).platformRoles || (platformRole && (i as NavItem).platformRoles!.includes(platformRole))),
+    [role, staffNav, visible, platformRole],
   )
   const [pref, setPref] = useState<string[] | null>(() => read(role))
 

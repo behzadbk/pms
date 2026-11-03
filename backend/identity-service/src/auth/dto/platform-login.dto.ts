@@ -1,4 +1,4 @@
-import { IsString, MaxLength, MinLength } from 'class-validator'
+import { IsOptional, IsString, Matches, MaxLength, MinLength } from 'class-validator'
 
 /**
  * ورود سوپرادمین (سطح پلتفرم) — برخلاف LoginDto نه ایمیل دارد و نه tenantSubdomain،
@@ -14,4 +14,10 @@ export class PlatformLoginDto {
   @MinLength(4)
   @MaxLength(128)
   password: string
+
+  /** کد ۶ رقمی برنامه‌ی احراز هویت — فقط وقتی ۲FA برای این حساب روشن است */
+  @IsOptional()
+  @IsString()
+  @Matches(/^\s*\d{3}\s?\d{3}\s*$/, { message: 'کد دومرحله‌ای باید ۶ رقم باشد' })
+  otp?: string
 }

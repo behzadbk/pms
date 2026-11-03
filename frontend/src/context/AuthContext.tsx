@@ -13,7 +13,7 @@ interface AuthContextValue {
   error: string | null
   login: (email: string, password: string, tenantSubdomain: string) => Promise<void>
   /** ورود سوپرادمین با نام کاربری/رمز (بدون subdomain) */
-  loginPlatform: (username: string, password: string) => Promise<void>
+  loginPlatform: (username: string, password: string, otp?: string) => Promise<void>
   /** ورود کودک با کد ۶ رقمی یا QR خانواده (یک‌بارمصرف، ۵ دقیقه) */
   loginFamily: (tenantSubdomain: string, code: { code?: string; qr_token?: string }) => Promise<void>
   logout: () => void
@@ -74,10 +74,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  async function loginPlatform(username: string, password: string) {
+  async function loginPlatform(username: string, password: string, otp?: string) {
     setError(null)
     try {
-      const res = await platformApi.platformLogin(username, password)
+      const res = await platformApi.platformLogin(username, password, otp)
       setUser(res.user)
     } catch (err) {
       const message = err instanceof ApiError ? err.message : 'ورود ناموفق بود'
