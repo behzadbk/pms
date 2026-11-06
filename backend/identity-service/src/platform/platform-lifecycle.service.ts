@@ -92,6 +92,30 @@ export class PlatformLifecycleService implements OnModuleInit, OnModuleDestroy {
 
   /* ───────────── زمان‌بند ───────────── */
 
+  /**
+   * مراحل پس از commit تعلیق خودکار: ثبت audit، ابطال نشست‌ها، انتشار رویداد.
+   * وضعیت tenant قبلاً commit شده و tick بعدی آن را دیگر نمی‌بیند، پس خطای یک مرحله
+   * نباید بقیه‌ی مراحل یا بقیه‌ی ساختمان‌ها را از بین ببرد (issue #84).
+   */
+  private afterAutoSuspend(t: { id: string; name: string }, eventReason: string, auditReason: string, extra: Record<string, unknown> = {}) {
+    return this.afterCommit(t.id, 'building.suspend', [
+      () => this.audit.log(SYSTEM_ACTOR, 'building.suspend', { buildingId: t.id, target: t.name, detail: { auto: true, reason: auditReason, ...extra } }),
+      () => this.revokeSessions(t.id),
+      () => this.events.publish('tenant.suspended', { tenantId: t.id, reason: eventReason }, t.id),
+    ])
+  }
+
+  /** هر مرحله جداگانه اجرا می‌شود؛ خطا فقط لاگ می‌شود و مراحل بعدی ادامه می‌یابند */
+  private async afterCommit(tenantId: string, what: string, steps: Array<() => unknown>) {
+    for (const step of steps) {
+      try {
+        await step()
+      } catch (e) {
+        this.logger.error(`مرحله‌ی پس از ${what} برای ساختمان ${tenantId} ناموفق بود: ${(e as Error).message}`)
+      }
+    }
+  }
+
   private async safeTick() {
     try {
       await this.tick()
@@ -151,18 +175,16 @@ export class PlatformLifecycleService implements OnModuleInit, OnModuleDestroy {
     if (!out) return { ran: false, newlyOverdue: 0, suspendedForDebt: 0, suspendedTrialEnded: 0 }
 
     for (const t of out.overdue) {
-      this.events.publish('platform.tenant_overdue', { tenantId: t.id, name: t.name }, t.id)
-      await this.audit.log(SYSTEM_ACTOR, 'billing.overdue', { buildingId: t.id, target: t.name })
+      await this.afterCommit(t.id, 'billing.overdue', [
+        () => this.events.publish('platform.tenant_overdue', { tenantId: t.id, name: t.name }, t.id),
+        () => this.audit.log(SYSTEM_ACTOR, 'billing.overdue', { buildingId: t.id, target: t.name }),
+      ])
     }
     for (const t of out.debt) {
-      await this.revokeSessions(t.id)
-      await this.audit.log(SYSTEM_ACTOR, 'building.suspend', { buildingId: t.id, target: t.name, detail: { auto: true, reason: `${t.days} روز معوق`, graceDays: s.graceDays } })
-      this.events.publish('tenant.suspended', { tenantId: t.id, reason: 'overdue' }, t.id)
+      await this.afterAutoSuspend(t, 'overdue', `${t.days} روز معوق`, { graceDays: s.graceDays })
     }
     for (const t of out.trial) {
-      await this.revokeSessions(t.id)
-      await this.audit.log(SYSTEM_ACTOR, 'building.suspend', { buildingId: t.id, target: t.name, detail: { auto: true, reason: 'پایان دوره‌ی آزمایشی' } })
-      this.events.publish('tenant.suspended', { tenantId: t.id, reason: 'trial_ended' }, t.id)
+      await this.afterAutoSuspend(t, 'trial_ended', 'پایان دوره‌ی آزمایشی')
     }
     return { ran: true, newlyOverdue: out.overdue.length, suspendedForDebt: out.debt.length, suspendedTrialEnded: out.trial.length }
   }
