@@ -10,6 +10,7 @@ import { InvoicesModule } from './invoices/invoices.module'
 import { BillingModule } from './billing/billing.module'
 import { ReportsModule } from './reports/reports.module'
 import { ImportsModule } from './imports/imports.module'
+import { LedgerModule } from './ledger/ledger.module'
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { ImportsModule } from './imports/imports.module'
     BillingModule,
     ReportsModule,
     ImportsModule,
+    LedgerModule,
   ],
 })
 export class AppModule {}
